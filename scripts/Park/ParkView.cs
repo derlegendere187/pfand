@@ -64,7 +64,7 @@ public partial class ParkView : Control
         {
             _mouse = mm.Position;
             bool overBottle = Sim.BottlesAround(mm.Position, GameState.I.ClickRadius).Count > 0;
-            bool over = overBottle || OverKasten(mm.Position) || Sim.BinAt(mm.Position, ParkLayout.Bins(Size, GameState.I)) >= 0;
+            bool over = overBottle || KastenAt(mm.Position) != null || Sim.BinAt(mm.Position, ParkLayout.Bins(Size, GameState.I)) >= 0;
             MouseDefaultCursorShape = over ? CursorShape.PointingHand : CursorShape.Arrow;
             // Mit gedrückter Maustaste drüberwischen sammelt auch
             if ((mm.ButtonMask & MouseButtonMask.Left) != 0) TryCollect(mm.Position, false);
@@ -82,10 +82,12 @@ public partial class ParkView : Control
             return;
         }
 
-        if (OverKasten(pos) && isClick)
+        // Bierkasten (Grill oder Freundesgruppe): Flasche für Flasche, mit Lastenrad der ganze Kasten
+        if (isClick && KastenAt(pos) is { } kasten)
         {
-            if (gs.HasSkill("lastenrad")) DeliverKasten(pos);
-            else EmptyInto(Sim.Kasten, pos);
+            if (gs.HasSkill("lastenrad")) DeliverKasten(kasten, pos);
+            else TakeOne(kasten, pos);
+            Sim.CleanupCrates();
             return;
         }
 
@@ -111,6 +113,28 @@ public partial class ParkView : Control
         }
     }
 
+    List<BottleType> KastenAt(Vector2 pos)
+    {
+        if (OverKasten(pos)) return Sim.Kasten;
+        foreach (var c in Sim.Crates)
+            if (c.Visible && CrateRect(c).Grow(4).HasPoint(pos)) return c.Bottles;
+        return null;
+    }
+
+    static Rect2 CrateRect(GroupCrate c) => new(c.Pos, new Vector2(26, 32));
+
+    /// <summary>Ohne Lastenrad nimmt man immer nur eine Flasche aus dem Kasten.</summary>
+    void TakeOne(List<BottleType> content, Vector2 pos)
+    {
+        var gs = GameState.I;
+        if (content.Count == 0) { Float(pos, "leer", Palette.Muted); return; }
+        if (!gs.TryAddToBag(content[content.Count - 1])) { Float(pos, "Tasche voll!", Palette.BadText); return; }
+        content.RemoveAt(content.Count - 1);
+        gs.CollectedByHand++;
+        Float(pos, "+1", Palette.GoodText);
+        gs.Notify();
+    }
+
     bool OverKasten(Vector2 pos)
         => GameState.I.Level("grill") > 0 && ParkLayout.KastenRect(Size).Grow(4).HasPoint(pos);
 
@@ -127,15 +151,15 @@ public partial class ParkView : Control
     }
 
     /// <summary>Lastenrad: der ganze Kasten geht direkt zum Automaten, volle Kästen bringen Kastenpfand.</summary>
-    void DeliverKasten(Vector2 pos)
+    void DeliverKasten(List<BottleType> kasten, Vector2 pos)
     {
         var gs = GameState.I;
-        if (Sim.Kasten.Count == 0) { Float(pos, "leer", Palette.Muted); return; }
-        bool full = Sim.Kasten.Count >= Balance.KastenCapacity;
+        if (kasten.Count == 0) { Float(pos, "leer", Palette.Muted); return; }
+        bool full = kasten.Count >= Balance.KastenCapacity;
         double sum = 0;
         var rng = new Random();
-        foreach (var t in Sim.Kasten) sum += gs.FeedDirect(t, rng).value;
-        Sim.Kasten.Clear();
+        foreach (var t in kasten) sum += gs.FeedDirect(t, rng).value;
+        kasten.Clear();
         if (full)
         {
             gs.Money += Balance.KastenPfand;
@@ -199,6 +223,8 @@ public partial class ParkView : Control
             Sprites.Grill(this, ParkLayout.Grill(size), _time, grillBusy);
             Sprites.Kasten(this, ParkLayout.KastenRect(size), Sim.Kasten.Count);
         }
+        foreach (var c in Sim.Crates)
+            if (c.Visible) Sprites.Kasten(this, CrateRect(c), c.Bottles.Count);
 
         var tables = ParkLayout.Tables(size, gs);
         foreach (var t in tables) Sprites.Table(this, t);
@@ -295,6 +321,9 @@ public partial class ParkView : Control
             int n = Sim.BinContents[i].Count;
             if (n > 0) DrawString(font, bins[i] + new Vector2(12, -10), n.ToString(), HorizontalAlignment.Left, -1, 20, Palette.PanelLight);
         }
+        foreach (var c in Sim.Crates)
+            if (c.Visible && c.Bottles.Count > 0)
+                DrawString(font, c.Pos + new Vector2(30, 12), c.Bottles.Count.ToString(), HorizontalAlignment.Left, -1, 20, Palette.PanelLight);
         if (grill && Sim.Kasten.Count > 0)
         {
             var kr = ParkLayout.KastenRect(size);

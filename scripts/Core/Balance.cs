@@ -77,6 +77,11 @@ public static class Balance
     // Freundeskreis (Gruppen)
     public const double GroupChancePerLevel = 0.25;  // Chance, dass jemand Freunde mitbringt
     public const int GroupExtraMax = 1;              // + Level = max. Freunde
+    public const double GroupCrateChanceBase = 0.15; // Gruppe bringt einen Bierkasten mit
+    public const double GroupCrateChancePerLevel = 0.15; // Skill "Bierkasten"
+
+    // Skilltree: Preis steigt mit dem Abstand zur Wurzel
+    public const double SkillDepthCost = 0.5;        // +50 % pro Knoten Abstand
 
     // Tischtennis
     public const double TableSpawnBonus = 0.2;

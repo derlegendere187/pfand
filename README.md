@@ -24,7 +24,8 @@ Ein Incremental-Spiel: Du schaust von oben auf einen Park, sammelst die Pfandfla
 - Im **PARK-Ast** des Skilltrees schaltest du neue Upgrades frei (Picknickdecke, Mülleimer, Bank, Sammler, Imbiss, Grill …) und baust alle Objekte einer Sorte auf einmal aus (Tische an Bänken, größere Eimer …). Danach kaufst du sie rechts mit Geld
 - **Events** erscheinen erst, wenn sie im Skilltree gelernt sind. Sie kosten Geld, haben einen Cooldown und werden mit jedem Mal teurer
 - Skilltree: Fläche mit der Maus ziehen, Knoten anklicken, „Lernen“ oder Doppelklick
-- Bierkasten am Grill anklicken → Flaschen in die Tasche (mit Lastenrad: ganzer Kasten direkt zum Automaten)
+- Bierkasten (am Grill oder von Freundesgruppen stehen gelassen) anklicken → eine Flasche in die Tasche (mit Lastenrad: ganzer Kasten direkt zum Automaten)
+- Je weiter ein Knoten im Skilltree von der Wurzel weg ist, desto teurer ist er
 - **Stats** unten rechts zeigt die Statistik
 
 ## Zum Testen
@@ -38,7 +39,7 @@ Nach `--` anhängen, z. B. `... --path . -- --fresh --money=50`:
 | `--fresh` | Spielstand weder laden noch speichern (startet mit Kalles Einführung) |
 | `--notut` | Einführung überspringen |
 | `--autotut` | Einführung läuft von selbst durch (zum Testen) |
-| `--hint=muelleimer` | einen Tipp von Kalle erneut zeigen (`tasche_voll`, `laterne`, `kronkorken`, `muelleimer`, `sammler`, `events`, `grill`) |
+| `--hint=muelleimer` | einen Tipp von Kalle erneut zeigen (`tasche_voll`, `laterne`, `kronkorken`, `muelleimer`, `sammler`, `kasten`, `events`, `grill`) |
 | `--money=50` | Startgeld setzen |
 | `--late` | Park mit einigen Upgrades ausstatten |
 | `--imbiss` | Imbissbude freischalten und bauen |
@@ -46,6 +47,7 @@ Nach `--` anhängen, z. B. `... --path . -- --fresh --money=50`:
 | `--allskills` | alle Skills voll lernen |
 | `--skills=wert:2,aoe:1` | einzelne Skill-Stufen setzen |
 | `--kk=20` | Kronkorken setzen |
+| `--captoast` | Kronkorken-Meldung nach 1 s einmal zeigen |
 | `--feedtest` | Tasche füllen und nach 1 s automatisch einwerfen |
 | `--event=konzert` | Event gratis sofort starten (`geburtstag`, `bierball`, `konzert`, `feiertag`, `maennertag`, `oktoberfest`) |
 | `--open=skills` | Skilltree, Album (`album`), Statistik (`stats`), Events-Tab (`events`) öffnen |

@@ -118,6 +118,7 @@ public partial class Main : Control
             else if (open == "stats") _stats.CallDeferred(StatsPopup.MethodName.Open);
             else if (open == "events") ShowTab(true);
         }
+        if (_args.ContainsKey("captoast")) GetTree().CreateTimer(1.0).Timeout += () => gs.DebugCapFound(0);
         if (_args.ContainsKey("feedtest"))
         {
             // Tasche mit gemischten Flaschen füllen und nach 1 s einwerfen (zum Prüfen des Pfandbons)
@@ -208,6 +209,8 @@ public partial class Main : Control
         _stats = new StatsPopup();
         AddChild(_stats);
         statsButton.Pressed += _stats.Open;
+
+        AddChild(new CapToast());
 
         var tutorial = new TutorialOverlay
         {

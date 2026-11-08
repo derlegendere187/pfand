@@ -40,6 +40,11 @@ public static class KalleHints
             "Dein erster Sammler! Der läuft jetzt selbst durch den Park, sammelt Flaschen ein und bringt sie zum Automaten.",
             "Je mehr Sammler du hast, desto weniger musst du selbst klicken.",
         }),
+        new("kasten", gs => gs.CrateLeftBehind, new[]
+        {
+            "Die Gruppe hat ihren Bierkasten stehen lassen! Da sind die leeren Flaschen drin.",
+            "Klick drauf, dann nimmst du dir eine Flasche raus. Mit dem LASTENRAD aus dem Skilltree nimmst du gleich den ganzen Kasten mit.",
+        }),
         new("events", gs => gs.AnyEventUnlocked, new[]
         {
             "Du hast dein erstes Event gelernt! Rechts gibt es jetzt neben UPGRADES auch EVENTS.",
@@ -48,7 +53,7 @@ public static class KalleHints
         new("grill", gs => gs.Level("grill") > 0, new[]
         {
             "Am Grill sitzen ganze Runden und trinken Bier. Die leeren Flaschen landen im Bierkasten daneben.",
-            "Klick auf den Kasten, dann kommen die Flaschen in deine Tasche.",
+            "Klick auf den Kasten, dann nimmst du eine Flasche raus. Mit dem LASTENRAD aus dem Skilltree nimmst du den ganzen Kasten auf einmal mit.",
         }),
     };
 

@@ -35,6 +35,16 @@ public class Visitor
     public double PauseTimer;
     public Vector2 FollowOffset;
     public bool Tutorial;          // der erste Gast der Einführung
+    public GroupCrate Crate;       // Freundesgruppe: Bierkasten des Anführers
+}
+
+/// <summary>Bierkasten einer Freundesgruppe. Leere kommen wieder rein; beim Gehen bleibt er stehen.</summary>
+public class GroupCrate
+{
+    public Vector2 Pos;
+    public readonly List<BottleType> Bottles = new();
+    public Visitor Owner;          // null = stehen gelassen
+    public bool Visible => Owner == null || Owner.State == VisitorState.Sitzt || Owner.State == VisitorState.PacktEin;
 }
 
 /// <summary>Bierball wie im echten Leben: Ein Team wirft auf die Flasche in der Mitte.
@@ -86,6 +96,7 @@ public class VisitorSim
     public readonly List<Collector> Collectors = new();
     public readonly List<(Vector2 pos, string text, Color color)> PendingFloats = new();
     public readonly List<BottleType> Kasten = new();
+    public readonly List<GroupCrate> Crates = new();
     public BierballGame Bierball;
     public Vector2 Size;
 
@@ -214,6 +225,7 @@ public class VisitorSim
                     {
                         if (v.EventId != null || _rng.NextDouble() < 0.5) Drop(v, bins, gs);
                         v.State = v.HasBlanket ? VisitorState.PacktEin : VisitorState.Geht;
+                        if (v.Crate != null) ReleaseCrate(v, gs);
                         v.Seat = -1;
                         v.TableSeat = -1;
                         v.GrillSeat = -1;
@@ -282,10 +294,30 @@ public class VisitorSim
         return RandomType(gs);
     }
 
+    void ReleaseCrate(Visitor v, GameState gs)
+    {
+        var c = v.Crate;
+        v.Crate = null;
+        c.Owner = null;
+        if (c.Bottles.Count == 0) Crates.Remove(c);
+        else gs.CrateLeftBehind = true;
+    }
+
+    /// <summary>Leere, stehen gelassene Kästen verschwinden.</summary>
+    public void CleanupCrates() => Crates.RemoveAll(c => c.Owner == null && c.Bottles.Count == 0);
+
     /// <summary>Besucher hat ausgetrunken: Grill-Bier kommt in den Kasten, sonst Eimer oder Wiese.</summary>
     void Drop(Visitor v, List<Vector2> bins, GameState gs)
     {
         var type = BottleFor(v, gs);
+        // Gruppen mit Bierkasten stellen ihre Leeren zurück in den Kasten
+        var crate = v.Crate ?? v.Leader?.Crate;
+        if (crate != null && crate.Owner != null && crate.Bottles.Count < Balance.KastenCapacity)
+        {
+            _dropTimes.Enqueue(_clock);
+            crate.Bottles.Add(BottleType.Bier);
+            return;
+        }
         // Normale Besucher nehmen einen Teil ihrer Flaschen wieder mit
         if (v.EventId == null && v.GrillSeat < 0 && type != BottleType.Gold && type != BottleType.Retro
             && _rng.NextDouble() > gs.LeaveChance) return;
@@ -603,6 +635,13 @@ public class VisitorSim
         // Freundeskreis: weitere Leute kommen mit auf dieselbe Decke
         if (wantsGroup)
         {
+            if (_rng.NextDouble() < gs.GroupCrateChance)
+            {
+                var cp = v.BlanketPos + new Vector2(34, -16);
+                cp = new Vector2(Mathf.Clamp(cp.X, 4, Size.X - 30), Mathf.Clamp(cp.Y, 4, Size.Y - 36));
+                v.Crate = new GroupCrate { Pos = cp, Owner = v };
+                Crates.Add(v.Crate);
+            }
             int friends = 1 + _rng.Next(Balance.GroupExtraMax + gs.Level("gruppen"));
             var offsets = new[] { new Vector2(-18, -8), new Vector2(18, -8), new Vector2(-18, 10), new Vector2(18, 10) };
             for (int f = 0; f < friends && f < offsets.Length; f++)

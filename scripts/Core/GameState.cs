@@ -74,6 +74,10 @@ public class GameState
     public double BestBon;
 
     public event Action Changed;
+    /// <summary>Ein Kronkorken wurde gefunden (Motiv, neu fürs Album?).</summary>
+    public event Action<int, bool> CapFound;
+    public void DebugCapFound(int cap) => CapFound?.Invoke(cap, true);
+    public bool CrateLeftBehind;                        // eine Gruppe hat ihren Bierkasten stehen lassen (für Kalle)
 
     public void Notify() => Changed?.Invoke();
 
@@ -111,6 +115,8 @@ public class GameState
     public double DrinkFactor => 1 - 0.1 * SkillLevel("durst");
     public double VisitorBoost => 0.15 * SkillLevel("stammgaeste");
     public int ExtraVisitorSlots => 2 * SkillLevel("stammgaeste");
+    public double GroupCrateChance => Level("gruppen") > 0
+        ? Balance.GroupCrateChanceBase + Balance.GroupCrateChancePerLevel * SkillLevel("kastenrunde") : 0;
     public float ClickRadius => Balance.ClickRadiusBase + Balance.ClickRadiusPerLevel * SkillLevel("aoe");
     public double CollectorSpeed => Balance.CollectorSpeed * (1 + 0.25 * SkillLevel("flink"));
     public int CollectorCarry => Balance.CollectorCarry + 2 * SkillLevel("flink");
@@ -157,6 +163,7 @@ public class GameState
             }
             Caps[cap] = (Caps.TryGetValue(cap, out var c) ? c : 0) + 1;
             Kronkorken++;
+            CapFound?.Invoke(cap, Caps[cap] == 1);
         }
         return (v, cap);
     }
@@ -199,7 +206,7 @@ public class GameState
     /// <summary>Lernbar, sobald der Elternknoten gelernt ist.</summary>
     public bool SkillAvailable(SkillDef s) => s.Id != SkillDefs.Root && HasSkill(s.Parent ?? SkillDefs.Root);
     public bool SkillMaxed(SkillDef s) => SkillLevel(s.Id) >= s.MaxLevel;
-    public int NextSkillCost(SkillDef s) => SkillMaxed(s) ? 0 : s.Costs[SkillLevel(s.Id)];
+    public int NextSkillCost(SkillDef s) => SkillMaxed(s) ? 0 : SkillDefs.Cost(s, SkillLevel(s.Id));
     public bool CanBuySkill(SkillDef s) => SkillAvailable(s) && !SkillMaxed(s) && Kronkorken >= NextSkillCost(s);
 
     public bool TryBuySkill(SkillDef s)

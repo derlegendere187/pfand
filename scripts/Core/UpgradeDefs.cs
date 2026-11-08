@@ -44,7 +44,7 @@ public static class UpgradeDefs
             BasePrice = 10.00, Growth = 2.2, Max = 4, MaxBonus = gs => gs.SkillLevel("bau"), C1 = H("#4f7a5a"), C2 = H("#2f4a38") },
         new UpgradeDef { Id = "bank", Skill = "u_bank", Name = "BANK", Effect = "Leute bleiben länger",
             BasePrice = 18.00, Growth = 2.2, Max = 5, MaxBonus = gs => gs.SkillLevel("bau"), C1 = H("#b07a4a"), C2 = H("#7a5434") },
-        new UpgradeDef { Id = "gruppen", Skill = "u_gruppen", Name = "FREUNDESKREIS", Effect = "Leute bringen Freunde mit auf die Decke",
+        new UpgradeDef { Id = "gruppen", Skill = "u_gruppen", Name = "FREUNDESKREIS", Effect = "Leute bringen Freunde mit auf die Decke, manchmal sogar einen Bierkasten",
             BasePrice = 30.00, Growth = 2.6, Max = 3, LockedText = "ERST PICKNICKDECKE",
             Unlocked = gs => gs.Level("picknick") > 0, C1 = H("#6fa8d6"), C2 = H("#d9735a") },
         new UpgradeDef { Id = "sammler", Skill = "u_sammler", Name = "SAMMLER", Effect = "Angestellte sammeln und werfen selbst ein",
