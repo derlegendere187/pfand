@@ -122,7 +122,7 @@ public static class SkillDefs
             Effect = _ => "Event: Männertag – Bollerwagen ziehen durch den Park",
             Icon = new[] { "........", ".#o#o#..", ".#####..", "########", "#......#", "########", ".##..##.", ".##..##." } },
         new SkillDef { Id = "ev_oktoberfest", Branch = Events, Name = "OKTOBERFEST", Costs = new[] { 25 }, Parent = "ev_konzert", Pos = new(-4, 0),
-            Effect = _ => "Event: Oktoberfest – der ganze Park feiert, Flaschen doppelt so viel wert",
+            Effect = _ => "Event: Oktoberfest – der ganze Park wird zur Wiesn, Flaschen 50 % mehr wert",
             Icon = new[] { "...##...", "..#oo#..", ".#o##o#.", "#o#oo#o#", "########", "#oooooo#", "#oo##oo#", "#oo##oo#" } },
         new SkillDef { Id = "ev_sponsor", Branch = Events, Name = "SPONSOREN", Costs = new[] { 6, 12, 20 }, Parent = "ev_maennertag", Pos = new(-3, 2),
             Effect = n => $"Events kosten {n * 15} % weniger",

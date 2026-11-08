@@ -406,6 +406,49 @@ public static class Sprites
         }
     }
 
+    /// <summary>Langer Biertisch mit zwei Bänken und sechs Leuten, die ab und zu den Maßkrug heben.</summary>
+    public static void Biertisch(CanvasItem ci, Vector2 c, float time, int seed)
+    {
+        ci.DrawRect(new Rect2(c + new Vector2(-40, -14), 80, 4), Palette.WoodDark);   // Bank oben
+        ci.DrawRect(new Rect2(c + new Vector2(-40, 12), 80, 4), Palette.WoodDark);    // Bank unten
+        ci.DrawRect(new Rect2(c + new Vector2(-42, -6), 84, 14), Palette.WoodDark);
+        ci.DrawRect(new Rect2(c + new Vector2(-40, -4), 80, 10), Palette.Wood);
+        for (int i = 0; i < 6; i++)
+        {
+            bool top = i < 3;
+            var p = c + new Vector2(-26 + (i % 3) * 26, top ? -18 : 20);
+            var shirt = Palette.Shirts[(i + seed * 2) % Palette.Shirts.Length];
+            var hair = Palette.Hair[(i + seed) % Palette.Hair.Length];
+            Person(ci, p, shirt, hair);
+            bool cheers = ((int)(time * 1.5f) + i + seed) % 5 == 0;
+            var mug = c + new Vector2(-30 + (i % 3) * 26, top ? -3 : 1) + (cheers ? new Vector2(0, top ? -10 : 10) : Vector2.Zero);
+            ci.DrawRect(new Rect2(mug, 6, 6), Palette.Gold);
+            ci.DrawRect(new Rect2(mug + new Vector2(0, -1), 6, 2), Palette.PanelLight);
+        }
+    }
+
+    /// <summary>Kettenkarussell von oben: Dach in der Mitte, Sitze kreisen an Ketten.</summary>
+    public static void Kettenkarussell(CanvasItem ci, Vector2 c, float time)
+    {
+        ci.DrawRect(new Rect2(c + new Vector2(-50, 40), 100, 6), new Color(0, 0, 0, 0.15f));
+        var seats = new[] { "#d9735a", "#6fa8d6", "#f2c75c", "#8cc472", "#b496e0", "#e08a4a", "#e8a0b8", "#fffaf0" };
+        for (int i = 0; i < seats.Length; i++)
+        {
+            float a = time * 1.6f + i * Mathf.Tau / seats.Length;
+            var sp = c + new Vector2(Mathf.Cos(a) * 50, Mathf.Sin(a) * 32);
+            ci.DrawLine(c, sp, Palette.InkSoft, 1);
+            ci.DrawRect(new Rect2(sp.Round() - new Vector2(5, 5), 10, 10), Color.FromHtml(seats[i]));
+            ci.DrawRect(new Rect2(sp.Round() - new Vector2(3, 8), 6, 4), Palette.Hair[i % Palette.Hair.Length]);
+        }
+        for (int i = 0; i < 8; i++) // Dach: blau-weiße Segmente
+        {
+            float a = i * Mathf.Tau / 8;
+            var p = c + new Vector2(Mathf.Cos(a) * 14, Mathf.Sin(a) * 10);
+            ci.DrawRect(new Rect2(p.Round() - new Vector2(6, 6), 12, 12), i % 2 == 0 ? Color.FromHtml("#6fa8d6") : Color.FromHtml("#fffaf0"));
+        }
+        ci.DrawRect(new Rect2(c - new Vector2(4, 4), 8, 8), Palette.Gold);
+    }
+
     /// <summary>Oktoberfest-Bude (40×34), zentriert: blau-weißes Dach, Theke, Schild mit Brezel oder Lebkuchenherz.</summary>
     public static void Bude(CanvasItem ci, Vector2 pos, string sign, float time)
     {

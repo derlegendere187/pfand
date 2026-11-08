@@ -47,7 +47,7 @@ public static class EventDefs
             Duration = 75, Cooldown = 400, ValueBonus = 1.5 },
         new EventDef { Id = "oktoberfest", Kind = EventKind.Oktoberfest, Name = "OKTOBERFEST",
             Desc = "Der ganze Park feiert: zwei Minuten Wiesn mit Festzelt, Buden, vollen Tischen und Maß um Maß", Skill = "ev_oktoberfest", Cost = 400,
-            Duration = 120, Cooldown = 900, Guests = 30, GuestDrinkInterval = 2.5, SpawnBoost = 2.0, ExtraVisitors = 25, ValueBonus = 2 },
+            Duration = 120, Cooldown = 900, Guests = 30, GuestDrinkInterval = 2.5, SpawnBoost = 1.5, ExtraVisitors = 15, ValueBonus = 1.5 },
 
         // ---- Aktionen: kurz, laufen auch neben einem Event ----
         new EventDef { Id = "pfandaktion", Kind = EventKind.Aktion, Short = true, Name = "PFANDAKTION",

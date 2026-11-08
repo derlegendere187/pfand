@@ -194,6 +194,9 @@ public partial class ParkView : Control
             DrawRect(horizontal ? r.Grow(0).GrowIndividual(0, -4, 0, -4) : r.GrowIndividual(-4, 0, -4, 0), Palette.Path);
         }
 
+        bool wiesn = gs.ActiveEvent == "oktoberfest";
+        if (wiesn) DrawWiesnGround(size);
+
         foreach (var v in Sim.Visitors)
             if (v.HasBlanket && v.BlanketOpen > 0)
                 Sprites.BlanketOpening(this, v.BlanketPos, v.BlanketColor, v.BlanketOpen);
@@ -256,6 +259,8 @@ public partial class ParkView : Control
             if (phase < 0.12f) Sprites.Sparkle(this, (b.Pos + new Vector2(6, -10)).Round(), Mathf.Sin(phase / 0.12f * Mathf.Pi));
         }
 
+        if (wiesn) DrawWiesnCrowd(gs, size);
+
         foreach (var v in Sim.Visitors)
         {
             var pos = v.Pos;
@@ -301,9 +306,7 @@ public partial class ParkView : Control
             // Der ganze Park ist Wiesn: blau-weiße Wimpel quer drüber, Buden in den Ecken
             Sprites.Garland(this, size.X, _time, 10, true);
             Sprites.Garland(this, size.X, _time + 0.5f, size.Y * 0.47f, true);
-            Sprites.Bude(this, new Vector2(size.X * 0.07f, size.Y * 0.08f), "brezel", _time);
-            Sprites.Bude(this, new Vector2(size.X * 0.93f, size.Y * 0.08f), "herz", _time);
-            Sprites.Bude(this, new Vector2(size.X * 0.93f, size.Y * 0.62f), "brezel", _time);
+            Sprites.Garland(this, size.X, _time + 0.25f, size.Y * 0.76f, true);
         }
         if (Sim.Bierball is { Phase: BierballGame.Step.Fliegt } bb)
         {
@@ -383,6 +386,58 @@ public partial class ParkView : Control
         DrawRect(new Rect2(tip.X - 2 * p, tip.Y - 8 * p, 4 * p, 5 * p), Palette.Gold);
         for (int i = 0; i < 3; i++)
             DrawRect(new Rect2(tip.X - (4 - i) * p + p, tip.Y - (4 - i) * p + p, (8 - 2 * i) * p - 2 * p, p), Palette.Gold);
+    }
+
+    // --- Oktoberfest: der ganze Park ist voll ---
+    static readonly Vector2[] WiesnTables = { new(0.22f, 0.64f), new(0.64f, 0.74f), new(0.92f, 0.40f), new(0.30f, 0.92f), new(0.27f, 0.09f) };
+    static readonly (Vector2 pos, string sign)[] WiesnBuden =
+    {
+        (new(0.07f, 0.08f), "brezel"), (new(0.93f, 0.08f), "herz"), (new(0.93f, 0.62f), "brezel"),
+        (new(0.05f, 0.36f), "herz"), (new(0.56f, 0.64f), "brezel"), (new(0.07f, 0.94f), "herz"),
+    };
+
+    /// <summary>Bierbänke voller Leute, Buden und ein Kettenkarussell.</summary>
+    void DrawWiesnGround(Vector2 size)
+    {
+        foreach (var (p, sign) in WiesnBuden) Sprites.Bude(this, p * size, sign, _time);
+        Sprites.Kettenkarussell(this, (new Vector2(0.38f, 0.78f) * size).Round(), _time);
+        for (int t = 0; t < WiesnTables.Length; t++)
+            Sprites.Biertisch(this, (WiesnTables[t] * size).Round(), _time, t);
+    }
+
+    /// <summary>Festbesucher drängen sich auf allen Wegen, viele mit Maßkrug.</summary>
+    void DrawWiesnCrowd(GameState gs, Vector2 size)
+    {
+        var paths = ParkLayout.Paths(size, gs);
+        if (paths.Count == 0) paths = new List<Rect2> { new(0, size.Y * 0.45f, size.X, 32), new(size.X * 0.45f, 0, 32, size.Y) };
+        const int n = 64;
+        for (int i = 0; i < n; i++)
+        {
+            var r = paths[i % paths.Count];
+            bool horizontal = r.Size.X > r.Size.Y;
+            float h1 = Hash(i * 3 + 1), h2 = Hash(i * 3 + 2), h3 = Hash(i * 3 + 3);
+            float speed = 0.015f + h1 * 0.03f;
+            float dir = i % 2 == 0 ? 1 : -1;
+            float t = ((_time * speed * dir + h2) % 1f + 1f) % 1f;
+            float across = 0.2f + 0.6f * h3;
+            var pos = horizontal
+                ? new Vector2(r.Position.X + t * r.Size.X, r.Position.Y + across * r.Size.Y)
+                : new Vector2(r.Position.X + across * r.Size.X, r.Position.Y + t * r.Size.Y);
+            pos.Y += Mathf.Round(Mathf.Sin(_time * 9 + i) * 1.5f);
+            Sprites.Person(this, pos.Round(), Palette.Shirts[i % Palette.Shirts.Length], Palette.Hair[(i / 3) % Palette.Hair.Length]);
+            if (i % 3 == 0) // Maßkrug in der Hand
+            {
+                DrawRect(new Rect2(pos.Round() + new Vector2(10, 0), 5, 6), Palette.Gold);
+                DrawRect(new Rect2(pos.Round() + new Vector2(10, -1), 5, 2), Palette.PanelLight);
+            }
+        }
+    }
+
+    static float Hash(int i)
+    {
+        uint x = (uint)i * 2654435761u;
+        x ^= x >> 13; x *= 0x5bd1e995; x ^= x >> 15;
+        return (x & 0xffff) / 65535f;
     }
 
     void StatusLines(GameState gs, Vector2 size)
