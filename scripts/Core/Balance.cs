@@ -42,9 +42,25 @@ public static class Balance
     public const double BinChanceMax = 0.8;
     public const int BinCapacity = 15;
 
+    // Seltene Flaschen (brauchen Skills)
+    public const double RetroChance = 0.04;
+    public const double GoldChance = 0.006;
+
+    // Freundeskreis (Gruppen)
+    public const double GroupChancePerLevel = 0.25;  // Chance, dass jemand Freunde mitbringt
+    public const int GroupExtraMax = 1;              // + Level = max. Freunde
+
+    // Tischtennis
+    public const double TableSpawnBonus = 0.2;
+    public const double TableDrinkFactor = 0.8;      // Spieler trinken schneller
+
+    // Sammler (Angestellte)
+    public const double CollectorSpeed = 55;
+    public const int CollectorCarry = 4;
+
     // Automat
     public const double FeedInterval = 0.1;          // Sekunden pro eingeworfener Flasche
-    public const double CapDropChance = 0.05;        // Chance auf einen Motiv-Deckel (nicht bei Dosen)
+    public const double CapDropChance = 0.025;       // Chance auf einen Kronkorken (nicht bei Dosen)
 
     // Speichern
     public const double AutosaveSeconds = 30;

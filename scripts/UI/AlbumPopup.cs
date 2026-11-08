@@ -4,11 +4,11 @@ using Pfand.Park;
 
 namespace Pfand.UI;
 
-/// <summary>Das Deckel-Album als Overlay über dem Spiel.</summary>
+/// <summary>Das Kronkorken-Album als Overlay über dem Spiel.</summary>
 public partial class AlbumPopup : Control
 {
     Label _title;
-    GridContainer _grid;
+    VBoxContainer _sets;
 
     public override void _Ready()
     {
@@ -31,24 +31,21 @@ public partial class AlbumPopup : Control
         cover.AddChild(page);
 
         var col = new VBoxContainer();
-        col.AddThemeConstantOverride("separation", 16);
+        col.AddThemeConstantOverride("separation", 14);
         page.AddChild(col);
 
         var head = new HBoxContainer();
-        head.AddChild(PfandTheme.Title("DECKEL-ALBUM", 16));
+        head.AddChild(PfandTheme.Title("KRONKORKEN-ALBUM", 16));
         head.AddChild(PfandTheme.Spacer());
         _title = PfandTheme.Text("", 24, Palette.Muted);
         head.AddChild(_title);
         col.AddChild(head);
 
-        col.AddChild(PfandTheme.Title("SET: TIERE", 8, Palette.InkSoft));
+        _sets = new VBoxContainer();
+        _sets.AddThemeConstantOverride("separation", 12);
+        col.AddChild(_sets);
 
-        _grid = new GridContainer { Columns = 3 };
-        _grid.AddThemeConstantOverride("h_separation", 12);
-        _grid.AddThemeConstantOverride("v_separation", 12);
-        col.AddChild(_grid);
-
-        col.AddChild(PfandTheme.Text("Deckel findest du beim Einwerfen von Flaschen (nicht bei Dosen).", 20, Palette.Muted));
+        col.AddChild(PfandTheme.Text("Jeder Fund ist auch 1 Kronkorken für den Skilltree – das Album behält ihn trotzdem.", 20, Palette.Muted));
 
         var close = new Button { Text = "SCHLIESSEN", CustomMinimumSize = new Vector2(0, 44) };
         close.Pressed += Close;
@@ -57,30 +54,50 @@ public partial class AlbumPopup : Control
 
     public void Open()
     {
-        foreach (var c in _grid.GetChildren()) c.QueueFree();
+        foreach (var c in _sets.GetChildren()) c.QueueFree();
         var gs = GameState.I;
-        int found = 0;
-        for (int i = 0; i < CapData.Count; i++)
+        int foundTotal = 0;
+        foreach (var set in CapData.Sets)
         {
-            int n = gs.Caps.TryGetValue(i, out var cnt) ? cnt : 0;
-            if (n > 0) found++;
-            var cell = PfandTheme.Panel(Color.FromHtml("#e4d6b6"), n > 0 ? Palette.Ink : Palette.Muted, 8);
-            cell.CustomMinimumSize = new Vector2(150, 0);
-            var v = new VBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
-            v.AddThemeConstantOverride("separation", 6);
-            var icon = new CapIcon { Index = i, Found = n > 0, CustomMinimumSize = new Vector2(72, 72), SizeFlagsHorizontal = SizeFlags.ShrinkCenter };
-            v.AddChild(icon);
-            var name = PfandTheme.Title(n > 0 ? CapData.All[i].Name : "???", 8, n > 0 ? Palette.Ink : Palette.Muted);
-            name.HorizontalAlignment = HorizontalAlignment.Center;
-            v.AddChild(name);
-            var count = PfandTheme.Text(n > 1 ? $"×{n}" : n == 1 ? "gefunden" : "fehlt noch", 20, Palette.Muted);
-            count.HorizontalAlignment = HorizontalAlignment.Center;
-            v.AddChild(count);
-            cell.AddChild(v);
-            _grid.AddChild(cell);
+            int inSet = 0, foundInSet = 0;
+            var grid = new GridContainer { Columns = 6 };
+            grid.AddThemeConstantOverride("h_separation", 10);
+            grid.AddThemeConstantOverride("v_separation", 10);
+            for (int i = 0; i < CapData.Count; i++)
+            {
+                if (CapData.All[i].Set != set) continue;
+                inSet++;
+                int n = gs.Caps.TryGetValue(i, out var cnt) ? cnt : 0;
+                if (n > 0) { foundInSet++; foundTotal++; }
+                grid.AddChild(Cell(i, n));
+            }
+            var head = new HBoxContainer();
+            head.AddChild(PfandTheme.Title("SET: " + set, 8, Palette.InkSoft));
+            head.AddChild(PfandTheme.Spacer());
+            head.AddChild(PfandTheme.Text($"{foundInSet}/{inSet}", 22, Palette.Muted));
+            _sets.AddChild(head);
+            _sets.AddChild(grid);
         }
-        _title.Text = $"{found} / {CapData.Count}";
+        _title.Text = $"{foundTotal} / {CapData.Count}";
         Visible = true;
+    }
+
+    static Control Cell(int i, int n)
+    {
+        var cell = PfandTheme.Panel(Color.FromHtml("#e4d6b6"), n > 0 ? Palette.Ink : Palette.Muted, 6);
+        cell.CustomMinimumSize = new Vector2(118, 0);
+        var v = new VBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
+        v.AddThemeConstantOverride("separation", 4);
+        v.AddChild(new CapIcon { Index = i, Found = n > 0, CustomMinimumSize = new Vector2(60, 60), SizeFlagsHorizontal = SizeFlags.ShrinkCenter });
+        var name = PfandTheme.Title(n > 0 ? CapData.All[i].Name : "???", 8, n > 0 ? Palette.Ink : Palette.Muted);
+        name.HorizontalAlignment = HorizontalAlignment.Center;
+        name.ClipText = true;
+        v.AddChild(name);
+        var count = PfandTheme.Text(n > 1 ? $"×{n}" : n == 1 ? "gefunden" : "fehlt", 20, Palette.Muted);
+        count.HorizontalAlignment = HorizontalAlignment.Center;
+        v.AddChild(count);
+        cell.AddChild(v);
+        return cell;
     }
 
     public void Close() => Visible = false;

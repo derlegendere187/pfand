@@ -56,6 +56,19 @@ public static class ParkLayout
         return new Vector2(r.GetCenter().X, r.End.Y + 14);
     }
 
+    static readonly Vector2[] TableSlots = { new(0.33f, 0.76f), new(0.89f, 0.65f) };
+
+    /// <summary>Tischtennisplatten (Mittelpunkte). Platte ist 32×56 groß, Spieler stehen oben und unten.</summary>
+    public static List<Vector2> Tables(Vector2 size, GameState gs) => Points(TableSlots, size, gs.Level("tischtennis"));
+
+    public static readonly Vector2 TableSize = new(32, 56);
+
+    /// <summary>Wo Events stattfinden (oben rechts).</summary>
+    public static Vector2 EventCenter(Vector2 size) => new(Mathf.Round(0.76f * size.X), Mathf.Round(0.21f * size.Y));
+
+    /// <summary>Pfandkiste der Sammler am linken Rand.</summary>
+    public static Vector2 Depot(Vector2 size) => new(26, Mathf.Round(0.31f * size.Y));
+
     public static List<Vector2> Bins(Vector2 size, GameState gs) => Points(BinSlots, size, gs.Level("muelleimer"));
     public static List<Vector2> Benches(Vector2 size, GameState gs) => Points(BenchSlots, size, gs.Level("bank"));
     public static List<Vector2> Lamps(Vector2 size, GameState gs) => Points(LampSlots, size, gs.Level("laterne"));

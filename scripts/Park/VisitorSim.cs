@@ -18,7 +18,10 @@ public class Visitor
     public float BlanketOpen;      // 0 = zusammengerollt, 1 = ausgebreitet
     public bool WantsSnack;
     public Vector2 SnackSpot;
-    public int Seat = -1;          // Bankplatz (Bank * 2 + Seite), -1 = Decke
+    public int Seat = -1;          // Bankplatz (Bank * 2 + Seite), -1 = keiner
+    public int TableSeat = -1;     // Tischtennis (Platte * 2 + Seite), -1 = keiner
+    public Visitor Leader;         // gehört zu einer Gruppe; geht, wenn der Leader geht
+    public string EventId;         // Gast eines Events
     public float WalkPhase;
 }
 
@@ -29,10 +32,25 @@ public class GroundBottle
     public float Rot;
     public int ColorIdx;
     public float Age;
+    public bool Claimed;           // ein Sammler ist schon unterwegs
+}
+
+public enum CollectorState { Sucht, ZurFlasche, ZumEimer, Abliefern, Wartet }
+
+public class Collector
+{
+    public Vector2 Pos, Target;
+    public CollectorState State = CollectorState.Sucht;
+    public GroundBottle TargetBottle;
+    public int TargetBin = -1;
+    public readonly List<BottleType> Carry = new();
+    public float WalkPhase;
+    public double Wait;
 }
 
 /// <summary>
-/// Besucher-Simulation: Leute kommen, setzen sich, trinken, lassen leere Flaschen liegen und gehen wieder.
+/// Park-Simulation: Besucher kommen (allein oder in Gruppen), setzen sich, trinken, lassen leere Flaschen
+/// liegen und gehen wieder. Dazu Tischtennis-Spieler, Event-Gäste und angestellte Sammler.
 /// Arbeitet in Pixel-Koordinaten des Spielfelds.
 /// </summary>
 public class VisitorSim
@@ -40,12 +58,15 @@ public class VisitorSim
     public readonly List<Visitor> Visitors = new();
     public readonly List<GroundBottle> Bottles = new();
     public readonly List<List<BottleType>> BinContents = new();
+    public readonly List<Collector> Collectors = new();
+    public readonly List<(Vector2 pos, string text, Color color)> PendingFloats = new();
     public Vector2 Size;
 
     readonly Random _rng = new();
     readonly Queue<double> _dropTimes = new();
     double _clock, _spawnAcc;
     bool _seeded;
+    string _eventSpawnedFor;
 
     public int BottlesPerMinute => _dropTimes.Count;
 
@@ -59,15 +80,19 @@ public class VisitorSim
         while (_dropTimes.Count > 0 && _clock - _dropTimes.Peek() > 60) _dropTimes.Dequeue();
 
         gs.TimeOfDay = (gs.TimeOfDay + dt / Balance.DayLengthSeconds) % 1.0;
+        gs.UpdateEvents(dt);
 
         var paths = ParkLayout.Paths(Size, gs);
         var bins = ParkLayout.Bins(Size, gs);
         var benches = ParkLayout.Benches(Size, gs);
+        var tables = ParkLayout.Tables(Size, gs);
         int lamps = gs.Level("laterne");
         bool imbiss = gs.Level("imbiss") > 0;
         while (BinContents.Count < bins.Count) BinContents.Add(new List<BottleType>());
 
-        if (!_seeded) Seed(gs, paths, benches);
+        if (!_seeded) Seed(gs, paths, benches, tables);
+
+        UpdateEventGuests(gs);
 
         // --- Neue Besucher ---
         double lampFactor = lamps / 3.0;
@@ -77,17 +102,19 @@ public class VisitorSim
             DayPhase.Abend => 0.5 + 0.5 * lampFactor,
             _ => lampFactor,
         };
+        var activeEvent = gs.ActiveEvent == null ? null : EventDefs.Get(gs.ActiveEvent);
         int maxVisitors = Balance.MaxVisitorsBase + Balance.MaxVisitorsPerPath * paths.Count + Balance.MaxVisitorsPerBench * benches.Count
-            + (imbiss ? Balance.ImbissMaxVisitors : 0);
-        double interval = Balance.SpawnIntervalBase / (1 + Balance.SpawnBonusPerPath * paths.Count + Balance.SpawnBonusPerBin * bins.Count
-            + (imbiss ? Balance.ImbissSpawnBonus : 0));
+            + (imbiss ? Balance.ImbissMaxVisitors : 0) + tables.Count * 2 + (activeEvent?.Guests ?? 0);
+        double boost = 1 + Balance.SpawnBonusPerPath * paths.Count + Balance.SpawnBonusPerBin * bins.Count
+            + (imbiss ? Balance.ImbissSpawnBonus : 0) + Balance.TableSpawnBonus * tables.Count + (activeEvent?.SpawnBoost ?? 0);
+        double interval = Balance.SpawnIntervalBase / boost;
         if (phaseFactor > 0)
         {
             _spawnAcc += dt * phaseFactor;
             if (_spawnAcc >= interval)
             {
                 _spawnAcc = 0;
-                if (Visitors.Count < maxVisitors) Spawn(gs, paths, benches, false);
+                if (Visitors.Count < maxVisitors) Spawn(gs, paths, benches, tables, false);
             }
         }
         if (Visitors.Count > gs.PeakVisitors)
@@ -118,7 +145,7 @@ public class VisitorSim
                     {
                         v.State = VisitorState.Sitzt;
                         v.StayTimer = Balance.StayBase * (1 + Balance.StayBonusPerBench * benches.Count) * R(0.7, 1.3);
-                        v.DrinkTimer = drinkInterval * R(0.6, 1.2);
+                        v.DrinkTimer = DrinkIntervalFor(v, drinkInterval) * R(0.6, 1.2);
                     }
                     break;
 
@@ -133,17 +160,15 @@ public class VisitorSim
                     v.DrinkTimer -= dt;
                     if (v.DrinkTimer <= 0)
                     {
-                        DropBottle(v.Pos, bins, gs);
-                        v.DrinkTimer = drinkInterval * R(0.8, 1.2);
+                        DropBottle(v.Pos, bins, gs, BottleFor(v, gs));
+                        v.DrinkTimer = DrinkIntervalFor(v, drinkInterval) * R(0.8, 1.2);
                     }
-                    bool leave = v.StayTimer <= 0
-                        || (gs.Phase == DayPhase.Nacht && lamps == 0)
-                        || (gs.Phase == DayPhase.Abend && lamps == 0 && _rng.NextDouble() < Balance.EveningLeaveChancePerSecond * dt);
-                    if (leave)
+                    if (ShouldLeave(v, gs, lamps, dt))
                     {
-                        if (_rng.NextDouble() < 0.5) DropBottle(v.Pos, bins, gs);
+                        if (_rng.NextDouble() < 0.5) DropBottle(v.Pos, bins, gs, BottleFor(v, gs));
                         v.State = v.HasBlanket ? VisitorState.PacktEin : VisitorState.Geht;
                         v.Seat = -1;
+                        v.TableSeat = -1;
                     }
                     break;
 
@@ -159,34 +184,63 @@ public class VisitorSim
             }
         }
 
+        UpdateCollectors(dt, gs, bins);
         foreach (var b in Bottles) b.Age += (float)dt;
+    }
+
+    bool ShouldLeave(Visitor v, GameState gs, int lamps, double dt)
+    {
+        if (v.EventId != null) return gs.ActiveEvent != v.EventId;
+        if (v.Leader != null)
+            return v.Leader.State == VisitorState.PacktEin || v.Leader.State == VisitorState.Geht || !Visitors.Contains(v.Leader);
+        return v.StayTimer <= 0
+            || (gs.Phase == DayPhase.Nacht && lamps == 0)
+            || (gs.Phase == DayPhase.Abend && lamps == 0 && _rng.NextDouble() < Balance.EveningLeaveChancePerSecond * dt);
+    }
+
+    double DrinkIntervalFor(Visitor v, double normal)
+    {
+        if (v.EventId != null) return EventDefs.Get(v.EventId)?.GuestDrinkInterval ?? normal;
+        if (v.TableSeat >= 0) return normal * Balance.TableDrinkFactor;
+        return normal;
+    }
+
+    BottleType BottleFor(Visitor v, GameState gs)
+    {
+        if (v.EventId == "bierball") return BottleType.Bier;
+        if (v.EventId == "konzert" && _rng.NextDouble() < 0.6) return BottleType.Dose;
+        return RandomType(gs);
     }
 
     bool Walk(Visitor v, Vector2 target, double dt)
     {
-        var d = target - v.Pos;
-        float step = (float)(Balance.WalkSpeed * dt);
         v.WalkPhase += (float)dt * 10;
-        if (d.Length() <= step) { v.Pos = target; return true; }
-        v.Pos += d.Normalized() * step;
+        return MoveTowards(ref v.Pos, target, Balance.WalkSpeed * dt);
+    }
+
+    static bool MoveTowards(ref Vector2 pos, Vector2 target, double step)
+    {
+        var d = target - pos;
+        if (d.Length() <= step) { pos = target; return true; }
+        pos += d.Normalized() * (float)step;
         return false;
     }
 
-    void Seed(GameState gs, List<Rect2> paths, List<Vector2> benches)
+    void Seed(GameState gs, List<Rect2> paths, List<Vector2> benches, List<Vector2> tables)
     {
         _seeded = true;
         if (gs.BottlesFed == 0 && gs.Bag.Count == 0)
         {
             for (int i = 0; i < Balance.StartBottles; i++)
-                AddGroundBottle(new Vector2(Rf(40, Size.X - 40), Rf(40, Size.Y - 40)));
+                AddGroundBottle(new Vector2(Rf(40, Size.X - 40), Rf(40, Size.Y - 40)), RandomType(gs));
         }
-        Spawn(gs, paths, benches, true);
-        Spawn(gs, paths, benches, true);
+        Spawn(gs, paths, benches, tables, true);
+        Spawn(gs, paths, benches, tables, true);
     }
 
-    void Spawn(GameState gs, List<Rect2> paths, List<Vector2> benches, bool alreadySitting)
+    Visitor NewVisitor(List<Rect2> paths)
     {
-        var v = new Visitor
+        return new Visitor
         {
             Shirt = Palette.Shirts[_rng.Next(Palette.Shirts.Length)],
             Hair = Palette.Hair[_rng.Next(Palette.Hair.Length)],
@@ -194,13 +248,25 @@ public class VisitorSim
             Pos = EdgePoint(paths),
             Exit = EdgePoint(paths),
             State = VisitorState.Kommt,
-            WantsSnack = gs.Level("imbiss") > 0 && _rng.NextDouble() < Balance.ImbissVisitChance,
-            SnackSpot = ParkLayout.ImbissFront(Size) + new Vector2(Rf(-50, 50), Rf(0, 16)),
         };
+    }
 
-        // Platz suchen: lieber Bank, sonst Decke auf der Wiese
+    void Spawn(GameState gs, List<Rect2> paths, List<Vector2> benches, List<Vector2> tables, bool alreadySitting)
+    {
+        var v = NewVisitor(paths);
+        v.WantsSnack = gs.Level("imbiss") > 0 && _rng.NextDouble() < Balance.ImbissVisitChance;
+        v.SnackSpot = ParkLayout.ImbissFront(Size) + new Vector2(Rf(-50, 50), Rf(0, 16));
+
+        // Platz suchen: Tischtennis, Bank oder Decke auf der Wiese
+        int freeTable = FreeTableSeat(tables);
         int freeSeat = FreeSeat(benches);
-        if (freeSeat >= 0 && _rng.NextDouble() < 0.6)
+        bool wantsGroup = false;
+        if (freeTable >= 0 && _rng.NextDouble() < 0.5)
+        {
+            v.TableSeat = freeTable;
+            v.Target = TableSpot(tables, freeTable);
+        }
+        else if (freeSeat >= 0 && _rng.NextDouble() < 0.6)
         {
             v.Seat = freeSeat;
             var bench = benches[freeSeat / 2];
@@ -209,22 +275,95 @@ public class VisitorSim
         else
         {
             v.HasBlanket = true;
-            v.BlanketPos = FreeGrassSpot(paths, benches);
+            v.BlanketPos = FreeGrassSpot(paths, benches, tables);
             v.Target = v.BlanketPos + new Vector2(Rf(-12, 12), Rf(-4, 4));
+            wantsGroup = _rng.NextDouble() < Balance.GroupChancePerLevel * gs.Level("gruppen");
         }
 
-        if (alreadySitting)
-        {
-            v.Pos = v.Target;
-            v.WantsSnack = false;
-            v.BlanketOpen = 1;
-            v.State = VisitorState.Sitzt;
-            v.StayTimer = Balance.StayBase * R(0.5, 1.0);
-            v.DrinkTimer = Balance.DrinkInterval * R(0.3, 1.0);
-        }
+        if (alreadySitting) SitDown(v);
         Visitors.Add(v);
+
+        // Freundeskreis: weitere Leute kommen mit auf dieselbe Decke
+        if (wantsGroup)
+        {
+            int friends = 1 + _rng.Next(Balance.GroupExtraMax + gs.Level("gruppen"));
+            var offsets = new[] { new Vector2(-18, -8), new Vector2(18, -8), new Vector2(-18, 10), new Vector2(18, 10) };
+            for (int f = 0; f < friends && f < offsets.Length; f++)
+            {
+                var friend = NewVisitor(paths);
+                friend.Pos = v.Pos + new Vector2(Rf(-16, 16), Rf(-16, 16));
+                friend.Exit = v.Exit;
+                friend.Leader = v;
+                friend.Target = v.BlanketPos + offsets[f];
+                friend.WantsSnack = v.WantsSnack;
+                friend.SnackSpot = v.SnackSpot + new Vector2(Rf(-16, 16), 0);
+                if (alreadySitting) SitDown(friend);
+                Visitors.Add(friend);
+            }
+        }
     }
 
+    void SitDown(Visitor v)
+    {
+        v.Pos = v.Target;
+        v.WantsSnack = false;
+        v.BlanketOpen = 1;
+        v.State = VisitorState.Sitzt;
+        v.StayTimer = Balance.StayBase * R(0.5, 1.0);
+        v.DrinkTimer = Balance.DrinkInterval * R(0.3, 1.0);
+    }
+
+    // --- Events ---
+    void UpdateEventGuests(GameState gs)
+    {
+        if (gs.ActiveEvent == null) { _eventSpawnedFor = null; return; }
+        if (_eventSpawnedFor == gs.ActiveEvent) return;
+        _eventSpawnedFor = gs.ActiveEvent;
+        var def = EventDefs.Get(gs.ActiveEvent);
+        if (def == null) return;
+        var paths = ParkLayout.Paths(Size, gs);
+        var spots = EventSpots(def);
+        foreach (var spot in spots)
+        {
+            var g = NewVisitor(paths);
+            g.EventId = def.Id;
+            g.Target = spot;
+            g.Pos = g.Pos.Lerp(spot, 0.3f);
+            Visitors.Add(g);
+        }
+    }
+
+    public List<Vector2> EventSpots(EventDef def)
+    {
+        var c = EventCenter;
+        var list = new List<Vector2>();
+        switch (def.Kind)
+        {
+            case EventKind.Geburtstag:
+                for (int i = 0; i < def.Guests; i++)
+                {
+                    float a = i / (float)def.Guests * Mathf.Tau;
+                    list.Add(c + new Vector2(Mathf.Cos(a) * 46, Mathf.Sin(a) * 34));
+                }
+                break;
+            case EventKind.Bierball:
+                for (int i = 0; i < def.Guests; i++)
+                {
+                    bool teamA = i % 2 == 0;
+                    list.Add(c + new Vector2(teamA ? -70 : 70, -36 + (i / 2) * 24));
+                }
+                break;
+            default: // Konzert: Publikum vor der Bühne
+                for (int i = 0; i < def.Guests; i++)
+                    list.Add(c + new Vector2(-72 + (i % 6) * 29 + (i / 6 % 2) * 12, -6 + (i / 6) * 26));
+                break;
+        }
+        return list;
+    }
+
+    public Vector2 EventCenter => ParkLayout.EventCenter(Size);
+
+    // --- Plätze ---
     int FreeSeat(List<Vector2> benches)
     {
         for (int seat = 0; seat < benches.Count * 2; seat++)
@@ -236,16 +375,43 @@ public class VisitorSim
         return -1;
     }
 
-    Vector2 FreeGrassSpot(List<Rect2> paths, List<Vector2> benches)
+    int FreeTableSeat(List<Vector2> tables)
+    {
+        for (int seat = 0; seat < tables.Count * 2; seat++)
+        {
+            bool taken = false;
+            foreach (var v in Visitors) if (v.TableSeat == seat) { taken = true; break; }
+            if (!taken) return seat;
+        }
+        return -1;
+    }
+
+    static Vector2 TableSpot(List<Vector2> tables, int seat)
+        => tables[seat / 2] + new Vector2(0, seat % 2 == 0 ? -ParkLayout.TableSize.Y / 2 - 10 : ParkLayout.TableSize.Y / 2 + 10);
+
+    /// <summary>Ist an Platte i gerade ein Spiel im Gange (beide Spieler da)?</summary>
+    public bool TableActive(int table)
+    {
+        int n = 0;
+        foreach (var v in Visitors)
+            if (v.State == VisitorState.Sitzt && v.TableSeat >= 0 && v.TableSeat / 2 == table) n++;
+        return n >= 2;
+    }
+
+    Vector2 FreeGrassSpot(List<Rect2> paths, List<Vector2> benches, List<Vector2> tables)
     {
         Vector2 best = new(Size.X / 2, Size.Y / 4);
-        for (int tries = 0; tries < 20; tries++)
+        var gs = GameState.I;
+        for (int tries = 0; tries < 24; tries++)
         {
             var p = new Vector2(Rf(50, Size.X - 50), Rf(50, Size.Y - 50));
             bool ok = true;
             foreach (var r in paths) if (r.Grow(30).HasPoint(p)) { ok = false; break; }
             if (ok) foreach (var b in benches) if (b.DistanceTo(p) < 60) { ok = false; break; }
-            if (ok && GameState.I.Level("imbiss") > 0 && ParkLayout.ImbissRect(Size).Grow(50).HasPoint(p)) ok = false;
+            if (ok) foreach (var t in tables) if (t.DistanceTo(p) < 80) { ok = false; break; }
+            if (ok && gs.Level("imbiss") > 0 && ParkLayout.ImbissRect(Size).Grow(50).HasPoint(p)) ok = false;
+            if (ok && EventCenter.DistanceTo(p) < 130) ok = false;
+            if (ok && ParkLayout.Depot(Size).DistanceTo(p) < 60) ok = false;
             if (ok) foreach (var v in Visitors) if (v.HasBlanket && v.BlanketPos.DistanceTo(p) < 70) { ok = false; break; }
             if (ok) return p;
             best = p;
@@ -282,8 +448,11 @@ public class VisitorSim
         };
     }
 
-    BottleType RandomType()
+    // --- Flaschen ---
+    BottleType RandomType(GameState gs)
     {
+        if (gs.HasSkill("gold") && _rng.NextDouble() < Balance.GoldChance) return BottleType.Gold;
+        if (gs.HasSkill("retro") && _rng.NextDouble() < Balance.RetroChance) return BottleType.Retro;
         double r = _rng.NextDouble();
         if (r < 0.35) return BottleType.Bier;
         if (r < 0.65) return BottleType.Dose;
@@ -291,13 +460,12 @@ public class VisitorSim
         return BottleType.Wasser;
     }
 
-    void DropBottle(Vector2 near, List<Vector2> bins, GameState gs)
+    void DropBottle(Vector2 near, List<Vector2> bins, GameState gs, BottleType type)
     {
         _dropTimes.Enqueue(_clock);
-        var type = RandomType();
 
-        // Mit Mülleimern landen manche Flaschen im Eimer
-        if (bins.Count > 0)
+        // Mit Mülleimern landen manche Flaschen im Eimer (seltene nie – die sieht man gern liegen)
+        if (bins.Count > 0 && type != BottleType.Gold && type != BottleType.Retro)
         {
             double chance = Math.Min(Balance.BinChanceMax, Balance.BinChancePerBin * bins.Count);
             if (_rng.NextDouble() < chance)
@@ -317,7 +485,7 @@ public class VisitorSim
         AddGroundBottle(near + offset, type);
     }
 
-    void AddGroundBottle(Vector2 pos, BottleType? type = null)
+    void AddGroundBottle(Vector2 pos, BottleType type)
     {
         if (Bottles.Count >= Balance.MaxGroundBottles) return;
         pos.X = Mathf.Clamp(pos.X, 12, Size.X - 12);
@@ -325,13 +493,121 @@ public class VisitorSim
         Bottles.Add(new GroundBottle
         {
             Pos = pos,
-            Type = type ?? RandomType(),
+            Type = type,
             Rot = Rf(-1.6f, 1.6f),
             ColorIdx = _rng.Next(4),
         });
     }
 
-    /// <summary>Flasche nahe pos einsammeln. Gibt die Flasche zurück oder null.</summary>
+    // --- Sammler ---
+    void UpdateCollectors(double dt, GameState gs, List<Vector2> bins)
+    {
+        var depot = ParkLayout.Depot(Size);
+        int wanted = gs.Level("sammler");
+        while (Collectors.Count < wanted)
+            Collectors.Add(new Collector { Pos = depot + new Vector2(Rf(0, 20), Rf(-20, 20)) });
+
+        double step = Balance.CollectorSpeed * dt;
+        foreach (var c in Collectors)
+        {
+            c.WalkPhase += (float)dt * 10;
+            switch (c.State)
+            {
+                case CollectorState.Sucht:
+                    if (c.Carry.Count >= Balance.CollectorCarry) { c.State = CollectorState.Abliefern; break; }
+                    var b = NearestFreeBottle(c.Pos);
+                    if (b != null) { b.Claimed = true; c.TargetBottle = b; c.State = CollectorState.ZurFlasche; break; }
+                    int bin = NearestFilledBin(c.Pos, bins);
+                    if (bin >= 0) { c.TargetBin = bin; c.State = CollectorState.ZumEimer; break; }
+                    if (c.Carry.Count > 0) { c.State = CollectorState.Abliefern; break; }
+                    c.State = CollectorState.Wartet;
+                    c.Wait = R(1, 2);
+                    c.Target = depot + new Vector2(Rf(10, 60), Rf(-50, 50));
+                    break;
+
+                case CollectorState.ZurFlasche:
+                    if (c.TargetBottle == null || !Bottles.Contains(c.TargetBottle)) { c.State = CollectorState.Sucht; break; }
+                    if (MoveTowards(ref c.Pos, c.TargetBottle.Pos, step))
+                    {
+                        Bottles.Remove(c.TargetBottle);
+                        c.Carry.Add(c.TargetBottle.Type);
+                        c.TargetBottle = null;
+                        c.State = CollectorState.Sucht;
+                    }
+                    break;
+
+                case CollectorState.ZumEimer:
+                    if (c.TargetBin < 0 || c.TargetBin >= bins.Count) { c.State = CollectorState.Sucht; break; }
+                    if (MoveTowards(ref c.Pos, bins[c.TargetBin] + new Vector2(0, 16), step))
+                    {
+                        var content = BinContents[c.TargetBin];
+                        while (content.Count > 0 && c.Carry.Count < Balance.CollectorCarry)
+                        {
+                            c.Carry.Add(content[0]);
+                            content.RemoveAt(0);
+                        }
+                        c.TargetBin = -1;
+                        c.State = CollectorState.Sucht;
+                    }
+                    break;
+
+                case CollectorState.Abliefern:
+                    if (MoveTowards(ref c.Pos, depot + new Vector2(16, 0), step))
+                    {
+                        double sum = 0;
+                        int caps = 0;
+                        foreach (var t in c.Carry)
+                        {
+                            var (v, cap) = gs.FeedDirect(t, _rng);
+                            sum += v;
+                            if (cap >= 0) caps++;
+                        }
+                        c.Carry.Clear();
+                        PendingFloats.Add((depot + new Vector2(24, -10), "+" + GameState.Euro(sum).Replace("€ ", ""), Palette.GoodText));
+                        if (caps > 0) PendingFloats.Add((depot + new Vector2(24, -30), "+ Kronkorken!", Palette.MoneyText));
+                        gs.Notify();
+                        c.State = CollectorState.Sucht;
+                    }
+                    break;
+
+                case CollectorState.Wartet:
+                    MoveTowards(ref c.Pos, c.Target, step * 0.5);
+                    c.Wait -= dt;
+                    if (c.Wait <= 0) c.State = CollectorState.Sucht;
+                    break;
+            }
+        }
+    }
+
+    GroundBottle NearestFreeBottle(Vector2 from)
+    {
+        GroundBottle best = null; float bestD = float.MaxValue;
+        foreach (var b in Bottles)
+        {
+            if (b.Claimed || b.Age < 1.0f) continue; // dem Spieler einen Moment lassen
+            float d = b.Pos.DistanceSquaredTo(from);
+            if (d < bestD) { bestD = d; best = b; }
+        }
+        return best;
+    }
+
+    int NearestFilledBin(Vector2 from, List<Vector2> bins)
+    {
+        int best = -1; float bestD = float.MaxValue;
+        for (int i = 0; i < bins.Count && i < BinContents.Count; i++)
+        {
+            if (BinContents[i].Count < 3) continue;
+            bool claimed = false;
+            foreach (var c in Collectors) if (c.TargetBin == i) { claimed = true; break; }
+            if (claimed) continue;
+            float d = bins[i].DistanceSquaredTo(from);
+            if (d < bestD) { bestD = d; best = i; }
+        }
+        return best;
+    }
+
+    // --- Klick-Helfer ---
+    /// <summary>Flasche nahe pos. Gibt die Flasche zurück oder null.</summary>
     public GroundBottle BottleAt(Vector2 pos, float radius = 18)
     {
         GroundBottle best = null; float bestD = radius;

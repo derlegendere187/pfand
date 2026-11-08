@@ -144,7 +144,7 @@ public partial class AutomatPanel : PanelContainer
         foreach (var cap in _capsFound)
         {
             bool isNew = GameState.I.Caps.TryGetValue(cap, out var n) && n == 1;
-            AddBonLine("+ Deckel: " + Capitalize(CapData.All[cap].Name), isNew ? "NEU!" : "", Palette.GoodText);
+            AddBonLine("+ Kronkorken: " + Capitalize(CapData.All[cap].Name), isNew ? "NEU!" : "", Palette.GoodText);
         }
     }
 

@@ -40,6 +40,14 @@ public static class Sprites
             case BottleType.Plastik:
                 BottleShape(ci, p, Color.FromHtml("#a9d4ee"), Color.FromHtml("#3f7fb5"), false);
                 break;
+            case BottleType.Retro:
+                BottleShape(ci, p, Color.FromHtml("#7fbfa8"), Color.FromHtml("#d9735a"), true);
+                R(ci, new Vector2(-1.5f * p, -4 * p), p, 2, 3, 1, 2, Palette.PanelLight);
+                break;
+            case BottleType.Gold:
+                BottleShape(ci, p, Palette.Gold, Color.FromHtml("#c99a1e"), false);
+                R(ci, new Vector2(-1.5f * p, -4 * p), p, 0, 3, 1, 2, Palette.PanelLight);
+                break;
             default:
             {
                 var o = new Vector2(-1.5f * p, -2 * p);
@@ -95,6 +103,103 @@ public static class Sprites
         R(ci, o, p, 4, 15, 2, 2, Palette.LampLight);
         R(ci, o, p, 10, 15, 2, 2, Color.FromHtml("#e08a4a"));
         R(ci, o, p, 18, 15, 3, 2, Palette.Leergut);
+    }
+
+    /// <summary>Tischtennisplatte von oben, zentriert.</summary>
+    public static void Table(CanvasItem ci, Vector2 pos)
+    {
+        var s = ParkLayout.TableSize;
+        var r = new Rect2(pos - s / 2, s);
+        ci.DrawRect(r.Grow(4), Palette.InkSoft);
+        ci.DrawRect(r, Color.FromHtml("#4f8a6a"));
+        ci.DrawRect(new Rect2(r.Position.X + s.X / 2 - 1, r.Position.Y, 2, s.Y), Palette.PanelLight);
+        ci.DrawRect(new Rect2(r.Position.X - 4, r.Position.Y + s.Y / 2 - 2, s.X + 8, 4), Palette.PanelLight);
+    }
+
+    public static void Ball(CanvasItem ci, Vector2 pos)
+    {
+        ci.DrawRect(new Rect2(pos - new Vector2(3, 3), 6, 6), new Color(0, 0, 0, 0.2f));
+        ci.DrawRect(new Rect2(pos - new Vector2(3, 5), 6, 6), Color.FromHtml("#fffaf0"));
+    }
+
+    /// <summary>Sammler: Person mit orangener Warnweste und Sack, wenn er was trägt.</summary>
+    public static void Collector(CanvasItem ci, Vector2 pos, int carrying)
+    {
+        Person(ci, pos, Color.FromHtml("#e08a4a"), Color.FromHtml("#5a3a26"));
+        var o = pos - new Vector2(12, 12);
+        R(ci, o, 3, 2, 4, 4, 1, Color.FromHtml("#f2c75c")); // Reflexstreifen
+        if (carrying > 0)
+        {
+            R(ci, o, 3, 7, 5, 3, 3, Color.FromHtml("#d9c7a3"));
+            R(ci, o, 3, 7, 5, 3, 1, Palette.MachineDark);
+        }
+    }
+
+    /// <summary>Pfandkiste der Sammler am Rand.</summary>
+    public static void Depot(CanvasItem ci, Vector2 pos)
+    {
+        var r = new Rect2(pos - new Vector2(18, 16), 36, 32);
+        ci.DrawRect(r, Palette.InkSoft);
+        ci.DrawRect(r.Grow(-4), Palette.Machine);
+        ci.DrawRect(new Rect2(r.Position + new Vector2(8, 8), 20, 8), Palette.Display);
+        ci.DrawRect(new Rect2(r.Position + new Vector2(10, 10), 6, 4), Palette.DisplayText);
+    }
+
+    /// <summary>Requisiten für laufende Events.</summary>
+    public static void EventProps(CanvasItem ci, EventKind kind, Vector2 c, float time)
+    {
+        switch (kind)
+        {
+            case EventKind.Geburtstag:
+            {
+                // große Decke mit Kuchen, Luftballons
+                var r = new Rect2(c - new Vector2(40, 26), 80, 52);
+                ci.DrawRect(r, Color.FromHtml("#e8a0b8"));
+                for (int x = 0; x < 80; x += 16)
+                for (int y = 0; y < 52; y += 16)
+                    if ((x / 16 + y / 16) % 2 == 0) ci.DrawRect(new Rect2(r.Position + new Vector2(x, y), 8, 8), Palette.PanelLight);
+                ci.DrawRect(new Rect2(c - new Vector2(10, 8), 20, 16), Palette.PanelLight);
+                ci.DrawRect(new Rect2(c - new Vector2(10, 8), 20, 4), Color.FromHtml("#d9735a"));
+                ci.DrawRect(new Rect2(c - new Vector2(1, 14), 2, 6), Palette.Gold);
+                var colors = new[] { "#d9735a", "#6fa8d6", "#f2c75c", "#b496e0" };
+                for (int i = 0; i < 4; i++)
+                {
+                    var bp = c + new Vector2(-56 + i * 36, -50 + Mathf.Sin(time * 2 + i) * 3);
+                    ci.DrawLine(bp + new Vector2(0, 8), bp + new Vector2(0, 24), Palette.InkSoft, 1);
+                    ci.DrawRect(new Rect2(bp - new Vector2(6, 8), 12, 16), Color.FromHtml(colors[i]));
+                    ci.DrawRect(new Rect2(bp - new Vector2(4, 6), 3, 3), Palette.PanelLight);
+                }
+                break;
+            }
+            case EventKind.Bierball:
+            {
+                // Spielfeld-Linien und Flasche in der Mitte
+                ci.DrawRect(new Rect2(c + new Vector2(-82, -48), 4, 96), Palette.PanelLight);
+                ci.DrawRect(new Rect2(c + new Vector2(78, -48), 4, 96), Palette.PanelLight);
+                ci.DrawRect(new Rect2(c - new Vector2(6, 6), 12, 12), new Color(0, 0, 0, 0.15f));
+                Bottle(ci, c, BottleType.Bier, 0, 0, 1.2f);
+                float t = (Mathf.Sin(time * 3) + 1) / 2;
+                Ball(ci, c + new Vector2(Mathf.Lerp(-60, 60, t), -30 - Mathf.Sin(t * Mathf.Pi) * 16));
+                break;
+            }
+            default:
+            {
+                // Bühne mit Boxen und Lichtern
+                var stage = new Rect2(c + new Vector2(-80, -70), 160, 44);
+                ci.DrawRect(stage.Grow(4), Palette.InkSoft);
+                ci.DrawRect(stage, Color.FromHtml("#5a4a3a"));
+                ci.DrawRect(new Rect2(stage.Position + new Vector2(6, 6), 18, 30), Palette.Ink);
+                ci.DrawRect(new Rect2(stage.End - new Vector2(24, 38), 18, 30), Palette.Ink);
+                var lights = new[] { "#d9735a", "#6fa8d6", "#f2c75c", "#b496e0", "#8cc472" };
+                for (int i = 0; i < 5; i++)
+                {
+                    bool on = ((int)(time * 4) + i) % 2 == 0;
+                    ci.DrawRect(new Rect2(stage.Position + new Vector2(34 + i * 20, 4), 10, 6), on ? Color.FromHtml(lights[i]) : Palette.InkSoft);
+                }
+                Person(ci, stage.GetCenter() + new Vector2(0, 4 + Mathf.Round(Mathf.Sin(time * 8) * 2)), Color.FromHtml("#2a1d14"), Color.FromHtml("#d9735a"));
+                break;
+            }
+        }
     }
 
     /// <summary>Picknickdecke (15×11), zentriert.</summary>

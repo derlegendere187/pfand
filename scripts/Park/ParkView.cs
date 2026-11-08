@@ -35,6 +35,8 @@ public partial class ParkView : Control
         _time += (float)delta;
         Sim.Size = Size;
         Sim.Update(delta, GameState.I);
+        foreach (var f in Sim.PendingFloats) Float(f.pos, f.text, f.color);
+        Sim.PendingFloats.Clear();
         for (int i = _floats.Count - 1; i >= 0; i--)
         {
             _floats[i].Life -= (float)delta;
@@ -129,6 +131,14 @@ public partial class ParkView : Control
 
         foreach (var b in ParkLayout.Benches(size, gs)) Sprites.Bench(this, b);
 
+        var tables = ParkLayout.Tables(size, gs);
+        foreach (var t in tables) Sprites.Table(this, t);
+
+        if (gs.ActiveEvent != null && EventDefs.Get(gs.ActiveEvent) is { } ev)
+            Sprites.EventProps(this, ev.Kind, Sim.EventCenter, _time);
+
+        if (gs.Level("sammler") > 0) Sprites.Depot(this, ParkLayout.Depot(size));
+
         var bins = ParkLayout.Bins(size, gs);
         for (int i = 0; i < bins.Count; i++)
         {
@@ -151,6 +161,22 @@ public partial class ParkView : Control
             // Unterwegs trägt man die Decke zusammengerollt
             if (v.HasBlanket && v.BlanketOpen <= 0 && v.State != VisitorState.Sitzt)
                 Sprites.RolledBlanket(this, pos.Round() + new Vector2(14, 4), v.BlanketColor);
+        }
+
+        // Tischtennisball fliegt hin und her, wenn beide Spieler da sind
+        for (int i = 0; i < tables.Count; i++)
+        {
+            if (!Sim.TableActive(i)) continue;
+            float t = (Mathf.Sin(_time * 4 + i) + 1) / 2;
+            var half = ParkLayout.TableSize.Y / 2;
+            Sprites.Ball(this, tables[i] + new Vector2(Mathf.Sin(_time * 7 + i) * 8, Mathf.Lerp(-half, half, t)).Round());
+        }
+
+        foreach (var c in Sim.Collectors)
+        {
+            var pos = c.Pos;
+            if (c.State != CollectorState.Wartet) pos.Y += Mathf.Round(Mathf.Sin(c.WalkPhase) * 1.5f);
+            Sprites.Collector(this, pos.Round(), c.Carry.Count);
         }
 
         // Abend und Nacht abdunkeln
