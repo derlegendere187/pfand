@@ -189,9 +189,8 @@ public partial class SkillCanvas : Control
         var gs = GameState.I;
         if (gs.HasSkill(d.Id)) return NodeState.Learned;
         if (gs.SkillAvailable(d)) return NodeState.Available;
-        // Teaser: Elternknoten ist schon sichtbar (lernbar), aber noch nicht gelernt
-        var parent = SkillDefs.Get(d.Parent ?? SkillDefs.Root);
-        return parent != null && gs.SkillAvailable(parent) ? NodeState.Teaser : NodeState.Hidden;
+        // Was danach kommt, bleibt verborgen, bis der Elternknoten gelernt ist
+        return NodeState.Hidden;
     }
 
     Vector2 Center(SkillDef d) => (Size / 2 + _offset + new Vector2(d.Pos.X, d.Pos.Y) * Spacing).Round();

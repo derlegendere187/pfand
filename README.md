@@ -18,9 +18,10 @@ Ein Incremental-Spiel: Du schaust von oben auf einen Park, sammelst die Pfandfla
 - Flaschen anklicken (oder mit gedrückter Maustaste drüberwischen) → in die Tasche
 - Mülleimer anklicken → alle Flaschen daraus einsammeln
 - „Einwerfen“ im Automaten → Geld
-- Rechts zwischen **Upgrades** und **Events** umschalten; Events kosten Geld und haben einen Cooldown
+- Upgrades tauchen nach und nach auf: immer nur die, die man schon hat, und das nächste
 - **Ausbau:** Rechtsklick auf Bank, Mülleimer, Imbiss, Tischtennisplatte oder Grill → einzelnes Objekt ausbauen
-- **Kronkorken** (selten beim Einwerfen) landen im **Album** und sind die Währung für den **Skilltree**
+- **Kronkorken** gibt es erst mit dem Upgrade **Sammelalbum**. Sie sind sehr selten, landen im **Album** und sind die Währung für den **Skilltree**
+- **Events** erscheinen erst, wenn sie im Skilltree gelernt sind. Sie kosten Geld, haben einen Cooldown und werden mit jedem Mal teurer
 - Skilltree: Fläche mit der Maus ziehen, Knoten anklicken, „Lernen“ oder Doppelklick
 - Bierkasten am Grill anklicken → Flaschen in die Tasche (mit Lastenrad: ganzer Kasten direkt zum Automaten)
 - **Stats** unten rechts zeigt die Statistik

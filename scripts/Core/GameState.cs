@@ -53,6 +53,7 @@ public class GameState
     public Dictionary<int, int> Caps = new();          // Album: Motiv -> wie oft gefunden
     public Dictionary<string, int> Skills = new();     // Skill -> Stufe
     public Dictionary<string, double> Cooldowns = new(); // Event -> Restzeit in Sekunden
+    public Dictionary<string, int> EventCount = new();  // Event -> wie oft schon veranstaltet
     public string ActiveEvent;                          // null = kein Event
     public double EventTimeLeft;
 
@@ -91,7 +92,9 @@ public class GameState
         _ => 1,
     };
 
-    public double CapChance => Balance.CapDropChance * (1 + 0.5 * SkillLevel("glueck"));
+    /// <summary>Kronkorken gibt es erst mit dem Sammelalbum.</summary>
+    public bool CapsUnlocked => Level("album") > 0;
+    public double CapChance => CapsUnlocked ? Balance.CapDropChance * (1 + 0.5 * SkillLevel("glueck")) : 0;
     public double CooldownFactor => 1 - 0.15 * SkillLevel("ev_cooldown");
     public double FeedInterval => Balance.FeedInterval / (1 + 0.5 * SkillLevel("abgabe"));
     public double RetroChance => Balance.RetroChancePerLevel * SkillLevel("retro");
@@ -203,8 +206,14 @@ public class GameState
     // --- Events ---
     public double CooldownLeft(EventDef e) => Cooldowns.TryGetValue(e.Id, out var c) ? Math.Max(0, c) : 0;
     public bool EventUnlocked(EventDef e) => HasSkill(e.Skill);
-    /// <summary>Events kosten Geld. Der Preis wächst mit dem Pfandwert mit, Sponsoren machen es billiger.</summary>
-    public double EventCost(EventDef e) => Math.Round(e.Cost * ValueMultiplier * (1 - 0.15 * SkillLevel("ev_sponsor")), 2);
+    public bool AnyEventUnlocked => EventDefs.All.Exists(EventUnlocked);
+    public int TimesHeld(EventDef e) => EventCount.TryGetValue(e.Id, out var n) ? n : 0;
+    /// <summary>
+    /// Events kosten Geld. Der Preis wächst mit dem Pfandwert und mit jedem Mal, das man es schon veranstaltet hat.
+    /// Sponsoren machen es billiger.
+    /// </summary>
+    public double EventCost(EventDef e) => Math.Round(e.Cost * ValueMultiplier * (1 + Balance.EventCostGrowth * TimesHeld(e))
+        * (1 - 0.15 * SkillLevel("ev_sponsor")), 2);
     public bool CanStartEvent(EventDef e) => EventUnlocked(e) && ActiveEvent == null && CooldownLeft(e) <= 0 && Money + 1e-9 >= EventCost(e);
 
     public bool TryStartEvent(EventDef e, bool free = false)
@@ -214,6 +223,7 @@ public class GameState
         ActiveEvent = e.Id;
         EventTimeLeft = e.Duration;
         EventsHeld++;
+        EventCount[e.Id] = TimesHeld(e) + 1;
         Cooldowns[e.Id] = e.Duration + e.Cooldown * CooldownFactor;
         Notify();
         return true;

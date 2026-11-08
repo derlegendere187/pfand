@@ -42,7 +42,7 @@ public partial class Main : Control
     AusbauPopup _ausbau;
     AutomatPanel _automat;
     Label _albumCount, _skillCount, _statsCount;
-    Button _tabUpgrades, _tabEvents;
+    Button _tabUpgrades, _tabEvents, _albumButton, _skillButton;
     UpgradePanel _upgradePanel;
     EventPanel _eventPanel;
 
@@ -59,10 +59,13 @@ public partial class Main : Control
         {
             gs.Upgrades["weg"] = 4; gs.Upgrades["tasche"] = 2; gs.Upgrades["muelleimer"] = 3;
             gs.Upgrades["bank"] = 3; gs.Upgrades["laterne"] = 2;
+            gs.Upgrades["picknick"] = 2; gs.Upgrades["album"] = 1;
             gs.Caps[0] = 2; gs.Caps[2] = 1; gs.Caps[4] = 1; gs.Caps[7] = 1;
             gs.Kronkorken = 5;
             gs.BottlesFed = 100;
         }
+        if (_args.ContainsKey("allskills") || _args.ContainsKey("kk") || _args.ContainsKey("skills") || _args.ContainsKey("event"))
+            gs.Upgrades["album"] = 1;
         if (_args.ContainsKey("allskills"))
             foreach (var sk in SkillDefs.All) if (sk.MaxLevel > 0) gs.Skills[sk.Id] = sk.MaxLevel;
         if (_args.TryGetValue("skills", out var sks))
@@ -187,6 +190,8 @@ public partial class Main : Control
         var statsButton = BrownButton("STATS", out _statsCount);
         bottom.AddChild(albumButton);
         bottom.AddChild(skillButton);
+        _albumButton = albumButton;
+        _skillButton = skillButton;
         bottom.AddChild(statsButton);
         right.AddChild(bottom);
         body.AddChild(right);
@@ -259,6 +264,11 @@ public partial class Main : Control
         int found = GameState.I.Caps.Count(kv => kv.Value > 0);
         _albumCount.Text = $"{found}/{CapData.Count}";
         _skillCount.Text = $"{GameState.I.Kronkorken} KK";
+        // Album und Skilltree erst mit dem Sammelalbum, Events erst nach dem ersten Event-Skill
+        _albumButton.Visible = _skillButton.Visible = GameState.I.CapsUnlocked;
+        bool events = GameState.I.AnyEventUnlocked;
+        if (!events && _eventPanel.Visible) ShowTab(false);
+        _tabEvents.Visible = events;
     }
 
     public override void _Process(double delta)

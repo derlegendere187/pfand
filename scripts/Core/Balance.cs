@@ -89,7 +89,16 @@ public static class Balance
 
     // Automat
     public const double FeedInterval = 0.1;          // Sekunden pro eingeworfener Flasche
-    public const double CapDropChance = 0.025;       // Chance auf einen Kronkorken (nicht bei Dosen)
+    public const double CapDropChance = 0.005;       // Chance auf einen Kronkorken (nicht bei Dosen), erst nach "Sammelalbum"
+
+    // Picknickdecken: ohne Upgrade stehen die Leute nur kurz auf der Wiese herum
+    public const double StandStayFactor = 0.6;
+    public const double BlanketStayFactor = 1.3;
+    public const double BlanketChanceBase = 0.5;     // Stufe 1: jeder Zweite hat eine Decke dabei
+    public const double BlanketChancePerLevel = 0.25;
+
+    // Events werden mit jedem Mal teurer
+    public const double EventCostGrowth = 0.4;       // +40 % des Grundpreises pro Durchführung
 
     // Speichern
     public const double AutosaveSeconds = 30;

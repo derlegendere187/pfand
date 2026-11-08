@@ -15,27 +15,27 @@ public static class AusbauDefs
     {
         ["bank"] = ("BANK", new[]
         {
-            new AusbauStep("TISCH DAZU", "Leute bleiben 50 % länger und trinken schneller", 12),
-            new AusbauStep("ZWEITE BANK", "Gegenüber am Tisch: 4 statt 2 Plätze", 45),
+            new AusbauStep("TISCH DAZU", "Leute bleiben 50 % länger und trinken schneller", 30),
+            new AusbauStep("ZWEITE BANK", "Gegenüber am Tisch: 4 statt 2 Plätze", 110),
         }),
         ["muelleimer"] = ("MÜLLEIMER", new[]
         {
-            new AusbauStep("GROSSER EIMER", "Passt 25 statt 15 Flaschen", 10),
-            new AusbauStep("PFANDRING", "40 Plätze, fängt mehr Flaschen auf", 40),
+            new AusbauStep("GROSSER EIMER", "Passt 25 statt 15 Flaschen", 25),
+            new AusbauStep("PFANDRING", "40 Plätze, fängt mehr Flaschen auf", 100),
         }),
         ["imbiss"] = ("IMBISSBUDE", new[]
         {
-            new AusbauStep("GRÖSSERE THEKE", "+4 Besucher, mehr Leute holen sich was", 300),
-            new AusbauStep("GETRÄNKEKÜHLSCHRANK", "Alle trinken 15 % schneller", 900),
+            new AusbauStep("GRÖSSERE THEKE", "+4 Besucher, mehr Leute holen sich was", 750),
+            new AusbauStep("GETRÄNKEKÜHLSCHRANK", "Alle trinken 15 % schneller", 2250),
         }),
         ["tischtennis"] = ("TISCHTENNIS", new[]
         {
-            new AusbauStep("TURNIERPLATTE", "Spieler bleiben 50 % länger und trinken mehr", 120),
+            new AusbauStep("TURNIERPLATTE", "Spieler bleiben 50 % länger und trinken mehr", 300),
         }),
         ["grill"] = ("GRILLPLATZ", new[]
         {
-            new AusbauStep("GROSSER ROST", "Grillrunden bleiben 50 % länger", 800),
-            new AusbauStep("KÜHLBOX", "Grillrunden trinken 30 % schneller", 2000),
+            new AusbauStep("GROSSER ROST", "Grillrunden bleiben 50 % länger", 2000),
+            new AusbauStep("KÜHLBOX", "Grillrunden trinken 30 % schneller", 5000),
         }),
     };
 

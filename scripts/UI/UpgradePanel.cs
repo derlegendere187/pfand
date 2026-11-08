@@ -83,6 +83,8 @@ public partial class UpgradePanel : PanelContainer
         var gs = GameState.I;
         foreach (var c in _cards)
         {
+            c.Root.Visible = UpgradeDefs.Visible(gs, c.Def);
+            if (!c.Root.Visible) continue;
             int level = gs.Level(c.Def.Id);
             bool unlocked = c.Def.Unlocked(gs);
             bool maxed = level >= gs.MaxLevel(c.Def);

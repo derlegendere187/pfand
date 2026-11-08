@@ -83,13 +83,17 @@ public partial class EventPanel : PanelContainer
             bool running = gs.ActiveEvent == c.Def.Id;
             double cd = gs.CooldownLeft(c.Def);
 
+            c.Root.Visible = unlocked;
+            if (!unlocked) continue;
             c.Root.AddThemeStyleboxOverride("panel", PfandTheme.Box(
                 running ? Color.FromHtml("#fff3c4") : unlocked ? Palette.PanelLight : Palette.Bg,
                 unlocked ? Palette.Border : Palette.MachineDark, 4, 8));
             c.Name.AddThemeColorOverride("font_color", unlocked ? Palette.Ink : Palette.Muted);
             c.Desc.AddThemeColorOverride("font_color", unlocked ? Palette.InkSoft : Palette.Muted);
             double cost = gs.EventCost(c.Def);
-            c.Info.Text = $"Dauer {GameState.Seconds(c.Def.Duration)} · Pause {GameState.Seconds(c.Def.Cooldown * gs.CooldownFactor)}";
+            int held = gs.TimesHeld(c.Def);
+            c.Info.Text = $"Dauer {GameState.Seconds(c.Def.Duration)} · Pause {GameState.Seconds(c.Def.Cooldown * gs.CooldownFactor)}"
+                + (held > 0 ? $" · schon {held}× (jedes Mal teurer)" : "");
 
             if (!unlocked) { c.Start.Text = "IM SKILLTREE"; c.Start.Disabled = true; }
             else if (running) { c.Start.Text = $"LÄUFT · {GameState.Seconds(gs.EventTimeLeft)}"; c.Start.Disabled = true; }

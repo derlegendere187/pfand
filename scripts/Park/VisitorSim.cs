@@ -256,7 +256,8 @@ public class VisitorSim
         if (v.GrillSeat >= 0) return Balance.GrillStayFactor * (gs.AusbauLevel("grill", 0) >= 1 ? 1.5 : 1);
         if (v.Seat >= 0 && gs.AusbauLevel("bank", v.Seat / 4) >= 1) return 1.5;
         if (v.TableSeat >= 0 && gs.AusbauLevel("tischtennis", v.TableSeat / 2) >= 1) return 1.5;
-        return 1;
+        if (v.Seat >= 0 || v.TableSeat >= 0 || v.EventId != null || v.Wagon) return 1;
+        return v.HasBlanket ? Balance.BlanketStayFactor : Balance.StandStayFactor;
     }
 
     BottleType BottleFor(Visitor v, GameState gs)
@@ -553,12 +554,20 @@ public class VisitorSim
         }
         else
         {
-            v.HasBlanket = true;
-            v.BlanketPos = FreeGrassSpot(paths, benches, tables);
-            v.Target = v.BlanketPos + new Vector2(Rf(-12, 12), Rf(-4, 4));
-            // Am Feiertag kommen viele Familien und Freundesgruppen
-            double groupChance = Balance.GroupChancePerLevel * gs.Level("gruppen") + (gs.ActiveEvent == "feiertag" ? 0.5 : 0);
-            wantsGroup = _rng.NextDouble() < groupChance;
+            // Ohne Picknickdecken stehen die Leute nur auf der Wiese herum
+            int picknick = gs.Level("picknick");
+            v.HasBlanket = picknick > 0
+                && _rng.NextDouble() < Balance.BlanketChanceBase + Balance.BlanketChancePerLevel * (picknick - 1);
+            var spot = FreeGrassSpot(paths, benches, tables);
+            if (v.HasBlanket)
+            {
+                v.BlanketPos = spot;
+                v.Target = v.BlanketPos + new Vector2(Rf(-12, 12), Rf(-4, 4));
+                // Am Feiertag kommen viele Familien und Freundesgruppen
+                double groupChance = Balance.GroupChancePerLevel * gs.Level("gruppen") + (gs.ActiveEvent == "feiertag" ? 0.5 : 0);
+                wantsGroup = _rng.NextDouble() < groupChance;
+            }
+            else v.Target = spot;
         }
 
         if (alreadySitting) SitDown(v);

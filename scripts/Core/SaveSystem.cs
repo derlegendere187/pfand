@@ -8,7 +8,7 @@ namespace Pfand.Core;
 
 public class SaveData
 {
-    public int Version { get; set; } = 3;
+    public int Version { get; set; } = 4;
     public double Money { get; set; }
     public double TotalEarned { get; set; }
     public long BottlesFed { get; set; }
@@ -22,6 +22,7 @@ public class SaveData
     public List<string> Skills { get; set; } = new();            // nur Version 2
     public Dictionary<string, int> SkillLevels { get; set; } = new();
     public Dictionary<string, double> Cooldowns { get; set; } = new();
+    public Dictionary<string, int> EventCount { get; set; } = new();
     // Statistik (ab Version 3)
     public double PlayTime { get; set; }
     public Dictionary<int, long> FedByType { get; set; } = new();
@@ -53,6 +54,7 @@ public static class SaveSystem
             Caps = new Dictionary<int, int>(s.Caps),
             SkillLevels = new Dictionary<string, int>(s.Skills),
             Cooldowns = new Dictionary<string, double>(s.Cooldowns),
+            EventCount = new Dictionary<string, int>(s.EventCount),
             PlayTime = s.PlayTime,
             FedByType = new Dictionary<int, long>(s.FedByType),
             CollectedByHand = s.CollectedByHand,
@@ -90,6 +92,7 @@ public static class SaveSystem
             s.Ausbau = data.Ausbau ?? new();
             s.Caps = (data.Caps ?? new()).Where(kv => kv.Key >= 0 && kv.Key < CapData.Count).ToDictionary(kv => kv.Key, kv => kv.Value);
             s.Cooldowns = data.Cooldowns ?? new();
+            s.EventCount = data.EventCount ?? new();
             // Alte Spielstände (Version 1) kannten noch keine Kronkorken-Währung
             s.Kronkorken = data.Version < 2 ? s.Caps.Values.Sum() : data.Kronkorken;
             if (data.Version < 3)
@@ -105,6 +108,8 @@ public static class SaveSystem
                     .Where(kv => SkillDefs.Get(kv.Key) is { } d && kv.Value > 0)
                     .ToDictionary(kv => kv.Key, kv => Math.Min(kv.Value, SkillDefs.Get(kv.Key).MaxLevel));
             }
+            // Vor Version 4 gab es Kronkorken von Anfang an: wer schon welche hat, bekommt das Sammelalbum
+            if (data.Version < 4 && (s.Kronkorken > 0 || s.Caps.Count > 0 || s.Skills.Count > 0)) s.Upgrades["album"] = 1;
             s.PlayTime = data.PlayTime;
             s.FedByType = data.FedByType ?? new();
             s.CollectedByHand = data.CollectedByHand;
