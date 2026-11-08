@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Godot;
 using Pfand.Core;
@@ -6,16 +7,16 @@ using Pfand.Park;
 namespace Pfand.UI;
 
 /// <summary>
-/// Kurze Meldung oben über dem Spielfeld, wenn ein Kronkorken gefunden wurde:
-/// der Deckel mit Motiv, sein Name und ob er neu fürs Album ist.
+/// Dezente Meldung beim Kronkorken-Fund, so wie „Tasche voll!“ im Park:
+/// kleiner Deckel mit Text, der im Park neben dem Automaten aufsteigt und verblasst.
 /// </summary>
 public partial class CapToast : Control
 {
-    const float Width = 330, Height = 74, ShowTime = 2.6f, FadeTime = 0.3f;
+    public Func<Vector2> Anchor;    // wo die Meldung startet (im Park, gleich neben dem Automaten)
 
-    readonly Queue<(int cap, bool isNew)> _queue = new();
-    (int cap, bool isNew)? _current;
-    float _t;
+    class Item { public int Cap; public bool IsNew; public float Life; public float Offset; }
+    readonly List<Item> _items = new();
+    const float Life = 1.8f;
 
     public override void _Ready()
     {
@@ -26,49 +27,37 @@ public partial class CapToast : Control
 
     public override void _ExitTree() => GameState.I.CapFound -= OnCapFound;
 
-    void OnCapFound(int cap, bool isNew) => _queue.Enqueue((cap, isNew));
+    void OnCapFound(int cap, bool isNew)
+    {
+        // Mehrere Funde kurz nacheinander leicht versetzt, damit sie sich nicht überdecken
+        float offset = 0;
+        foreach (var i in _items) if (i.Life > Life - 0.4f) offset += 26;
+        _items.Add(new Item { Cap = cap, IsNew = isNew, Life = Life, Offset = offset });
+    }
 
     public override void _Process(double delta)
     {
-        if (_current == null)
-        {
-            if (_queue.Count == 0) return;
-            _current = _queue.Dequeue();
-            _t = 0;
-        }
-        _t += (float)delta;
-        // Kommen mehrere schnell hintereinander, wird jede kürzer gezeigt
-        float show = _queue.Count > 0 ? 1.2f : ShowTime;
-        if (_t > show) _current = null;
+        if (_items.Count == 0) return;
+        foreach (var i in _items) i.Life -= (float)delta;
+        _items.RemoveAll(i => i.Life <= 0);
         QueueRedraw();
     }
 
     public override void _Draw()
     {
-        if (_current is not { } c) return;
-        var motif = CapData.All[c.cap];
+        if (Anchor == null) return;
+        var a = Anchor();
+        foreach (var i in _items)
+        {
+            float t = 1 - i.Life / Life;                       // 0 → 1
+            float alpha = Mathf.Clamp(i.Life * 2, 0, 1);
+            var pos = (a + new Vector2(0, i.Offset - t * 34)).Round();
 
-        // Einblenden von oben, ausblenden am Ende
-        float show = _queue.Count > 0 ? 1.2f : ShowTime;
-        float a = Mathf.Min(1, Mathf.Min(_t / FadeTime, (show - _t) / FadeTime));
-        float slide = (1 - Mathf.Min(1, _t / FadeTime)) * -20;
-        var r = new Rect2(new Vector2(Mathf.Round((Size.X - Width) / 2 + 20), 112 + slide), Width, Height);
-
-        DrawRect(r, new Color(Palette.Border, a));
-        DrawRect(r.Grow(-4), new Color(Palette.PanelLight, a));
-        if (a < 0.98f) return; // Pixelkunst nur voll deckend zeichnen
-
-        // Deckel mit leichtem Wackeln
-        float wobble = Mathf.Sin(_t * 10) * Mathf.Max(0, 1 - _t) * 3;
-        Sprites.Cap(this, r.Position + new Vector2(14, 13 + wobble), 4, motif, true);
-
-        var x = r.Position.X + 78;
-        DrawString(PfandTheme.Pixel, new Vector2(x, r.Position.Y + 26), "KRONKORKEN!", HorizontalAlignment.Left, -1, 8, Palette.GoodText);
-        string name = motif.Name[0] + motif.Name.Substring(1).ToLowerInvariant();
-        DrawString(PfandTheme.Body, new Vector2(x, r.Position.Y + 54), name, HorizontalAlignment.Left, -1, 24, Palette.Ink);
-        if (c.isNew)
-            DrawString(PfandTheme.Pixel, new Vector2(r.End.X - 60, r.Position.Y + 26), "NEU!", HorizontalAlignment.Left, -1, 8, Palette.BadText);
-        else
-            DrawString(PfandTheme.Body, new Vector2(r.End.X - 92, r.Position.Y + 54), "+1 KK", HorizontalAlignment.Left, -1, 22, Palette.Muted);
+            if (alpha > 0.5f) Sprites.Cap(this, pos + new Vector2(0, -18), 2, CapData.All[i.Cap], true);
+            string text = i.IsNew ? "Neuer Kronkorken!" : "+1 Kronkorken";
+            var tp = pos + new Vector2(30, -2);
+            DrawString(PfandTheme.Body, tp + new Vector2(1, 1), text, HorizontalAlignment.Left, -1, 22, new Color(Palette.PanelLight, alpha));
+            DrawString(PfandTheme.Body, tp, text, HorizontalAlignment.Left, -1, 22, new Color(Palette.GoodText, alpha));
+        }
     }
 }

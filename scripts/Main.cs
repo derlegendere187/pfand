@@ -210,7 +210,8 @@ public partial class Main : Control
         AddChild(_stats);
         statsButton.Pressed += _stats.Open;
 
-        AddChild(new CapToast());
+        // Kronkorken-Meldung steigt im Park neben dem Automaten auf
+        AddChild(new CapToast { Anchor = () => park.GetGlobalRect().Position + new Vector2(14, 80) });
 
         var tutorial = new TutorialOverlay
         {
