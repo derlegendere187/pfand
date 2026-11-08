@@ -358,12 +358,32 @@ public partial class ParkView : Control
         if (gs.SkillLevel("aoe") > 0 && new Rect2(Vector2.Zero, size).HasPoint(_mouse))
             DrawArc(_mouse, gs.ClickRadius, 0, Mathf.Tau, 32, new Color(Palette.PanelLight, 0.6f), 2);
 
-        if (gs.BottlesFed == 0 && gs.Bag.Count == 0)
+        // Einführung: hüpfender Pfeil über der ersten Flasche
+        if (gs.Tutorial == TutorialStep.ClickBottle)
+            foreach (var b in Sim.Bottles) Arrow(b.Pos + new Vector2(0, -30 - Mathf.Abs(Mathf.Sin(_time * 5)) * 8));
+
+        if (gs.TutorialActive) { }
+        else if (gs.BottlesFed == 0 && gs.Bag.Count == 0)
             Hint("Klicke auf Flaschen, um sie einzusammeln.");
         else if (gs.BottlesFed == 0 && gs.Bag.Count >= 3)
             Hint("Wirf die Flaschen links im Automaten ein.");
         else if (gs.Ausbau.Count == 0 && gs.Level("bank") > 0 && gs.Money >= 12 && gs.BottlesFed > 30)
             Hint("Tipp: Rechtsklick auf eine Bank, um sie auszubauen.");
+    }
+
+    /// <summary>Pixelpfeil nach unten, Spitze bei tip.</summary>
+    void Arrow(Vector2 tip)
+    {
+        tip = tip.Round();
+        const float p = 3;
+        // Umriss
+        DrawRect(new Rect2(tip.X - 3 * p, tip.Y - 9 * p, 6 * p, 6 * p), Palette.Ink);
+        for (int i = 0; i < 4; i++)
+            DrawRect(new Rect2(tip.X - (5 - i) * p, tip.Y - (4 - i) * p, (10 - 2 * i) * p, p), Palette.Ink);
+        // Füllung
+        DrawRect(new Rect2(tip.X - 2 * p, tip.Y - 8 * p, 4 * p, 5 * p), Palette.Gold);
+        for (int i = 0; i < 3; i++)
+            DrawRect(new Rect2(tip.X - (4 - i) * p + p, tip.Y - (4 - i) * p + p, (8 - 2 * i) * p - 2 * p, p), Palette.Gold);
     }
 
     void Hint(string text)

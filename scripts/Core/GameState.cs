@@ -8,6 +8,9 @@ public enum BottleType { Bier, Wasser, Dose, Plastik, Retro, Gold }
 
 public enum DayPhase { Tag, Abend, Nacht }
 
+/// <summary>Schritte der Einführung beim allerersten Spielen.</summary>
+public enum TutorialStep { Intro, WatchGuest, ClickBottle, Feed, Outro, Done }
+
 public static class BottleInfo
 {
     /// <summary>Grundwert ohne Skill-Bonus.</summary>
@@ -56,6 +59,8 @@ public class GameState
     public Dictionary<string, int> EventCount = new();  // Event -> wie oft schon veranstaltet
     public string ActiveEvent;                          // null = kein Event
     public double EventTimeLeft;
+    public TutorialStep Tutorial = TutorialStep.Done;   // neue Spiele beginnen mit Intro
+    public bool TutorialActive => Tutorial != TutorialStep.Done;
 
     // Statistik
     public double PlayTime;                             // Sekunden

@@ -12,7 +12,9 @@ namespace Pfand;
 /// und kümmert sich um Debug-Startparameter.
 ///
 /// Debug-Parameter (nach "--" an Godot übergeben):
-///   --fresh            Spielstand nicht laden und nicht speichern
+///   --fresh            Spielstand nicht laden und nicht speichern (startet mit der Einführung)
+///   --notut            Einführung überspringen
+///   --autotut          Einführung läuft von selbst durch (zum Testen)
 ///   --money=50         Startgeld setzen
 ///   --late             Park mit einigen Upgrades ausstatten
 ///   --imbiss           Imbissbude freischalten und bauen
@@ -53,7 +55,11 @@ public partial class Main : Control
         var gs = GameState.I;
 
         _noSave = _args.ContainsKey("fresh");
-        if (!_noSave) SaveSystem.Load(gs);
+        bool loaded = !_noSave && SaveSystem.Load(gs);
+        // Ganz neues Spiel: Kalle erklärt erst einmal alles (Debug-Startwerte überspringen das)
+        if (!loaded) gs.Tutorial = TutorialStep.Intro;
+        foreach (var k in new[] { "notut", "money", "late", "imbiss", "upgrades", "allskills", "skills", "kk", "feedtest", "ausbau", "event", "open" })
+            if (_args.ContainsKey(k)) gs.Tutorial = TutorialStep.Done;
         if (_args.TryGetValue("money", out var m) && double.TryParse(m, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var money)) gs.Money = money;
         if (_args.ContainsKey("late"))
         {
@@ -208,6 +214,9 @@ public partial class Main : Control
         _stats = new StatsPopup();
         AddChild(_stats);
         statsButton.Pressed += _stats.Open;
+
+        var tutorial = new TutorialOverlay { Park = park, Automat = _automat, AutoAdvance = _args.ContainsKey("autotut") };
+        AddChild(tutorial);
     }
 
     Button TabButton(string text)

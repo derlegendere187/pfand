@@ -16,7 +16,7 @@ public partial class AutomatPanel : PanelContainer
     Label _bonTitle;
 
     bool _feeding;
-    double _feedAcc, _feedTotal;
+    double _feedAcc, _feedTotal, _pulse;
     readonly Dictionary<BottleType, (int count, double sum)> _receipt = new();
     readonly List<int> _capsFound = new();
     readonly Random _rng = new();
@@ -115,8 +115,12 @@ public partial class AutomatPanel : PanelContainer
 
     public override void _Process(double delta)
     {
-        if (!_feeding) return;
         var gs = GameState.I;
+        _pulse += delta;
+        // Einführung: Einwerfen-Knopf pulsiert golden
+        _feedButton.Modulate = gs.Tutorial == TutorialStep.Feed && !_feeding
+            ? Colors.White.Lerp(Palette.Gold, 0.5f + 0.5f * Mathf.Sin((float)_pulse * 6)) : Colors.White;
+        if (!_feeding) return;
         _feedAcc += delta;
         bool changed = false;
         while (_feedAcc >= gs.FeedInterval && gs.Bag.Count > 0)

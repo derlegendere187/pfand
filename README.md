@@ -15,6 +15,7 @@ Ein Incremental-Spiel: Du schaust von oben auf einen Park, sammelst die Pfandfla
   ```
 
 ## Steuerung
+- Beim ersten Start erklärt Kalle, ein alter Pfandsammler, wie alles funktioniert
 - Flaschen anklicken (oder mit gedrückter Maustaste drüberwischen) → in die Tasche
 - Mülleimer anklicken → alle Flaschen daraus einsammeln
 - „Einwerfen“ im Automaten → Geld
@@ -31,7 +32,9 @@ Nach `--` anhängen, z. B. `... --path . -- --fresh --money=50`:
 
 | Parameter | Wirkung |
 |---|---|
-| `--fresh` | Spielstand weder laden noch speichern |
+| `--fresh` | Spielstand weder laden noch speichern (startet mit Kalles Einführung) |
+| `--notut` | Einführung überspringen |
+| `--autotut` | Einführung läuft von selbst durch (zum Testen) |
 | `--money=50` | Startgeld setzen |
 | `--late` | Park mit einigen Upgrades ausstatten |
 | `--imbiss` | Imbissbude freischalten und bauen |

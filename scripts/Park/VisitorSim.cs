@@ -34,6 +34,7 @@ public class Visitor
     public int WaypointIdx;
     public double PauseTimer;
     public Vector2 FollowOffset;
+    public bool Tutorial;          // der erste Gast der Einführung
 }
 
 /// <summary>Bierball wie im echten Leben: Ein Team wirft auf die Flasche in der Mitte.
@@ -92,7 +93,7 @@ public class VisitorSim
     readonly Queue<double> _dropTimes = new();
     double _clock, _spawnAcc, _grillWait = 2, _mtTimer;
     int _mtGroups;
-    bool _seeded;
+    bool _seeded, _tutGuestSpawned;
     string _eventSpawnedFor;
 
     public int BottlesPerMinute => _dropTimes.Count;
@@ -106,7 +107,8 @@ public class VisitorSim
         _clock += dt;
         while (_dropTimes.Count > 0 && _clock - _dropTimes.Peek() > 60) _dropTimes.Dequeue();
 
-        gs.TimeOfDay = (gs.TimeOfDay + dt / Balance.DayLengthSeconds) % 1.0;
+        // Während der Einführung bleibt die Uhr stehen, damit man in Ruhe lesen kann
+        if (!gs.TutorialActive) gs.TimeOfDay = (gs.TimeOfDay + dt / Balance.DayLengthSeconds) % 1.0;
         gs.UpdateEvents(dt);
 
         var paths = ParkLayout.Paths(Size, gs);
@@ -120,6 +122,7 @@ public class VisitorSim
         if (!_seeded) Seed(gs, paths, benches, tables);
 
         UpdateEventGuests(gs);
+        if (gs.Tutorial == TutorialStep.WatchGuest && !_tutGuestSpawned) SpawnTutorialGuest(paths);
 
         // --- Neue Besucher ---
         double lampFactor = lamps / 3.0;
@@ -136,7 +139,7 @@ public class VisitorSim
         double boost = 1 + Balance.SpawnBonusPerPath * paths.Count + Balance.SpawnBonusPerBin * bins.Count
             + (imbiss ? Balance.ImbissSpawnBonus : 0) + Balance.TableSpawnBonus * tables.Count + (activeEvent?.SpawnBoost ?? 0) + gs.VisitorBoost;
         double interval = Balance.SpawnIntervalBase / boost;
-        if (phaseFactor > 0)
+        if (phaseFactor > 0 && !gs.TutorialActive)
         {
             _spawnAcc += dt * phaseFactor;
             if (_spawnAcc >= interval)
@@ -180,6 +183,7 @@ public class VisitorSim
                         v.StayTimer = Balance.StayBase * (1 + Balance.StayBonusPerBench * benches.Count) * R(0.7, 1.3);
                         v.StayTimer *= StayFactor(v, gs);
                         v.DrinkTimer = DrinkIntervalFor(v, drinkInterval) * R(0.6, 1.2);
+                        if (v.Tutorial) { v.StayTimer = 999; v.DrinkTimer = 2.5; }
                     }
                     break;
 
@@ -192,7 +196,16 @@ public class VisitorSim
                     if (v.HasBlanket) v.BlanketOpen = Mathf.Min(1f, v.BlanketOpen + (float)dt * 3f);
                     v.StayTimer -= dt;
                     v.DrinkTimer -= dt;
-                    if (v.DrinkTimer <= 0)
+                    if (v.DrinkTimer <= 0 && v.Tutorial)
+                    {
+                        // Der erste Gast lässt garantiert seine Flasche auf der Wiese liegen
+                        AddGroundBottle(v.Pos + new Vector2(Rf(10, 22) * (_rng.Next(2) == 0 ? -1 : 1), Rf(10, 18)), BottleType.Bier);
+                        _dropTimes.Enqueue(_clock);
+                        v.DrinkTimer = double.MaxValue;
+                        v.StayTimer = 2.5;
+                        if (gs.Tutorial == TutorialStep.WatchGuest) { gs.Tutorial = TutorialStep.ClickBottle; gs.Notify(); }
+                    }
+                    else if (v.DrinkTimer <= 0)
                     {
                         Drop(v, bins, gs);
                         v.DrinkTimer = DrinkIntervalFor(v, drinkInterval) * R(0.8, 1.2);
@@ -509,6 +522,8 @@ public class VisitorSim
     void Seed(GameState gs, List<Rect2> paths, List<Vector2> benches, List<Vector2> tables)
     {
         _seeded = true;
+        // Beim ersten Spielen ist die Wiese leer, der erste Gast kommt erst in der Einführung
+        if (gs.TutorialActive) return;
         if (gs.BottlesFed == 0 && gs.Bag.Count == 0)
         {
             for (int i = 0; i < Balance.StartBottles; i++)
@@ -516,6 +531,18 @@ public class VisitorSim
         }
         Spawn(gs, paths, benches, tables, true);
         Spawn(gs, paths, benches, tables, true);
+    }
+
+    void SpawnTutorialGuest(List<Rect2> paths)
+    {
+        _tutGuestSpawned = true;
+        var v = NewVisitor(paths);
+        v.Tutorial = true;
+        // oben in der Mitte, damit Kalles Sprechblase unten nichts verdeckt
+        v.Target = new Vector2(Size.X * 0.5f, Size.Y * 0.36f);
+        v.Pos = new Vector2(Size.X * 0.5f + Size.X * 0.45f, Size.Y * 0.36f + 30);
+        v.Exit = new Vector2(-30, Size.Y * 0.3f);
+        Visitors.Add(v);
     }
 
     Visitor NewVisitor(List<Rect2> paths)
