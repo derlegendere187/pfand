@@ -19,7 +19,7 @@ public partial class TutorialOverlay : Control
         "Hallo! Ich bin Kalle. Ich sammle hier im Park schon seit vielen Jahren Pfandflaschen.",
         "Das hier ist deine Wiese. Noch ist hier nichts los, aber das ändern wir zusammen.",
         "Die Leute kommen her, trinken was und lassen ihre leeren Flaschen oft einfach liegen. Für uns ist das bares Geld!",
-        "Schau mal, da kommt dein erster Gast!",
+        "Schau mal, da kommt die erste Person!",
     };
     const string ClickText = "Schau mal, eine Flasche! Die bringt dir Geld. Klick sie an, dann landet sie in deiner Tasche.";
     const string FeedText = "Sehr gut! Links in deiner Tasche ist sie jetzt. Drück auf EINWERFEN, dann zahlt dir der Automat das Pfand aus.";
@@ -29,7 +29,14 @@ public partial class TutorialOverlay : Control
         "Gleich kommen mehr Leute. Mit dem Geld kaufst du rechts Upgrades. Fang mit einem Weg an, dann kommen noch mehr.",
     };
 
+    static readonly string[] LaternePages =
+    {
+        "Oh, schon 22 Uhr! Im Dunkeln gehen die Leute nach Hause, und neue kommen kaum noch.",
+        "Kauf dir eine Laterne! Dann bleiben die Leute abends länger, und nachts kommen sogar noch welche. Du findest sie rechts bei den Upgrades.",
+    };
+
     ColorRect _dim;
+    bool _hint;                     // Kalle gibt gerade einen Tipp (außerhalb der Einführung)
     Control _box;
     Label _text;
     Button _next;
@@ -100,6 +107,21 @@ public partial class TutorialOverlay : Control
 
         if (gs.Tutorial != _shownFor) Enter(gs.Tutorial);
 
+        // Um 22 Uhr kommt Kalle noch einmal und empfiehlt die Laterne
+        if (!gs.TutorialActive && !gs.LaterneHint && !Visible && _wait <= 0 && gs.Phase == DayPhase.Nacht)
+        {
+            gs.LaterneHint = true;
+            if (gs.Level("laterne") == 0)
+            {
+                _hint = true;
+                _pages = LaternePages;
+                _page = 0;
+                ShowPage();
+            }
+            gs.Notify();
+        }
+        gs.ClockPaused = Visible && _dim.Visible;
+
         if (_wait > 0)
         {
             _wait -= delta;
@@ -160,6 +182,7 @@ public partial class TutorialOverlay : Control
         _next.Visible = !task;
         bool last = _page == _pages.Length - 1;
         _next.Text = !last ? "WEITER"
+            : _hint ? "ALLES KLAR"
             : step == TutorialStep.Intro ? "ZUSCHAUEN"
             : "LOS GEHT'S";
         Show();
@@ -172,6 +195,7 @@ public partial class TutorialOverlay : Control
         if (_page < _pages.Length - 1) { _page++; ShowPage(); return; }
 
         var gs = GameState.I;
+        if (_hint) { _hint = false; Hide(); return; }
         if (_shownFor == TutorialStep.Intro) gs.Tutorial = TutorialStep.WatchGuest;
         else if (_shownFor == TutorialStep.Outro) gs.Tutorial = TutorialStep.Done;
         gs.Notify();

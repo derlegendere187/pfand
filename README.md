@@ -15,7 +15,7 @@ Ein Incremental-Spiel: Du schaust von oben auf einen Park, sammelst die Pfandfla
   ```
 
 ## Steuerung
-- Beim ersten Start erklärt Kalle, ein alter Pfandsammler, wie alles funktioniert
+- Beim ersten Start erklärt Kalle, ein alter Pfandsammler, wie alles funktioniert. Um 22 Uhr kommt er wieder und empfiehlt die Laterne
 - Flaschen anklicken (oder mit gedrückter Maustaste drüberwischen) → in die Tasche
 - Mülleimer anklicken → alle Flaschen daraus einsammeln
 - „Einwerfen“ im Automaten → Geld

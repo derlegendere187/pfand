@@ -362,7 +362,7 @@ public partial class ParkView : Control
         if (gs.Tutorial == TutorialStep.ClickBottle)
             foreach (var b in Sim.Bottles) Arrow(b.Pos + new Vector2(0, -30 - Mathf.Abs(Mathf.Sin(_time * 5)) * 8));
 
-        if (gs.TutorialActive) { }
+        if (gs.TutorialActive || gs.ClockPaused) { }
         else if (gs.BottlesFed == 0 && gs.Bag.Count == 0)
             Hint("Klicke auf Flaschen, um sie einzusammeln.");
         else if (gs.BottlesFed == 0 && gs.Bag.Count >= 3)

@@ -17,6 +17,7 @@ public class UpgradeDef
     public Func<GameState, bool> Unlocked = _ => true;
     public Func<GameState, int> MaxBonus;          // z. B. durch Skills
     public int RevealNext = 2;                     // so oft kaufen, bis das nächste Upgrade auftaucht
+    public Func<GameState, bool> RevealedBy;       // eigene Bedingung statt der Reihe (z. B. Kalles Tipp)
     public Color C1, C2;
 
     public double Price(int level) => Math.Round(BasePrice * Math.Pow(Growth, level), 2);
@@ -31,6 +32,10 @@ public static class UpgradeDefs
     {
         new UpgradeDef { Id = "weg", Name = "WEG", Effect = "Mehr Leute kommen vorbei",
             BasePrice = 2.00, Growth = 2.3, Max = 6, C1 = H("#e6cf9f"), C2 = H("#c9ad7a") },
+        // Die Laterne zeigt Kalle um 22 Uhr. Sie steht außerhalb der Reihe und blockiert nichts.
+        new UpgradeDef { Id = "laterne", Name = "LATERNE", Effect = "Leute bleiben abends länger, nachts kommen noch welche",
+            BasePrice = 8.00, Growth = 2.6, Max = 3, MaxBonus = gs => gs.SkillLevel("bau"), RevealedBy = gs => gs.LaterneHint,
+            C1 = H("#f2c75c"), C2 = H("#5a4a3a") },
         new UpgradeDef { Id = "tasche", Name = "TASCHE+", Effect = "+4 Plätze in der Tasche",
             BasePrice = 3.00, Growth = 2.2, Max = 6, MaxBonus = gs => 2 * gs.SkillLevel("rucksack"), C1 = H("#b07a4a"), C2 = H("#f4ead2") },
         new UpgradeDef { Id = "picknick", RevealNext = 1, Name = "PICKNICKDECKE", Effect = "Leute setzen sich auf Decken und bleiben länger",
@@ -42,8 +47,6 @@ public static class UpgradeDefs
         new UpgradeDef { Id = "gruppen", RevealNext = 1, Name = "FREUNDESKREIS", Effect = "Leute bringen Freunde mit auf die Decke",
             BasePrice = 30.00, Growth = 2.6, Max = 3, LockedText = "ERST PICKNICKDECKE",
             Unlocked = gs => gs.Level("picknick") > 0, C1 = H("#6fa8d6"), C2 = H("#d9735a") },
-        new UpgradeDef { Id = "laterne", RevealNext = 1, Name = "LATERNE", Effect = "Leute bleiben auch abends",
-            BasePrice = 60.00, Growth = 2.4, Max = 3, MaxBonus = gs => gs.SkillLevel("bau"), C1 = H("#f2c75c"), C2 = H("#5a4a3a") },
         new UpgradeDef { Id = "sammler", RevealNext = 1, Name = "SAMMLER", Effect = "Angestellte sammeln und werfen selbst ein",
             BasePrice = 90.00, Growth = 2.3, Max = 5, MaxBonus = gs => 2 * gs.SkillLevel("personal"), C1 = H("#e08a4a"), C2 = H("#2a1d14") },
         new UpgradeDef { Id = "album", RevealNext = 1, Name = "SAMMELALBUM", Effect = "Ab jetzt findest du Kronkorken: fürs Album und den Skilltree",
@@ -67,8 +70,10 @@ public static class UpgradeDefs
     public static bool Visible(GameState gs, UpgradeDef d)
     {
         bool prevVisible = true, prevDone = true;
+        if (d.RevealedBy != null) return gs.Level(d.Id) > 0 || d.RevealedBy(gs);
         foreach (var u in All)
         {
+            if (u.RevealedBy != null) continue;
             bool visible = gs.Level(u.Id) > 0 || (prevVisible && prevDone);
             if (u == d) return visible;
             prevVisible = visible;
