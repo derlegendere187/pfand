@@ -102,7 +102,7 @@ public partial class Main : Control
             }
         if (_args.ContainsKey("imbiss")) { gs.Upgrades["imbiss"] = 1; gs.PeakVisitors = Balance.ImbissUnlockVisitors; }
         if (_args.TryGetValue("time", out var t) && double.TryParse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var time)) gs.TimeOfDay = time;
-        if (_args.TryGetValue("speed", out var s) && double.TryParse(s, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var speed)) Engine.TimeScale = speed;
+        if (_args.TryGetValue("speed", out var s) && double.TryParse(s, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var speed)) { Engine.TimeScale = speed; CallDeferred(MethodName.UpdateSpeedLabel); }
         if (_args.TryGetValue("screenshot", out var shot))
         {
             _shotPath = shot;
@@ -321,6 +321,35 @@ public partial class Main : Control
     void Save()
     {
         if (!_noSave) SaveSystem.Save(GameState.I);
+    }
+
+    // --- Nur zum Testen: Zeitraffer per Zifferntaste (gibt es im fertigen Spiel nicht) ---
+    static readonly double[] DebugSpeeds = { 1, 2, 5, 10, 20 };
+    Label _speedLabel;
+
+    public override void _UnhandledInput(InputEvent e)
+    {
+        if (!OS.IsDebugBuild() || e is not InputEventKey { Pressed: true, Echo: false } key) return;
+        int idx = key.Keycode switch
+        {
+            Key.Key1 => 0, Key.Key2 => 1, Key.Key3 => 2, Key.Key4 => 3, Key.Key5 => 4, _ => -1,
+        };
+        if (idx < 0) return;
+        Engine.TimeScale = DebugSpeeds[idx];
+        UpdateSpeedLabel();
+    }
+
+    void UpdateSpeedLabel()
+    {
+        if (_speedLabel == null)
+        {
+            _speedLabel = PfandTheme.Title("", 8, Palette.BadText);
+            _speedLabel.Position = new Vector2(220, 8);
+            _speedLabel.MouseFilter = MouseFilterEnum.Ignore;
+            AddChild(_speedLabel);
+        }
+        _speedLabel.Text = $"TEST: ZEIT x{Engine.TimeScale:0}  (Tasten 1-5)";
+        _speedLabel.Visible = Engine.TimeScale != 1;
     }
 
     public override void _Notification(int what)

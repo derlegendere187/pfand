@@ -27,6 +27,9 @@ Ein Incremental-Spiel: Du schaust von oben auf einen Park, sammelst die Pfandfla
 - Bierkasten am Grill anklicken → Flaschen in die Tasche (mit Lastenrad: ganzer Kasten direkt zum Automaten)
 - **Stats** unten rechts zeigt die Statistik
 
+## Zum Testen
+Im Editor und in Debug-Builds stellen die Tasten **1–5** die Spielgeschwindigkeit ein (×1, ×2, ×5, ×10, ×20). In einem Release-Export gibt es das nicht.
+
 ## Debug-Parameter
 Nach `--` anhängen, z. B. `... --path . -- --fresh --money=50`:
 
