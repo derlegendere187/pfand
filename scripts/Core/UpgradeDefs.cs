@@ -47,8 +47,8 @@ public static class UpgradeDefs
             Unlocked = gs => gs.PeakVisitors >= Balance.ImbissUnlockVisitors,
             LockedTextFn = gs => $"{Math.Min(gs.PeakVisitors, Balance.ImbissUnlockVisitors)}/{Balance.ImbissUnlockVisitors} BESUCHER",
             C1 = H("#d9735a"), C2 = H("#fffaf0") },
-        new UpgradeDef { Id = "grill", Name = "GRILLPLATZ", Effect = "Kästen statt Flaschen",
-            BasePrice = 1500, Growth = 2.5, Max = 1, LockedText = "KOMMT BALD",
-            Unlocked = _ => false, C1 = H("#5a4a3a"), C2 = H("#e08a4a") },
+        new UpgradeDef { Id = "grill", Name = "GRILLPLATZ", Effect = "Grillrunden füllen einen Bierkasten",
+            BasePrice = 500, Growth = 2.5, Max = 1, LockedText = "ERST IMBISS",
+            Unlocked = gs => gs.Level("imbiss") > 0, C1 = H("#5a4a3a"), C2 = H("#e08a4a") },
     };
 }

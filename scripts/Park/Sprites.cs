@@ -122,6 +122,73 @@ public static class Sprites
         ci.DrawRect(new Rect2(pos - new Vector2(3, 5), 6, 6), Color.FromHtml("#fffaf0"));
     }
 
+    /// <summary>Runder Grill von oben (14×14, Pixel 3), zentriert. Glüht, wenn jemand grillt.</summary>
+    public static void Grill(CanvasItem ci, Vector2 pos, float time, bool active)
+    {
+        float p = 3;
+        var o = pos - new Vector2(7 * p, 7 * p);
+        R(ci, o, p, 2, 13, 11, 2, new Color(0, 0, 0, 0.18f));
+        var rim = Color.FromHtml("#3a3530");
+        R(ci, o, p, 3, 0, 8, 14, rim);
+        R(ci, o, p, 1, 2, 12, 10, rim);
+        R(ci, o, p, 2, 1, 10, 12, rim);
+        var coal = Color.FromHtml("#4a2a1c");
+        R(ci, o, p, 3, 2, 8, 10, coal);
+        R(ci, o, p, 2, 3, 10, 8, coal);
+        if (active)
+        {
+            var hot = new[] { Color.FromHtml("#e08a4a"), Color.FromHtml("#f2c75c"), Color.FromHtml("#d9735a") };
+            for (int i = 0; i < 9; i++)
+            {
+                int x = 3 + (i * 5) % 8, y = 3 + (i * 3) % 8;
+                int c = ((int)(time * 3) + i) % 3;
+                R(ci, o, p, x, y, 1, 1, hot[c]);
+            }
+        }
+        // Rost
+        for (int y = 3; y < 12; y += 2) R(ci, o, p, 2, y, 10, 0.34f, Color.FromHtml("#b8b0a0"));
+        if (active)
+        {
+            var wurst = Color.FromHtml("#a8503c");
+            R(ci, o, p, 4, 4, 4, 1, wurst);
+            R(ci, o, p, 6, 7, 4, 1, wurst);
+            R(ci, o, p, 4, 9, 3, 1, wurst);
+        }
+    }
+
+    /// <summary>Rauch über dem Grill: drei Wölkchen, die aufsteigen.</summary>
+    public static void Smoke(CanvasItem ci, Vector2 pos, float time)
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            float t = (time * 0.6f + i / 3f) % 1f;
+            var pp = pos + new Vector2(Mathf.Round(Mathf.Sin(t * 6 + i) * 6), Mathf.Round(-10 - t * 40));
+            float s = 6 + t * 8;
+            ci.DrawRect(new Rect2(pp - new Vector2(s / 2, s / 2), s, s), new Color(0.95f, 0.93f, 0.9f, 0.55f * (1 - t)));
+        }
+    }
+
+    /// <summary>Bierkasten von oben: 4×5 Fächer, gefüllte zeigen Flaschenhals mit Kronkorken.</summary>
+    public static void Kasten(CanvasItem ci, Rect2 r, int count)
+    {
+        float p = 2;
+        var o = r.Position;
+        R(ci, o, p, 1, 15, 13, 2, new Color(0, 0, 0, 0.18f));
+        R(ci, o, p, 0, 0, 13, 16, Color.FromHtml("#b8432f"));
+        R(ci, o, p, 0, 0, 13, 1, Color.FromHtml("#d9735a"));
+        for (int i = 0; i < 20; i++)
+        {
+            int col = i % 4, row = i / 4;
+            var cx = 1 + col * 3; var cy = 1 + row * 3;
+            if (i < count)
+            {
+                R(ci, o, p, cx, cy, 2, 2, Color.FromHtml("#5a3a1e"));
+                R(ci, o, p, cx + 0.5f, cy + 0.5f, 1, 1, Palette.Gold);
+            }
+            else R(ci, o, p, cx, cy, 2, 2, Color.FromHtml("#3a1e16"));
+        }
+    }
+
     /// <summary>Sammler: Person mit orangener Warnweste und Sack, wenn er was trägt.</summary>
     public static void Collector(CanvasItem ci, Vector2 pos, int carrying)
     {
@@ -146,7 +213,7 @@ public static class Sprites
     }
 
     /// <summary>Requisiten für laufende Events.</summary>
-    public static void EventProps(CanvasItem ci, EventKind kind, Vector2 c, float time)
+    public static void EventProps(CanvasItem ci, EventKind kind, Vector2 c, float time, bool targetDown = false, float wobble = 0)
     {
         switch (kind)
         {
@@ -173,13 +240,12 @@ public static class Sprites
             }
             case EventKind.Bierball:
             {
-                // Spielfeld-Linien und Flasche in der Mitte
+                // Zwei Grundlinien, in der Mitte die Zielflasche (steht, wackelt oder liegt)
                 ci.DrawRect(new Rect2(c + new Vector2(-82, -48), 4, 96), Palette.PanelLight);
                 ci.DrawRect(new Rect2(c + new Vector2(78, -48), 4, 96), Palette.PanelLight);
-                ci.DrawRect(new Rect2(c - new Vector2(6, 6), 12, 12), new Color(0, 0, 0, 0.15f));
-                Bottle(ci, c, BottleType.Bier, 0, 0, 1.2f);
-                float t = (Mathf.Sin(time * 3) + 1) / 2;
-                Ball(ci, c + new Vector2(Mathf.Lerp(-60, 60, t), -30 - Mathf.Sin(t * Mathf.Pi) * 16));
+                ci.DrawRect(new Rect2(c - new Vector2(8, 8), 16, 16), new Color(0, 0, 0, 0.15f));
+                float rot = targetDown ? 1.5f : Mathf.Sin(time * 30) * 0.25f * wobble;
+                Bottle(ci, c + (targetDown ? new Vector2(6, 4) : Vector2.Zero), BottleType.Bier, rot, 0, 1.3f);
                 break;
             }
             default:

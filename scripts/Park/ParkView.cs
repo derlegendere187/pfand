@@ -55,7 +55,8 @@ public partial class ParkView : Control
         }
         else if (e is InputEventMouseMotion mm)
         {
-            bool over = Sim.BottleAt(mm.Position) != null || Sim.BinAt(mm.Position, ParkLayout.Bins(Size, GameState.I)) >= 0;
+            bool over = Sim.BottleAt(mm.Position) != null || Sim.BinAt(mm.Position, ParkLayout.Bins(Size, GameState.I)) >= 0
+                || OverKasten(mm.Position);
             MouseDefaultCursorShape = over ? CursorShape.PointingHand : CursorShape.Arrow;
             // Mit gedrückter Maustaste drüberwischen sammelt auch
             if ((mm.ButtonMask & MouseButtonMask.Left) != 0) TryCollect(mm.Position, false);
@@ -69,13 +70,13 @@ public partial class ParkView : Control
         int bin = Sim.BinAt(pos, bins);
         if (bin >= 0 && isClick)
         {
-            var content = Sim.BinContents[bin];
-            int taken = 0;
-            while (content.Count > 0 && gs.TryAddToBag(content[0])) { content.RemoveAt(0); taken++; }
-            if (taken > 0) Float(pos, $"+{taken}", Palette.GoodText);
-            else if (content.Count > 0) Float(pos, "Tasche voll!", Palette.BadText);
-            else Float(pos, "leer", Palette.Muted);
-            gs.Notify();
+            EmptyInto(Sim.BinContents[bin], pos);
+            return;
+        }
+
+        if (OverKasten(pos) && isClick)
+        {
+            EmptyInto(Sim.Kasten, pos);
             return;
         }
 
@@ -91,6 +92,21 @@ public partial class ParkView : Control
         {
             Float(b.Pos, "Tasche voll!", Palette.BadText);
         }
+    }
+
+    bool OverKasten(Vector2 pos)
+        => GameState.I.Level("grill") > 0 && ParkLayout.KastenRect(Size).Grow(4).HasPoint(pos);
+
+    /// <summary>Eimer oder Kasten in die Tasche leeren, so weit Platz ist.</summary>
+    void EmptyInto(List<BottleType> content, Vector2 pos)
+    {
+        var gs = GameState.I;
+        int taken = 0;
+        while (content.Count > 0 && gs.TryAddToBag(content[0])) { content.RemoveAt(0); taken++; }
+        if (taken > 0) Float(pos, $"+{taken}", Palette.GoodText);
+        else if (content.Count > 0) Float(pos, "Tasche voll!", Palette.BadText);
+        else Float(pos, "leer", Palette.Muted);
+        gs.Notify();
     }
 
     void Float(Vector2 pos, string text, Color c)
@@ -131,11 +147,19 @@ public partial class ParkView : Control
 
         foreach (var b in ParkLayout.Benches(size, gs)) Sprites.Bench(this, b);
 
+        bool grill = gs.Level("grill") > 0;
+        bool grillBusy = grill && Sim.GrillBusy;
+        if (grill)
+        {
+            Sprites.Grill(this, ParkLayout.Grill(size), _time, grillBusy);
+            Sprites.Kasten(this, ParkLayout.KastenRect(size), Sim.Kasten.Count);
+        }
+
         var tables = ParkLayout.Tables(size, gs);
         foreach (var t in tables) Sprites.Table(this, t);
 
         if (gs.ActiveEvent != null && EventDefs.Get(gs.ActiveEvent) is { } ev)
-            Sprites.EventProps(this, ev.Kind, Sim.EventCenter, _time);
+            Sprites.EventProps(this, ev.Kind, Sim.EventCenter, _time, Sim.Bierball?.BottleDown ?? false, Sim.Bierball?.Wobble ?? 0);
 
         if (gs.Level("sammler") > 0) Sprites.Depot(this, ParkLayout.Depot(size));
 
@@ -155,9 +179,24 @@ public partial class ParkView : Control
         foreach (var v in Sim.Visitors)
         {
             var pos = v.Pos;
-            bool walking = v.State == VisitorState.Kommt || v.State == VisitorState.Geht;
+            bool walking = v.State == VisitorState.Kommt || v.State == VisitorState.Geht
+                || (Sim.Bierball != null && v == Sim.Bierball.Runner);
             if (walking) pos.Y += Mathf.Round(Mathf.Sin(v.WalkPhase) * 1.5f);
+            if (v.Team >= 0)
+            {
+                // Bierball: zur Mitte hin ausholen, eigene Flasche vor den Füßen
+                float dir = v.Team == 0 ? 1 : -1;
+                pos.X += dir * v.Lunge * 8;
+                if (v.State == VisitorState.Sitzt && v.DrinkAnim < 0.5f)
+                    Sprites.Bottle(this, (v.Target + new Vector2(dir * 16, 8)).Round(), BottleType.Bier, 0, 0, 0.8f);
+            }
             Sprites.Person(this, pos.Round(), v.Shirt, v.Hair);
+            if (v.DrinkAnim >= 0.5f)
+            {
+                // Flasche am Mund, schräg nach oben
+                float side = v.Team == 1 ? -1 : 1;
+                Sprites.Bottle(this, (pos + new Vector2(side * 9, -6)).Round(), BottleType.Bier, side * -2.4f, 0, 0.8f);
+            }
             // Unterwegs trägt man die Decke zusammengerollt
             if (v.HasBlanket && v.BlanketOpen <= 0 && v.State != VisitorState.Sitzt)
                 Sprites.RolledBlanket(this, pos.Round() + new Vector2(14, 4), v.BlanketColor);
@@ -171,6 +210,8 @@ public partial class ParkView : Control
             var half = ParkLayout.TableSize.Y / 2;
             Sprites.Ball(this, tables[i] + new Vector2(Mathf.Sin(_time * 7 + i) * 8, Mathf.Lerp(-half, half, t)).Round());
         }
+
+        if (grillBusy) Sprites.Smoke(this, ParkLayout.Grill(size), _time);
 
         foreach (var c in Sim.Collectors)
         {
@@ -195,6 +236,11 @@ public partial class ParkView : Control
         {
             int n = Sim.BinContents[i].Count;
             if (n > 0) DrawString(font, bins[i] + new Vector2(12, -10), n.ToString(), HorizontalAlignment.Left, -1, 20, Palette.PanelLight);
+        }
+        if (grill && Sim.Kasten.Count > 0)
+        {
+            var kr = ParkLayout.KastenRect(size);
+            DrawString(font, kr.Position + new Vector2(kr.Size.X + 4, 12), Sim.Kasten.Count.ToString(), HorizontalAlignment.Left, -1, 20, Palette.PanelLight);
         }
 
         foreach (var f in _floats)

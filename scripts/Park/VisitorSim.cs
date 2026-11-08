@@ -22,7 +22,25 @@ public class Visitor
     public int TableSeat = -1;     // Tischtennis (Platte * 2 + Seite), -1 = keiner
     public Visitor Leader;         // gehört zu einer Gruppe; geht, wenn der Leader geht
     public string EventId;         // Gast eines Events
+    public int GrillSeat = -1;     // Platz in der Grillrunde
+    public int Team = -1;          // Bierball: 0 = links, 1 = rechts
+    public float Lunge;            // Bierball: Ausholen beim Werfen (0..1)
+    public float DrinkAnim;        // Flasche am Mund (0..1)
+    public double DrinkProgress;   // Bierball: wie weit die Flasche leer ist
     public float WalkPhase;
+}
+
+/// <summary>Bierball wie im echten Leben: Ein Team wirft auf die Flasche in der Mitte.
+/// Bei einem Treffer trinkt das Werferteam, bis ein Läufer der Gegner die Flasche wieder aufgestellt hat.</summary>
+public class BierballGame
+{
+    public enum Step { Warten, Ausholen, Daneben, Hinlaufen, Aufstellen, Zuruecklaufen }
+    public int Throwing;
+    public Step Phase = Step.Warten;
+    public double Timer = 1.5;
+    public Visitor Thrower, Runner;
+    public bool BottleDown;
+    public float Wobble;
 }
 
 public class GroundBottle
@@ -60,11 +78,13 @@ public class VisitorSim
     public readonly List<List<BottleType>> BinContents = new();
     public readonly List<Collector> Collectors = new();
     public readonly List<(Vector2 pos, string text, Color color)> PendingFloats = new();
+    public readonly List<BottleType> Kasten = new();
+    public BierballGame Bierball;
     public Vector2 Size;
 
     readonly Random _rng = new();
     readonly Queue<double> _dropTimes = new();
-    double _clock, _spawnAcc;
+    double _clock, _spawnAcc, _grillWait = 2;
     bool _seeded;
     string _eventSpawnedFor;
 
@@ -117,6 +137,9 @@ public class VisitorSim
                 if (Visitors.Count < maxVisitors) Spawn(gs, paths, benches, tables, false);
             }
         }
+        if (gs.Level("grill") > 0) UpdateGrill(dt, paths, phaseFactor);
+        UpdateBierball(dt, gs, bins);
+
         if (Visitors.Count > gs.PeakVisitors)
         {
             gs.PeakVisitors = Visitors.Count;
@@ -145,6 +168,7 @@ public class VisitorSim
                     {
                         v.State = VisitorState.Sitzt;
                         v.StayTimer = Balance.StayBase * (1 + Balance.StayBonusPerBench * benches.Count) * R(0.7, 1.3);
+                        if (v.GrillSeat >= 0) v.StayTimer *= Balance.GrillStayFactor;
                         v.DrinkTimer = DrinkIntervalFor(v, drinkInterval) * R(0.6, 1.2);
                     }
                     break;
@@ -160,15 +184,18 @@ public class VisitorSim
                     v.DrinkTimer -= dt;
                     if (v.DrinkTimer <= 0)
                     {
-                        DropBottle(v.Pos, bins, gs, BottleFor(v, gs));
+                        Drop(v, bins, gs);
                         v.DrinkTimer = DrinkIntervalFor(v, drinkInterval) * R(0.8, 1.2);
                     }
                     if (ShouldLeave(v, gs, lamps, dt))
                     {
-                        if (_rng.NextDouble() < 0.5) DropBottle(v.Pos, bins, gs, BottleFor(v, gs));
+                        if (v.EventId != null || _rng.NextDouble() < 0.5) Drop(v, bins, gs);
                         v.State = v.HasBlanket ? VisitorState.PacktEin : VisitorState.Geht;
                         v.Seat = -1;
                         v.TableSeat = -1;
+                        v.GrillSeat = -1;
+                        v.DrinkAnim = 0;
+                        v.Lunge = 0;
                     }
                     break;
 
@@ -200,7 +227,9 @@ public class VisitorSim
 
     double DrinkIntervalFor(Visitor v, double normal)
     {
+        if (v.EventId == "bierball") return double.MaxValue; // trinken nur nach Treffern
         if (v.EventId != null) return EventDefs.Get(v.EventId)?.GuestDrinkInterval ?? normal;
+        if (v.GrillSeat >= 0) return normal * Balance.GrillDrinkFactor;
         if (v.TableSeat >= 0) return normal * Balance.TableDrinkFactor;
         return normal;
     }
@@ -209,7 +238,158 @@ public class VisitorSim
     {
         if (v.EventId == "bierball") return BottleType.Bier;
         if (v.EventId == "konzert" && _rng.NextDouble() < 0.6) return BottleType.Dose;
+        if (v.GrillSeat >= 0) return _rng.NextDouble() < 0.8 ? BottleType.Bier : BottleType.Dose;
         return RandomType(gs);
+    }
+
+    /// <summary>Besucher hat ausgetrunken: Grill-Bier kommt in den Kasten, sonst Eimer oder Wiese.</summary>
+    void Drop(Visitor v, List<Vector2> bins, GameState gs)
+    {
+        var type = BottleFor(v, gs);
+        if (v.GrillSeat >= 0 && type == BottleType.Bier && Kasten.Count < Balance.KastenCapacity)
+        {
+            _dropTimes.Enqueue(_clock);
+            Kasten.Add(type);
+            return;
+        }
+        DropBottle(v.Pos, bins, gs, type);
+    }
+
+    // --- Grillplatz ---
+    void UpdateGrill(double dt, List<Rect2> paths, double phaseFactor)
+    {
+        foreach (var v in Visitors) if (v.GrillSeat >= 0) return; // Grill ist besetzt
+        if (phaseFactor <= 0) return;
+        _grillWait -= dt;
+        if (_grillWait > 0) return;
+        _grillWait = R(6, 12);
+
+        var grill = ParkLayout.Grill(Size);
+        int n = Balance.GrillGroupMin + _rng.Next(Balance.GrillGroupMax - Balance.GrillGroupMin + 1);
+        var start = EdgePoint(paths);
+        var exit = EdgePoint(paths);
+        Visitor leader = null;
+        for (int i = 0; i < n; i++)
+        {
+            var g = NewVisitor(paths);
+            g.GrillSeat = i;
+            g.Target = grill + ParkLayout.GrillSeats[i];
+            g.Pos = start + new Vector2(Rf(-14, 14), Rf(-14, 14));
+            g.Exit = exit;
+            if (leader == null) leader = g; else g.Leader = leader;
+            Visitors.Add(g);
+        }
+    }
+
+    /// <summary>Sitzt gerade eine Grillrunde am Grill? (Dann glüht und raucht er.)</summary>
+    public bool GrillBusy
+    {
+        get
+        {
+            foreach (var v in Visitors) if (v.GrillSeat >= 0 && v.State == VisitorState.Sitzt) return true;
+            return false;
+        }
+    }
+
+    // --- Bierball ---
+    void UpdateBierball(double dt, GameState gs, List<Vector2> bins)
+    {
+        if (gs.ActiveEvent != "bierball") { Bierball = null; return; }
+        var g = Bierball ??= new BierballGame { Throwing = _rng.Next(2) };
+        var c = EventCenter;
+
+        var guests = new List<Visitor>();
+        foreach (var v in Visitors)
+            if (v.EventId == "bierball" && v.State == VisitorState.Sitzt) guests.Add(v);
+
+        bool drinking = g.Phase >= BierballGame.Step.Hinlaufen;
+        foreach (var v in guests)
+        {
+            float lungeTarget = v == g.Thrower && g.Phase == BierballGame.Step.Ausholen ? 1 : 0;
+            v.Lunge = Mathf.MoveToward(v.Lunge, lungeTarget, (float)dt * 5);
+            bool drinks = drinking && v.Team == g.Throwing;
+            v.DrinkAnim = Mathf.MoveToward(v.DrinkAnim, drinks ? 1 : 0, (float)dt * 4);
+            if (drinks && v.DrinkAnim >= 1)
+            {
+                v.DrinkProgress += dt * Balance.BierballDrinkRate;
+                if (v.DrinkProgress >= 1)
+                {
+                    v.DrinkProgress -= 1;
+                    DropBottle(v.Pos, bins, gs, BottleType.Bier);
+                }
+            }
+        }
+        g.Wobble = Mathf.MoveToward(g.Wobble, 0, (float)dt * 1.5f);
+
+        switch (g.Phase)
+        {
+            case BierballGame.Step.Warten:
+                if (guests.Count < 4) return;
+                g.Timer -= dt;
+                if (g.Timer > 0) return;
+                var throwers = guests.FindAll(v => v.Team == g.Throwing);
+                if (throwers.Count == 0) { NextTurn(g); return; }
+                g.Thrower = throwers[_rng.Next(throwers.Count)];
+                g.Phase = BierballGame.Step.Ausholen;
+                g.Timer = 0.7;
+                break;
+
+            case BierballGame.Step.Ausholen:
+                g.Timer -= dt;
+                if (g.Timer > 0) return;
+                var runners = guests.FindAll(v => v.Team != g.Throwing);
+                if (_rng.NextDouble() < Balance.BierballHitChance && runners.Count > 0)
+                {
+                    g.BottleDown = true;
+                    g.Runner = runners[_rng.Next(runners.Count)];
+                    g.Phase = BierballGame.Step.Hinlaufen;
+                    PendingFloats.Add((c + new Vector2(-26, -20), "TREFFER!", Palette.MoneyText));
+                }
+                else
+                {
+                    g.Wobble = 1;
+                    g.Phase = BierballGame.Step.Daneben;
+                    g.Timer = 0.9;
+                }
+                break;
+
+            case BierballGame.Step.Daneben:
+                g.Timer -= dt;
+                if (g.Timer <= 0) NextTurn(g);
+                break;
+
+            case BierballGame.Step.Hinlaufen:
+                if (!guests.Contains(g.Runner)) { g.BottleDown = false; NextTurn(g); break; }
+                g.Runner.WalkPhase += (float)dt * 14;
+                if (MoveTowards(ref g.Runner.Pos, c + new Vector2(g.Runner.Team == 0 ? -12 : 12, 0), Balance.BierballRunSpeed * dt))
+                {
+                    g.Phase = BierballGame.Step.Aufstellen;
+                    g.Timer = 0.6;
+                }
+                break;
+
+            case BierballGame.Step.Aufstellen:
+                g.Timer -= dt;
+                if (g.Timer > 0) return;
+                g.BottleDown = false;
+                g.Phase = BierballGame.Step.Zuruecklaufen;
+                break;
+
+            case BierballGame.Step.Zuruecklaufen:
+                if (!guests.Contains(g.Runner)) { NextTurn(g); break; }
+                g.Runner.WalkPhase += (float)dt * 14;
+                if (MoveTowards(ref g.Runner.Pos, g.Runner.Target, Balance.BierballRunSpeed * dt)) NextTurn(g);
+                break;
+        }
+    }
+
+    void NextTurn(BierballGame g)
+    {
+        g.Throwing = 1 - g.Throwing;
+        g.Phase = BierballGame.Step.Warten;
+        g.Timer = R(0.6, 1.2);
+        g.Thrower = null;
+        g.Runner = null;
     }
 
     bool Walk(Visitor v, Vector2 target, double dt)
@@ -328,6 +508,7 @@ public class VisitorSim
             var g = NewVisitor(paths);
             g.EventId = def.Id;
             g.Target = spot;
+            if (def.Kind == EventKind.Bierball) g.Team = spot.X < EventCenter.X ? 0 : 1;
             g.Pos = g.Pos.Lerp(spot, 0.3f);
             Visitors.Add(g);
         }
@@ -412,6 +593,7 @@ public class VisitorSim
             if (ok && gs.Level("imbiss") > 0 && ParkLayout.ImbissRect(Size).Grow(50).HasPoint(p)) ok = false;
             if (ok && EventCenter.DistanceTo(p) < 130) ok = false;
             if (ok && ParkLayout.Depot(Size).DistanceTo(p) < 60) ok = false;
+            if (ok && gs.Level("grill") > 0 && ParkLayout.Grill(Size).DistanceTo(p) < 100) ok = false;
             if (ok) foreach (var v in Visitors) if (v.HasBlanket && v.BlanketPos.DistanceTo(p) < 70) { ok = false; break; }
             if (ok) return p;
             best = p;

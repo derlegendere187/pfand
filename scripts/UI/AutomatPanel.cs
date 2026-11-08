@@ -60,16 +60,26 @@ public partial class AutomatPanel : PanelContainer
         _feedButton.Pressed += StartFeeding;
         col.AddChild(_feedButton);
 
+        // Der Bon füllt den Rest der Spalte. Lange Bons scrollen, statt das Layout zu verschieben.
         var bon = PfandTheme.Panel(Palette.Paper, null, 10);
         bon.SizeFlagsVertical = SizeFlags.ExpandFill;
+        bon.CustomMinimumSize = new Vector2(0, 80);
+        bon.ClipContents = true;
         var bcol = new VBoxContainer();
         bcol.AddThemeConstantOverride("separation", 2);
         _bonTitle = PfandTheme.Title("PFANDBON", 8);
         _bonTitle.HorizontalAlignment = HorizontalAlignment.Center;
         bcol.AddChild(_bonTitle);
-        _bonLines = new VBoxContainer();
+        var scroll = new ScrollContainer
+        {
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            VerticalScrollMode = ScrollContainer.ScrollMode.ShowNever,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+        };
+        bcol.AddChild(scroll);
+        _bonLines = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _bonLines.AddThemeConstantOverride("separation", 0);
-        bcol.AddChild(_bonLines);
+        scroll.AddChild(_bonLines);
         bon.AddChild(bcol);
         col.AddChild(bon);
         ShowEmptyBon();
@@ -141,10 +151,14 @@ public partial class AutomatPanel : PanelContainer
             AddBonLine($"{kv.Value.count}× {BottleInfo.Name(kv.Key)}", Format(kv.Value.sum), Palette.Ink);
         _bonLines.AddChild(new HSeparator());
         AddBonLine("SUMME", GameState.Euro(_feedTotal), Palette.Ink, true);
-        foreach (var cap in _capsFound)
+        // Gleiche Kronkorken in einer Zeile zusammenfassen
+        var counted = new Dictionary<int, int>();
+        foreach (var cap in _capsFound) counted[cap] = counted.TryGetValue(cap, out var k) ? k + 1 : 1;
+        foreach (var kv in counted)
         {
-            bool isNew = GameState.I.Caps.TryGetValue(cap, out var n) && n == 1;
-            AddBonLine("+ Kronkorken: " + Capitalize(CapData.All[cap].Name), isNew ? "NEU!" : "", Palette.GoodText);
+            bool isNew = GameState.I.Caps.TryGetValue(kv.Key, out var n) && n == kv.Value;
+            string times = kv.Value > 1 ? $"{kv.Value}× " : "";
+            AddBonLine("+ " + times + "Kronkorken " + Capitalize(CapData.All[kv.Key].Name), isNew ? "NEU!" : "", Palette.GoodText);
         }
     }
 

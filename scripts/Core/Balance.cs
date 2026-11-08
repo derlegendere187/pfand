@@ -35,6 +35,18 @@ public static class Balance
     public const double ImbissDrinkFactor = 0.7;     // Leute trinken schneller
     public const double ImbissVisitChance = 0.4;     // Anteil, der erst zum Imbiss geht
 
+    // Grillplatz: eine Grillrunde nach der anderen, Bier landet im Kasten
+    public const int GrillGroupMin = 4;
+    public const int GrillGroupMax = 6;
+    public const double GrillStayFactor = 2.0;       // bleiben doppelt so lange
+    public const double GrillDrinkFactor = 2.2;      // pro Kopf langsamer, aber viele Leute: Kasten ist nach ~1 Minute voll
+    public const int KastenCapacity = 20;
+
+    // Bierball (Flunkyball)
+    public const double BierballHitChance = 0.4;
+    public const double BierballDrinkRate = 0.45;    // Flaschen pro Sekunde, solange das eigene Team trinken darf
+    public const double BierballRunSpeed = 75;
+
     // Flaschen
     public const int MaxGroundBottles = 80;
     public const int StartBottles = 4;

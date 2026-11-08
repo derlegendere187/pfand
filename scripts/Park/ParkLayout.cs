@@ -63,6 +63,18 @@ public static class ParkLayout
 
     public static readonly Vector2 TableSize = new(32, 56);
 
+    /// <summary>Grillplatz unten links.</summary>
+    public static Vector2 Grill(Vector2 size) => new(Mathf.Round(0.10f * size.X), Mathf.Round(0.76f * size.Y));
+
+    /// <summary>Sitzplätze der Grillrunde relativ zum Grill.</summary>
+    public static readonly Vector2[] GrillSeats =
+    {
+        new(-44, -12), new(-44, 18), new(-14, -44), new(20, -44), new(-12, 46), new(46, -22),
+    };
+
+    /// <summary>Bierkasten neben dem Grill (26×32).</summary>
+    public static Rect2 KastenRect(Vector2 size) => new(Grill(size) + new Vector2(28, 6), new Vector2(26, 32));
+
     /// <summary>Wo Events stattfinden (oben rechts).</summary>
     public static Vector2 EventCenter(Vector2 size) => new(Mathf.Round(0.76f * size.X), Mathf.Round(0.21f * size.Y));
 
