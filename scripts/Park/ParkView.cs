@@ -114,8 +114,18 @@ public partial class ParkView : Control
         }
 
         foreach (var v in Sim.Visitors)
-            if (v.HasBlanket && v.State != VisitorState.Geht && v.Pos.DistanceTo(v.Target) < 1)
-                Sprites.Blanket(this, v.BlanketPos, v.BlanketColor);
+            if (v.HasBlanket && v.BlanketOpen > 0)
+                Sprites.BlanketOpening(this, v.BlanketPos, v.BlanketColor, v.BlanketOpen);
+
+        if (gs.Level("imbiss") > 0)
+        {
+            var ir = ParkLayout.ImbissRect(size);
+            Sprites.Imbiss(this, ir);
+            DrawString(PfandTheme.Pixel, new Vector2(ir.Position.X, ir.Position.Y + 32) + new Vector2(2, 2), "IMBISS",
+                HorizontalAlignment.Center, ir.Size.X, 16, Palette.PanelLight);
+            DrawString(PfandTheme.Pixel, new Vector2(ir.Position.X, ir.Position.Y + 32), "IMBISS",
+                HorizontalAlignment.Center, ir.Size.X, 16, Palette.Ink);
+        }
 
         foreach (var b in ParkLayout.Benches(size, gs)) Sprites.Bench(this, b);
 
@@ -135,8 +145,12 @@ public partial class ParkView : Control
         foreach (var v in Sim.Visitors)
         {
             var pos = v.Pos;
-            if (v.State != VisitorState.Sitzt) pos.Y += Mathf.Round(Mathf.Sin(v.WalkPhase) * 1.5f);
+            bool walking = v.State == VisitorState.Kommt || v.State == VisitorState.Geht;
+            if (walking) pos.Y += Mathf.Round(Mathf.Sin(v.WalkPhase) * 1.5f);
             Sprites.Person(this, pos.Round(), v.Shirt, v.Hair);
+            // Unterwegs trägt man die Decke zusammengerollt
+            if (v.HasBlanket && v.BlanketOpen <= 0 && v.State != VisitorState.Sitzt)
+                Sprites.RolledBlanket(this, pos.Round() + new Vector2(14, 4), v.BlanketColor);
         }
 
         // Abend und Nacht abdunkeln

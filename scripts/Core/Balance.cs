@@ -28,6 +28,13 @@ public static class Balance
     public const double WalkSpeed = 45;              // Pixel pro Sekunde
     public const double EveningLeaveChancePerSecond = 0.1; // ohne Laternen
 
+    // Imbissbude
+    public const int ImbissUnlockVisitors = 20;      // so viele Leute gleichzeitig im Park
+    public const double ImbissSpawnBonus = 0.5;      // +50 % Besucher
+    public const int ImbissMaxVisitors = 6;
+    public const double ImbissDrinkFactor = 0.7;     // Leute trinken schneller
+    public const double ImbissVisitChance = 0.4;     // Anteil, der erst zum Imbiss geht
+
     // Flaschen
     public const int MaxGroundBottles = 80;
     public const int StartBottles = 4;

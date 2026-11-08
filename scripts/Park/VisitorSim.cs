@@ -5,16 +5,19 @@ using Pfand.Core;
 
 namespace Pfand.Park;
 
-public enum VisitorState { Kommt, Sitzt, Geht }
+public enum VisitorState { Kommt, Imbiss, Sitzt, PacktEin, Geht }
 
 public class Visitor
 {
     public Vector2 Pos, Target, Exit;
     public VisitorState State;
-    public double StayTimer, DrinkTimer;
+    public double StayTimer, DrinkTimer, SnackTimer;
     public Color Shirt, Hair, BlanketColor;
     public bool HasBlanket;
     public Vector2 BlanketPos;
+    public float BlanketOpen;      // 0 = zusammengerollt, 1 = ausgebreitet
+    public bool WantsSnack;
+    public Vector2 SnackSpot;
     public int Seat = -1;          // Bankplatz (Bank * 2 + Seite), -1 = Decke
     public float WalkPhase;
 }
@@ -61,6 +64,7 @@ public class VisitorSim
         var bins = ParkLayout.Bins(Size, gs);
         var benches = ParkLayout.Benches(Size, gs);
         int lamps = gs.Level("laterne");
+        bool imbiss = gs.Level("imbiss") > 0;
         while (BinContents.Count < bins.Count) BinContents.Add(new List<BottleType>());
 
         if (!_seeded) Seed(gs, paths, benches);
@@ -73,8 +77,10 @@ public class VisitorSim
             DayPhase.Abend => 0.5 + 0.5 * lampFactor,
             _ => lampFactor,
         };
-        int maxVisitors = Balance.MaxVisitorsBase + Balance.MaxVisitorsPerPath * paths.Count + Balance.MaxVisitorsPerBench * benches.Count;
-        double interval = Balance.SpawnIntervalBase / (1 + Balance.SpawnBonusPerPath * paths.Count + Balance.SpawnBonusPerBin * bins.Count);
+        int maxVisitors = Balance.MaxVisitorsBase + Balance.MaxVisitorsPerPath * paths.Count + Balance.MaxVisitorsPerBench * benches.Count
+            + (imbiss ? Balance.ImbissMaxVisitors : 0);
+        double interval = Balance.SpawnIntervalBase / (1 + Balance.SpawnBonusPerPath * paths.Count + Balance.SpawnBonusPerBin * bins.Count
+            + (imbiss ? Balance.ImbissSpawnBonus : 0));
         if (phaseFactor > 0)
         {
             _spawnAcc += dt * phaseFactor;
@@ -84,6 +90,12 @@ public class VisitorSim
                 if (Visitors.Count < maxVisitors) Spawn(gs, paths, benches, false);
             }
         }
+        if (Visitors.Count > gs.PeakVisitors)
+        {
+            gs.PeakVisitors = Visitors.Count;
+            if (gs.PeakVisitors % 5 == 0) gs.Notify();
+        }
+        double drinkInterval = Balance.DrinkInterval * (imbiss ? Balance.ImbissDrinkFactor : 1);
 
         // --- Besucher bewegen ---
         for (int i = Visitors.Count - 1; i >= 0; i--)
@@ -92,21 +104,37 @@ public class VisitorSim
             switch (v.State)
             {
                 case VisitorState.Kommt:
+                    if (v.WantsSnack && imbiss)
+                    {
+                        // Erst zum Imbiss, dort kurz anstehen
+                        if (Walk(v, v.SnackSpot, dt))
+                        {
+                            v.State = VisitorState.Imbiss;
+                            v.SnackTimer = R(2, 4);
+                        }
+                        break;
+                    }
                     if (Walk(v, v.Target, dt))
                     {
                         v.State = VisitorState.Sitzt;
                         v.StayTimer = Balance.StayBase * (1 + Balance.StayBonusPerBench * benches.Count) * R(0.7, 1.3);
-                        v.DrinkTimer = Balance.DrinkInterval * R(0.6, 1.2);
+                        v.DrinkTimer = drinkInterval * R(0.6, 1.2);
                     }
                     break;
 
+                case VisitorState.Imbiss:
+                    v.SnackTimer -= dt;
+                    if (v.SnackTimer <= 0) { v.WantsSnack = false; v.State = VisitorState.Kommt; }
+                    break;
+
                 case VisitorState.Sitzt:
+                    if (v.HasBlanket) v.BlanketOpen = Mathf.Min(1f, v.BlanketOpen + (float)dt * 3f);
                     v.StayTimer -= dt;
                     v.DrinkTimer -= dt;
                     if (v.DrinkTimer <= 0)
                     {
                         DropBottle(v.Pos, bins, gs);
-                        v.DrinkTimer = Balance.DrinkInterval * R(0.8, 1.2);
+                        v.DrinkTimer = drinkInterval * R(0.8, 1.2);
                     }
                     bool leave = v.StayTimer <= 0
                         || (gs.Phase == DayPhase.Nacht && lamps == 0)
@@ -114,9 +142,15 @@ public class VisitorSim
                     if (leave)
                     {
                         if (_rng.NextDouble() < 0.5) DropBottle(v.Pos, bins, gs);
-                        v.State = VisitorState.Geht;
+                        v.State = v.HasBlanket ? VisitorState.PacktEin : VisitorState.Geht;
                         v.Seat = -1;
                     }
+                    break;
+
+                case VisitorState.PacktEin:
+                    // Decke wieder zusammenlegen, dann gehen
+                    v.BlanketOpen -= (float)dt * 3f;
+                    if (v.BlanketOpen <= 0) { v.BlanketOpen = 0; v.State = VisitorState.Geht; }
                     break;
 
                 case VisitorState.Geht:
@@ -160,6 +194,8 @@ public class VisitorSim
             Pos = EdgePoint(paths),
             Exit = EdgePoint(paths),
             State = VisitorState.Kommt,
+            WantsSnack = gs.Level("imbiss") > 0 && _rng.NextDouble() < Balance.ImbissVisitChance,
+            SnackSpot = ParkLayout.ImbissFront(Size) + new Vector2(Rf(-50, 50), Rf(0, 16)),
         };
 
         // Platz suchen: lieber Bank, sonst Decke auf der Wiese
@@ -180,6 +216,8 @@ public class VisitorSim
         if (alreadySitting)
         {
             v.Pos = v.Target;
+            v.WantsSnack = false;
+            v.BlanketOpen = 1;
             v.State = VisitorState.Sitzt;
             v.StayTimer = Balance.StayBase * R(0.5, 1.0);
             v.DrinkTimer = Balance.DrinkInterval * R(0.3, 1.0);
@@ -207,6 +245,7 @@ public class VisitorSim
             bool ok = true;
             foreach (var r in paths) if (r.Grow(30).HasPoint(p)) { ok = false; break; }
             if (ok) foreach (var b in benches) if (b.DistanceTo(p) < 60) { ok = false; break; }
+            if (ok && GameState.I.Level("imbiss") > 0 && ParkLayout.ImbissRect(Size).Grow(50).HasPoint(p)) ok = false;
             if (ok) foreach (var v in Visitors) if (v.HasBlanket && v.BlanketPos.DistanceTo(p) < 70) { ok = false; break; }
             if (ok) return p;
             best = p;

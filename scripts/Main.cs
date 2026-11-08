@@ -15,6 +15,7 @@ namespace Pfand;
 ///   --fresh            Spielstand nicht laden und nicht speichern
 ///   --money=50         Startgeld setzen
 ///   --late             Park mit einigen Upgrades ausstatten
+///   --imbiss           Imbissbude freischalten und bauen
 ///   --time=0.7         Tageszeit setzen (0..1)
 ///   --speed=4          Spiel schneller laufen lassen
 ///   --screenshot=PFAD  nach --shotdelay Sekunden Bildschirmfoto speichern und beenden
@@ -47,6 +48,7 @@ public partial class Main : Control
             gs.Caps[0] = 2; gs.Caps[2] = 1; gs.Caps[4] = 1;
             gs.BottlesFed = 100;
         }
+        if (_args.ContainsKey("imbiss")) { gs.Upgrades["imbiss"] = 1; gs.PeakVisitors = Balance.ImbissUnlockVisitors; }
         if (_args.TryGetValue("time", out var t) && double.TryParse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var time)) gs.TimeOfDay = time;
         if (_args.TryGetValue("speed", out var s) && double.TryParse(s, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var speed)) Engine.TimeScale = speed;
         if (_args.TryGetValue("screenshot", out var shot))

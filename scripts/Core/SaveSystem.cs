@@ -12,6 +12,7 @@ public class SaveData
     public double Money { get; set; }
     public double TotalEarned { get; set; }
     public long BottlesFed { get; set; }
+    public int PeakVisitors { get; set; }
     public double TimeOfDay { get; set; }
     public List<int> Bag { get; set; } = new();
     public Dictionary<string, int> Upgrades { get; set; } = new();
@@ -30,6 +31,7 @@ public static class SaveSystem
             Money = s.Money,
             TotalEarned = s.TotalEarned,
             BottlesFed = s.BottlesFed,
+            PeakVisitors = s.PeakVisitors,
             TimeOfDay = s.TimeOfDay,
             Bag = s.Bag.Select(b => (int)b).ToList(),
             Upgrades = new Dictionary<string, int>(s.Upgrades),
@@ -57,6 +59,7 @@ public static class SaveSystem
             s.Money = data.Money;
             s.TotalEarned = data.TotalEarned;
             s.BottlesFed = data.BottlesFed;
+            s.PeakVisitors = data.PeakVisitors;
             s.TimeOfDay = data.TimeOfDay;
             s.Bag = data.Bag.Select(b => (BottleType)b).ToList();
             s.Upgrades = data.Upgrades ?? new();

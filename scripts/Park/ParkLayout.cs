@@ -42,6 +42,20 @@ public static class ParkLayout
         return list;
     }
 
+    /// <summary>Platz der Imbissbude (140×100) zwischen den Wegen unten rechts.</summary>
+    public static Rect2 ImbissRect(Vector2 size)
+    {
+        var c = new Vector2(Mathf.Round(0.625f * size.X), Mathf.Round(0.68f * size.Y));
+        return new Rect2(c - new Vector2(70, 50), new Vector2(140, 100));
+    }
+
+    /// <summary>Wo die Leute am Imbiss anstehen (unter dem Tresen).</summary>
+    public static Vector2 ImbissFront(Vector2 size)
+    {
+        var r = ImbissRect(size);
+        return new Vector2(r.GetCenter().X, r.End.Y + 14);
+    }
+
     public static List<Vector2> Bins(Vector2 size, GameState gs) => Points(BinSlots, size, gs.Level("muelleimer"));
     public static List<Vector2> Benches(Vector2 size, GameState gs) => Points(BenchSlots, size, gs.Level("bank"));
     public static List<Vector2> Lamps(Vector2 size, GameState gs) => Points(LampSlots, size, gs.Level("laterne"));

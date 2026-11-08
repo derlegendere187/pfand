@@ -62,6 +62,41 @@ public static class Sprites
         if (label) R(ci, o, p, 0, 5, 3, 1, Palette.PanelLight);
     }
 
+    /// <summary>Picknickdecke, die sich ausbreitet: open = 0 (Rolle) … 1 (ganz offen).</summary>
+    public static void BlanketOpening(CanvasItem ci, Vector2 pos, Color c, float open)
+    {
+        if (open <= 0) return;
+        // in Pixelschritten aufklappen, damit es zum Look passt
+        float sx = Mathf.Max(0.2f, Mathf.Snapped(open, 0.2f));
+        ci.DrawSetTransform(pos, 0, new Vector2(sx, Mathf.Max(0.4f, sx)));
+        Blanket(ci, Vector2.Zero, c);
+        ci.DrawSetTransform(Vector2.Zero, 0, Vector2.One);
+    }
+
+    /// <summary>Zusammengerollte Decke unterm Arm (5×2).</summary>
+    public static void RolledBlanket(CanvasItem ci, Vector2 pos, Color c, float p = 3)
+    {
+        var o = pos - new Vector2(2.5f * p, p);
+        R(ci, o, p, 0, 0, 5, 2, c);
+        R(ci, o, p, 1, 0, 1, 2, Palette.PanelLight);
+        R(ci, o, p, 3, 0, 1, 2, Palette.PanelLight);
+    }
+
+    /// <summary>Imbissbude von oben (28×20, Pixel 5) in rect.</summary>
+    public static void Imbiss(CanvasItem ci, Rect2 rect)
+    {
+        float p = 5;
+        var o = rect.Position;
+        R(ci, o, p, 0, 0, 28, 12, Palette.PanelLight);
+        for (int x = 0; x < 28; x += 4) R(ci, o, p, x, 0, 2, 12, Color.FromHtml("#d9735a"));
+        R(ci, o, p, 0, 12, 28, 2, Color.FromHtml("#a8503c"));
+        R(ci, o, p, 1, 14, 26, 6, Color.FromHtml("#8a5a34"));
+        R(ci, o, p, 2, 15, 24, 2, Color.FromHtml("#d9b88a"));
+        R(ci, o, p, 4, 15, 2, 2, Palette.LampLight);
+        R(ci, o, p, 10, 15, 2, 2, Color.FromHtml("#e08a4a"));
+        R(ci, o, p, 18, 15, 3, 2, Palette.Leergut);
+    }
+
     /// <summary>Picknickdecke (15×11), zentriert.</summary>
     public static void Blanket(CanvasItem ci, Vector2 pos, Color c, float p = 4)
     {

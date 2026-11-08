@@ -39,6 +39,7 @@ public class GameState
     public double Money;
     public double TotalEarned;
     public long BottlesFed;
+    public int PeakVisitors;       // Rekord: so viele Leute waren gleichzeitig im Park
     public double TimeOfDay = Balance.StartTimeOfDay;
     public List<BottleType> Bag = new();
     public Dictionary<string, int> Upgrades = new();
