@@ -24,27 +24,21 @@ public static class KalleHints
             "Oh, schon 22 Uhr! Im Dunkeln gehen die Leute nach Hause, und neue kommen kaum noch.",
             "Kauf dir eine Laterne! Dann bleiben die Leute abends länger, und nachts kommen sogar noch welche. Du findest sie rechts bei den Upgrades.",
         }, gs => gs.Level("laterne") > 0),
+        new("kronkorken", gs => gs.Kronkorken > 0 || gs.Caps.Count > 0, new[]
+        {
+            "Oh, ein Kronkorken! Die stecken ab und zu in den Flaschen, die du einwirfst. Dosen haben keine.",
+            "Mit Kronkorken lernst du im SKILLTREE neue Sachen, unten rechts. Dort schaltest du auch Neues für den Park frei, zum Beispiel Picknickdecken und Mülleimer.",
+            "Erst im Skilltree freischalten, dann rechts bei den Upgrades kaufen. Und im ALBUM siehst du, welche Motive du schon gesammelt hast.",
+        }),
         new("muelleimer", gs => gs.Level("muelleimer") > 0, new[]
         {
             "Ein Mülleimer! Manche Leute werfen ihre leeren Flaschen jetzt da rein. Klick auf den Eimer, dann holst du alle auf einmal raus.",
-            "Noch ein Trick: Mit RECHTSKLICK auf den Mülleimer kannst du ihn verbessern, zum Beispiel größer machen.",
-            "Das geht auch mit Bänken und anderen Sachen im Park. Einfach mal rechts draufklicken!",
+            "Im Skilltree kannst du später alle Mülleimer auf einmal vergrößern. Genauso Bänke, Imbiss und Co.",
         }),
         new("sammler", gs => gs.Level("sammler") > 0, new[]
         {
             "Dein erster Sammler! Der läuft jetzt selbst durch den Park, sammelt Flaschen ein und bringt sie zum Automaten.",
             "Je mehr Sammler du hast, desto weniger musst du selbst klicken.",
-        }),
-        new("album", gs => gs.CapsUnlocked, new[]
-        {
-            "Mit dem Sammelalbum kannst du jetzt Kronkorken sammeln. Ab und zu steckt beim Einwerfen einer in einer Flasche. Dosen haben keine.",
-            "Kronkorken sind selten! Unten rechts im ALBUM siehst du, welche Motive du schon hast.",
-        }),
-        new("kronkorken", gs => gs.CapsUnlocked && (gs.Kronkorken > 0 || gs.Caps.Count > 0), new[]
-        {
-            "Dein erster Kronkorken! Schau ihn dir im Album an.",
-            "Kronkorken sind auch die Währung für den SKILLTREE, unten rechts. Dort lernst du Fähigkeiten, und jeder gelernte Knoten lässt neue Äste wachsen.",
-            "Keine Sorge: Im Album bleibt der Kronkorken trotzdem, auch wenn du ihn ausgibst.",
         }),
         new("events", gs => gs.AnyEventUnlocked, new[]
         {

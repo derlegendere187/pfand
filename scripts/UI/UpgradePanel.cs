@@ -86,7 +86,7 @@ public partial class UpgradePanel : PanelContainer
             c.Root.Visible = UpgradeDefs.Visible(gs, c.Def);
             if (!c.Root.Visible) continue;
             int level = gs.Level(c.Def.Id);
-            bool unlocked = c.Def.Unlocked(gs);
+            bool unlocked = gs.UpgradeUnlocked(c.Def);
             bool maxed = level >= gs.MaxLevel(c.Def);
             c.Owned.Text = level > 0 ? $"×{level}" : "";
 
@@ -95,7 +95,7 @@ public partial class UpgradePanel : PanelContainer
             c.Name.AddThemeColorOverride("font_color", dim ? Palette.Muted : Palette.Ink);
             c.Effect.AddThemeColorOverride("font_color", dim ? Palette.Muted : Palette.InkSoft);
 
-            if (!unlocked) { c.Buy.Text = c.Def.LockedTextFn?.Invoke(gs) ?? c.Def.LockedText; c.Buy.Disabled = true; }
+            if (!unlocked) { c.Buy.Text = c.Def.LockedText; c.Buy.Disabled = true; }
             else if (maxed) { c.Buy.Text = "MAXIMUM"; c.Buy.Disabled = true; }
             else { c.Buy.Text = GameState.Euro(c.Def.Price(level)); c.Buy.Disabled = !gs.CanBuy(c.Def); }
         }

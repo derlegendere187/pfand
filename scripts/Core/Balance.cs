@@ -29,7 +29,6 @@ public static class Balance
     public const double EveningLeaveChancePerSecond = 0.1; // ohne Laternen
 
     // Imbissbude
-    public const int ImbissUnlockVisitors = 20;      // so viele Leute gleichzeitig im Park
     public const double ImbissSpawnBonus = 0.5;      // +50 % Besucher
     public const int ImbissMaxVisitors = 6;
     public const double ImbissDrinkFactor = 0.7;     // Leute trinken schneller
@@ -89,7 +88,8 @@ public static class Balance
 
     // Automat
     public const double FeedInterval = 0.1;          // Sekunden pro eingeworfener Flasche
-    public const double CapDropChance = 0.005;       // Chance auf einen Kronkorken (nicht bei Dosen), erst nach "Sammelalbum"
+    public const double CapDropChance = 0.03;        // Chance auf einen Kronkorken (nicht bei Dosen)
+    public const int FirstCapGuaranteedAt = 12;      // spätestens diese Flasche bringt den ersten Kronkorken
 
     // Picknickdecken: ohne Upgrade stehen die Leute nur kurz auf der Wiese herum
     public const double StandStayFactor = 0.85;

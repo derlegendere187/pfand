@@ -8,7 +8,7 @@ namespace Pfand.Core;
 
 public class SaveData
 {
-    public int Version { get; set; } = 4;
+    public int Version { get; set; } = 5;
     public double Money { get; set; }
     public double TotalEarned { get; set; }
     public long BottlesFed { get; set; }
@@ -17,7 +17,7 @@ public class SaveData
     public double TimeOfDay { get; set; }
     public List<int> Bag { get; set; } = new();
     public Dictionary<string, int> Upgrades { get; set; } = new();
-    public Dictionary<string, int> Ausbau { get; set; } = new();
+    public Dictionary<string, int> Ausbau { get; set; }           // nur bis Version 4 (Ausbau pro Objekt)
     public Dictionary<int, int> Caps { get; set; } = new();
     public List<string> Skills { get; set; } = new();            // nur Version 2
     public Dictionary<string, int> SkillLevels { get; set; } = new();
@@ -53,7 +53,6 @@ public static class SaveSystem
             TimeOfDay = s.TimeOfDay,
             Bag = s.Bag.Select(b => (int)b).ToList(),
             Upgrades = new Dictionary<string, int>(s.Upgrades),
-            Ausbau = new Dictionary<string, int>(s.Ausbau),
             Caps = new Dictionary<int, int>(s.Caps),
             SkillLevels = new Dictionary<string, int>(s.Skills),
             Cooldowns = new Dictionary<string, double>(s.Cooldowns),
@@ -94,7 +93,6 @@ public static class SaveSystem
             s.TimeOfDay = data.TimeOfDay;
             s.Bag = data.Bag.Where(b => Enum.IsDefined(typeof(BottleType), b)).Select(b => (BottleType)b).ToList();
             s.Upgrades = data.Upgrades ?? new();
-            s.Ausbau = data.Ausbau ?? new();
             s.Caps = (data.Caps ?? new()).Where(kv => kv.Key >= 0 && kv.Key < CapData.Count).ToDictionary(kv => kv.Key, kv => kv.Value);
             s.Cooldowns = data.Cooldowns ?? new();
             s.EventCount = data.EventCount ?? new();
@@ -118,7 +116,7 @@ public static class SaveSystem
                     .ToDictionary(kv => kv.Key, kv => Math.Min(kv.Value, SkillDefs.Get(kv.Key).MaxLevel));
             }
             // Vor Version 4 gab es Kronkorken von Anfang an: wer schon welche hat, bekommt das Sammelalbum
-            if (data.Version < 4 && (s.Kronkorken > 0 || s.Caps.Count > 0 || s.Skills.Count > 0)) s.Upgrades["album"] = 1;
+            if (data.Version < 5) MigrateToSkillUnlocks(s, data.Ausbau);
             s.PlayTime = data.PlayTime;
             s.FedByType = data.FedByType ?? new();
             s.CollectedByHand = data.CollectedByHand;
@@ -135,6 +133,37 @@ public static class SaveSystem
             GD.PushError($"Spielstand konnte nicht geladen werden: {e.Message}");
             return false;
         }
+    }
+
+    /// <summary>
+    /// Ab Version 5 schaltet der Skilltree die Upgrades frei und baut alle Objekte einer Sorte aus.
+    /// Was man schon hatte, gibt es als Skill geschenkt.
+    /// </summary>
+    static void MigrateToSkillUnlocks(GameState s, Dictionary<string, int> ausbau)
+    {
+        s.Upgrades.Remove("album");
+        foreach (var u in UpgradeDefs.All)
+            if (u.Skill != null && s.Level(u.Id) > 0) GrantWithParents(s, u.Skill);
+        var steps = new Dictionary<string, string[]>
+        {
+            ["bank"] = new[] { "bank_tisch", "bank_doppel" },
+            ["muelleimer"] = new[] { "eimer_gross", "eimer_ring" },
+            ["imbiss"] = new[] { "imbiss_theke", "imbiss_kuehl" },
+            ["tischtennis"] = new[] { "tt_turnier" },
+            ["grill"] = new[] { "grill_rost", "grill_kuehl" },
+        };
+        foreach (var kv in ausbau ?? new())
+        {
+            var kind = kv.Key.Split(':')[0];
+            if (!steps.TryGetValue(kind, out var ids)) continue;
+            for (int i = 0; i < kv.Value && i < ids.Length; i++) GrantWithParents(s, ids[i]);
+        }
+    }
+
+    static void GrantWithParents(GameState s, string id)
+    {
+        for (var d = SkillDefs.Get(id); d != null && d.Id != SkillDefs.Root; d = SkillDefs.Get(d.Parent ?? SkillDefs.Root))
+            if (!s.HasSkill(d.Id)) s.Skills[d.Id] = 1;
     }
 
     public static string FullPath => ProjectSettings.GlobalizePath(Path);

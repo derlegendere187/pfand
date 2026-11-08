@@ -24,7 +24,6 @@ namespace Pfand;
 ///   --skills=wert:2,aoe:1  einzelne Skill-Stufen setzen
 ///   --kk=20            Kronkorken setzen
 ///   --feedtest         Tasche füllen und automatisch einwerfen
-///   --ausbau=bank:0:2,muelleimer:1:2  Ausbaustufen setzen (Sorte:Nummer:Stufe)
 ///   --event=konzert    Event sofort starten
 ///   --time=0.7         Tageszeit setzen (0..1)
 ///   --speed=4          Spiel schneller laufen lassen
@@ -42,7 +41,6 @@ public partial class Main : Control
     AlbumPopup _album;
     SkillPopup _skills;
     StatsPopup _stats;
-    AusbauPopup _ausbau;
     AutomatPanel _automat;
     Label _albumCount, _skillCount, _statsCount;
     Button _tabUpgrades, _tabEvents, _albumButton, _skillButton;
@@ -60,20 +58,18 @@ public partial class Main : Control
         // Ganz neues Spiel: Kalle erklärt erst einmal alles (Debug-Startwerte überspringen das)
         if (!loaded) gs.Tutorial = TutorialStep.Intro;
         bool debugStart = false;
-        foreach (var k in new[] { "notut", "money", "late", "imbiss", "upgrades", "allskills", "skills", "kk", "feedtest", "ausbau", "event", "open" })
+        foreach (var k in new[] { "notut", "money", "late", "imbiss", "upgrades", "allskills", "skills", "kk", "feedtest", "event", "open" })
             if (_args.ContainsKey(k)) { gs.Tutorial = TutorialStep.Done; debugStart = true; }
         if (_args.TryGetValue("money", out var m) && double.TryParse(m, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var money)) gs.Money = money;
         if (_args.ContainsKey("late"))
         {
             gs.Upgrades["weg"] = 4; gs.Upgrades["tasche"] = 2; gs.Upgrades["muelleimer"] = 3;
             gs.Upgrades["bank"] = 3; gs.Upgrades["laterne"] = 2;
-            gs.Upgrades["picknick"] = 2; gs.Upgrades["album"] = 1;
+            gs.Upgrades["picknick"] = 2;
             gs.Caps[0] = 2; gs.Caps[2] = 1; gs.Caps[4] = 1; gs.Caps[7] = 1;
             gs.Kronkorken = 5;
             gs.BottlesFed = 100;
         }
-        if (_args.ContainsKey("allskills") || _args.ContainsKey("kk") || _args.ContainsKey("skills") || _args.ContainsKey("event"))
-            gs.Upgrades["album"] = 1;
         if (_args.ContainsKey("allskills"))
             foreach (var sk in SkillDefs.All) if (sk.MaxLevel > 0) gs.Skills[sk.Id] = sk.MaxLevel;
         if (_args.TryGetValue("skills", out var sks))
@@ -88,19 +84,13 @@ public partial class Main : Control
             gs.Skills[evDef.Skill] = 1;
             gs.TryStartEvent(evDef, free: true);
         }
-        if (_args.TryGetValue("ausbau", out var aus))
-            foreach (var pair in aus.Split(','))
-            {
-                var kv = pair.Split(':');
-                if (kv.Length == 3 && int.TryParse(kv[2], out var lvl)) gs.Ausbau[kv[0] + ":" + kv[1]] = lvl;
-            }
         if (_args.TryGetValue("upgrades", out var ups))
             foreach (var pair in ups.Split(','))
             {
                 var kv = pair.Split(':');
                 if (kv.Length == 2 && int.TryParse(kv[1], out var lvl)) gs.Upgrades[kv[0]] = lvl;
             }
-        if (_args.ContainsKey("imbiss")) { gs.Upgrades["imbiss"] = 1; gs.PeakVisitors = Balance.ImbissUnlockVisitors; }
+        if (_args.ContainsKey("imbiss")) gs.Upgrades["imbiss"] = 1;
         if (_args.TryGetValue("time", out var t) && double.TryParse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var time)) gs.TimeOfDay = time;
         if (_args.TryGetValue("speed", out var s) && double.TryParse(s, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var speed)) { Engine.TimeScale = speed; CallDeferred(MethodName.UpdateSpeedLabel); }
         if (_args.TryGetValue("screenshot", out var shot))
@@ -110,6 +100,9 @@ public partial class Main : Control
         }
         _startMs = Time.GetTicksMsec();
 
+        // Debug-Upgrades brauchen ihren Skill, sonst wären sie unsichtbar
+        foreach (var u in UpgradeDefs.All)
+            if (u.Skill != null && gs.Level(u.Id) > 0 && !gs.HasSkill(u.Skill)) gs.Skills[u.Skill] = 1;
         // Debug-Start: Kalle erklärt nichts, was schon da ist (--hint=ID zeigt einen Tipp gezielt)
         if (debugStart) KalleHints.MarkCurrent(gs);
         if (_args.TryGetValue("hint", out var hintId)) gs.SeenHints.Remove(hintId);
@@ -123,8 +116,6 @@ public partial class Main : Control
             if (open == "skills") _skills.CallDeferred(SkillPopup.MethodName.Open);
             else if (open == "album") _album.CallDeferred(AlbumPopup.MethodName.Open);
             else if (open == "stats") _stats.CallDeferred(StatsPopup.MethodName.Open);
-            else if (open.StartsWith("ausbau:") && open.Split(':') is { Length: 3 } a && int.TryParse(a[2], out var ai))
-                _ausbau.CallDeferred(AusbauPopup.MethodName.Open, a[1], ai);
             else if (open == "events") ShowTab(true);
         }
         if (_args.ContainsKey("feedtest"))
@@ -214,9 +205,6 @@ public partial class Main : Control
         _skills = new SkillPopup();
         AddChild(_skills);
         skillButton.Pressed += _skills.Open;
-        _ausbau = new AusbauPopup();
-        AddChild(_ausbau);
-        park.ObjectClicked += _ausbau.Open;
         _stats = new StatsPopup();
         AddChild(_stats);
         statsButton.Pressed += _stats.Open;
@@ -224,7 +212,7 @@ public partial class Main : Control
         var tutorial = new TutorialOverlay
         {
             Park = park, Automat = _automat, AutoAdvance = _args.ContainsKey("autotut"),
-            Busy = () => _skills.Visible || _album.Visible || _stats.Visible || _ausbau.Visible,
+            Busy = () => _skills.Visible || _album.Visible || _stats.Visible,
         };
         AddChild(tutorial);
     }
@@ -284,7 +272,7 @@ public partial class Main : Control
         _albumCount.Text = $"{found}/{CapData.Count}";
         _skillCount.Text = $"{GameState.I.Kronkorken} KK";
         // Album und Skilltree erst mit dem Sammelalbum, Events erst nach dem ersten Event-Skill
-        _albumButton.Visible = _skillButton.Visible = GameState.I.CapsUnlocked;
+        _albumButton.Visible = _skillButton.Visible = GameState.I.SkillsVisible;
         bool events = GameState.I.AnyEventUnlocked;
         if (!events && _eventPanel.Visible) ShowTab(false);
         _tabEvents.Visible = events;

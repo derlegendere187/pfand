@@ -52,7 +52,6 @@ public class GameState
     public double TimeOfDay = Balance.StartTimeOfDay;
     public List<BottleType> Bag = new();
     public Dictionary<string, int> Upgrades = new();
-    public Dictionary<string, int> Ausbau = new();      // "bank:2" -> Ausbaustufe der dritten Bank
     public Dictionary<int, int> Caps = new();          // Album: Motiv -> wie oft gefunden
     public Dictionary<string, int> Skills = new();     // Skill -> Stufe
     public Dictionary<string, double> Cooldowns = new(); // Event -> Restzeit in Sekunden
@@ -100,9 +99,9 @@ public class GameState
         _ => 1,
     };
 
-    /// <summary>Kronkorken gibt es erst mit dem Sammelalbum.</summary>
-    public bool CapsUnlocked => Level("album") > 0;
-    public double CapChance => CapsUnlocked ? Balance.CapDropChance * (1 + 0.5 * SkillLevel("glueck")) : 0;
+    /// <summary>Album und Skilltree tauchen auf, sobald man den ersten Kronkorken hat.</summary>
+    public bool SkillsVisible => Kronkorken > 0 || Caps.Count > 0 || Skills.Count > 0;
+    public double CapChance => Balance.CapDropChance * (1 + 0.5 * SkillLevel("glueck"));
     public double CooldownFactor => 1 - 0.15 * SkillLevel("ev_cooldown");
     public double FeedInterval => Balance.FeedInterval / (1 + 0.5 * SkillLevel("abgabe"));
     public double RetroChance => Balance.RetroChancePerLevel * SkillLevel("retro");
@@ -144,7 +143,9 @@ public class GameState
         FedByType[(int)t] = (FedByType.TryGetValue((int)t, out var n) ? n : 0) + 1;
         int cap = -1;
         double chance = CapChance * (t == BottleType.Retro || t == BottleType.Gold ? 5 : 1);
-        if (BottleInfo.HasCap(t) && rng.NextDouble() < chance)
+        // Der erste Kronkorken kommt spätestens mit der zwölften Flasche, damit man den Skilltree früh entdeckt
+        bool firstGuaranteed = Caps.Count == 0 && Kronkorken == 0 && Skills.Count == 0 && BottlesFed >= Balance.FirstCapGuaranteedAt;
+        if (BottleInfo.HasCap(t) && (firstGuaranteed || rng.NextDouble() < chance))
         {
             cap = rng.Next(CapData.Count);
             // Albumjäger: oft ein Motiv, das noch fehlt
@@ -164,7 +165,7 @@ public class GameState
     public bool CanBuy(UpgradeDef d)
     {
         int l = Level(d.Id);
-        return d.Unlocked(this) && l < MaxLevel(d) && Money + 1e-9 >= d.Price(l);
+        return UpgradeUnlocked(d) && l < MaxLevel(d) && Money + 1e-9 >= d.Price(l);
     }
 
     public bool TryBuy(UpgradeDef d)
@@ -177,20 +178,19 @@ public class GameState
         return true;
     }
 
-    // --- Ausbau einzelner Objekte ---
-    public int AusbauLevel(string kind, int index) => Ausbau.TryGetValue(AusbauDefs.Key(kind, index), out var l) ? l : 0;
-    public bool AusbauMaxed(string kind, int index) => AusbauLevel(kind, index) >= AusbauDefs.Kinds[kind].Steps.Length;
-    public double AusbauPrice(string kind, int index) => AusbauDefs.Price(kind, index, AusbauLevel(kind, index));
-    public bool CanBuyAusbau(string kind, int index) => !AusbauMaxed(kind, index) && Money + 1e-9 >= AusbauPrice(kind, index);
+    /// <summary>Im Skilltree freigeschaltet und die Zusatzbedingung erfüllt (z. B. Grill erst mit Imbiss).</summary>
+    public bool UpgradeUnlocked(UpgradeDef d) => (d.Skill == null || HasSkill(d.Skill)) && d.Unlocked(this);
 
-    public bool TryBuyAusbau(string kind, int index)
+    // --- Ausbau: gilt über den Skilltree für alle Objekte einer Sorte ---
+    public int AusbauLevel(string kind, int index = 0) => kind switch
     {
-        if (!CanBuyAusbau(kind, index)) return false;
-        Money -= AusbauPrice(kind, index);
-        Ausbau[AusbauDefs.Key(kind, index)] = AusbauLevel(kind, index) + 1;
-        Notify();
-        return true;
-    }
+        "bank" => HasSkill("bank_doppel") ? 2 : HasSkill("bank_tisch") ? 1 : 0,
+        "muelleimer" => HasSkill("eimer_ring") ? 2 : HasSkill("eimer_gross") ? 1 : 0,
+        "imbiss" => HasSkill("imbiss_kuehl") ? 2 : HasSkill("imbiss_theke") ? 1 : 0,
+        "tischtennis" => HasSkill("tt_turnier") ? 1 : 0,
+        "grill" => HasSkill("grill_kuehl") ? 2 : HasSkill("grill_rost") ? 1 : 0,
+        _ => 0,
+    };
 
     public int BinCapacity(int bin) => AusbauLevel("muelleimer", bin) switch { 0 => Balance.BinCapacity, 1 => 25, _ => 40 };
     public int BenchSeats(int bench) => AusbauLevel("bank", bench) >= 2 ? 4 : 2;

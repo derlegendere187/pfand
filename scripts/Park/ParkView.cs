@@ -11,9 +11,6 @@ public partial class ParkView : Control
 {
     public readonly VisitorSim Sim = new();
 
-    /// <summary>Ein Objekt im Park wurde zum Ausbauen angeklickt (Sorte, Nummer).</summary>
-    public event Action<string, int> ObjectClicked;
-    (string kind, int index)? _hoverObject;
 
     class FloatText { public Vector2 Pos; public string Text; public Color Color; public float Life; }
     readonly List<FloatText> _floats = new();
@@ -63,17 +60,10 @@ public partial class ParkView : Control
             TryCollect(mb.Position, true);
             AcceptEvent();
         }
-        else if (e is InputEventMouseButton rb && rb.ButtonIndex == MouseButton.Right && rb.Pressed)
-        {
-            // Rechtsklick öffnet immer den Ausbau (auch bei Eimern, die man links leert)
-            if (ObjectAt(rb.Position) is { } o) ObjectClicked?.Invoke(o.kind, o.index);
-            AcceptEvent();
-        }
         else if (e is InputEventMouseMotion mm)
         {
             _mouse = mm.Position;
             bool overBottle = Sim.BottlesAround(mm.Position, GameState.I.ClickRadius).Count > 0;
-            _hoverObject = overBottle || OverKasten(mm.Position) ? null : ObjectAt(mm.Position);
             bool over = overBottle || OverKasten(mm.Position) || Sim.BinAt(mm.Position, ParkLayout.Bins(Size, GameState.I)) >= 0;
             MouseDefaultCursorShape = over ? CursorShape.PointingHand : CursorShape.Arrow;
             // Mit gedrückter Maustaste drüberwischen sammelt auch
@@ -118,37 +108,6 @@ public partial class ParkView : Control
         else if (isClick)
         {
             Float(hits[0].Pos, "Tasche voll!", Palette.BadText);
-        }
-    }
-
-    /// <summary>Welches ausbaubare Objekt liegt unter pos?</summary>
-    public (string kind, int index)? ObjectAt(Vector2 pos)
-    {
-        var gs = GameState.I;
-        var benches = ParkLayout.Benches(Size, gs);
-        for (int i = 0; i < benches.Count; i++)
-            if (ParkLayout.BenchRect(benches[i], i, gs.AusbauLevel("bank", i)).HasPoint(pos)) return ("bank", i);
-        var bins = ParkLayout.Bins(Size, gs);
-        for (int i = 0; i < bins.Count; i++) if (bins[i].DistanceTo(pos) < 18) return ("muelleimer", i);
-        if (gs.Level("imbiss") > 0 && ParkLayout.ImbissRect(Size).HasPoint(pos)) return ("imbiss", 0);
-        var tables = ParkLayout.Tables(Size, gs);
-        for (int i = 0; i < tables.Count; i++)
-            if (new Rect2(tables[i] - ParkLayout.TableSize / 2, ParkLayout.TableSize).Grow(6).HasPoint(pos)) return ("tischtennis", i);
-        if (gs.Level("grill") > 0 && ParkLayout.Grill(Size).DistanceTo(pos) < 26) return ("grill", 0);
-        return null;
-    }
-
-    Rect2 ObjectRect((string kind, int index) o)
-    {
-        var gs = GameState.I;
-        switch (o.kind)
-        {
-            case "bank":
-                return ParkLayout.BenchRect(ParkLayout.Benches(Size, gs)[o.index], o.index, gs.AusbauLevel("bank", o.index));
-            case "muelleimer": return new Rect2(ParkLayout.Bins(Size, gs)[o.index] - new Vector2(16, 16), 32, 32);
-            case "imbiss": return ParkLayout.ImbissRect(Size);
-            case "tischtennis": return new Rect2(ParkLayout.Tables(Size, gs)[o.index] - ParkLayout.TableSize / 2, ParkLayout.TableSize).Grow(6);
-            default: return new Rect2(ParkLayout.Grill(Size) - new Vector2(26, 26), 52, 52);
         }
     }
 
@@ -311,12 +270,6 @@ public partial class ParkView : Control
         // Feiertag: Wimpelkette über den Park
         if (gs.ActiveEvent == "feiertag") Sprites.Garland(this, size.X, _time);
 
-        // Ausbaubares Objekt unter der Maus hervorheben
-        if (_hoverObject is { } ho)
-        {
-            var r = ObjectRect(ho);
-            DrawRect(r, new Color(Palette.PanelLight, 0.9f), false, 2);
-        }
 
         foreach (var c in Sim.Collectors)
         {
