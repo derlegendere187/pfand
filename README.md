@@ -2,17 +2,93 @@
 
 Ein Incremental-Spiel: Du schaust von oben auf einen Park, sammelst die Pfandflaschen der Besucher ein, wirfst sie in den Automaten und baust den Park mit dem Geld aus. Mehr Wege, Bänke und Laternen bringen mehr Leute und damit mehr Flaschen.
 
-## Voraussetzungen
-- .NET SDK 8
-- Godot 4.7 (.NET/Mono-Version)
+## Loslegen – Schritt für Schritt (auch ohne Vorwissen)
 
-## Starten
-- **Im Editor:** Godot öffnen → Projekt importieren → `project.godot` wählen → F5
-- **Kommandozeile:**
+Diese Anleitung ist für Windows 10/11. Du brauchst etwa 15 Minuten. Am Ende läuft das Spiel auf deinem PC, und du kannst den Code selbst ändern.
+
+### Schritt 1: Ein Terminal öffnen
+Ein **Terminal** ist ein Fenster, in das du Befehle tippst statt zu klicken. So öffnest du eins:
+1. Drücke die **Windows-Taste**, tippe `PowerShell` und drücke **Enter**.
+2. Es öffnet sich ein blaues oder schwarzes Fenster mit einer Zeile wie `PS C:\Users\DeinName>`. Das ist die Stelle, an der du tippst.
+
+**So gibst du einen Befehl ein:** Befehl aus dieser Anleitung kopieren, im Terminal mit **Rechtsklick** einfügen, **Enter** drücken und warten, bis wieder `PS C:\...>` erscheint.
+
+### Schritt 2: Die drei nötigen Programme installieren
+Gib diese drei Befehle nacheinander ein, also immer einen Befehl, Enter, warten:
+```
+winget install Git.Git
+```
+```
+winget install Microsoft.DotNet.SDK.8
+```
+```
+winget install GodotEngine.GodotEngine.Mono
+```
+Was das ist:
+- **Git** lädt das Projekt herunter und hält es später aktuell.
+- **.NET SDK 8** übersetzt den C#-Code des Spiels.
+- **Godot (.NET-Version)** ist die Spiele-Engine, in der das Spiel läuft und bearbeitet wird.
+
+Beim ersten `winget` fragt Windows eventuell, ob du den Bedingungen zustimmst. Tippe dann `Y` und Enter. Falls ein Fenster fragt, ob das Programm Änderungen vornehmen darf, klickst du **Ja**.
+
+**Danach das Terminal schließen und neu öffnen** (wie in Schritt 1). Sonst findet es die neuen Programme noch nicht.
+
+Prüfen, ob alles geklappt hat:
+```
+git --version
+```
+```
+dotnet --version
+```
+Beide sollten eine Versionsnummer anzeigen, bei `dotnet` beginnend mit `8.`. Erscheint stattdessen „wurde nicht als Name eines Cmdlet … erkannt“, hast du das Terminal nicht neu geöffnet, oder die Installation ist fehlgeschlagen.
+
+> **Kein winget?** Lade die Programme von Hand und installiere sie mit den Standardeinstellungen: [Git](https://git-scm.com/downloads), [.NET SDK 8](https://dotnet.microsoft.com/download/dotnet/8.0) (wichtig: **SDK**, nicht „Runtime“) und [Godot](https://godotengine.org/download) (wichtig: die Variante **„.NET“**; das ist eine ZIP-Datei, einfach entpacken). Die normale Godot-Version ohne „.NET“ kann kein C# und startet das Spiel nicht.
+
+### Schritt 3: Das Projekt herunterladen („klonen“)
+Lege fest, wo das Projekt liegen soll, z. B. in deinen Dokumenten. Gib im Terminal ein:
+```
+cd $HOME\Documents
+```
+```
+git clone https://github.com/derlegendere187/pfand.git
+```
+Jetzt gibt es den Ordner **Dokumente\pfand** mit dem ganzen Spiel. „Klonen“ heißt: Du hast eine vollständige Kopie, inklusive aller bisherigen Änderungen.
+
+> Es gibt auf GitHub auch den grünen Knopf **Code → Download ZIP**. Das funktioniert auch, aber dann kannst du das Projekt später nicht mit einem Befehl aktualisieren. Besser `git clone` nehmen.
+
+### Schritt 4: Das Projekt in Godot öffnen und starten
+1. Öffne **Godot** über das Startmenü (Windows-Taste, `Godot` tippen). Nimm den Eintrag **ohne** „console“ im Namen.
+2. Im Fenster „Projektverwaltung“ klickst du auf **Importieren**.
+3. Navigiere zu **Dokumente\pfand**, wähle die Datei **`project.godot`** und klicke auf **Öffnen** und dann **Importieren & Bearbeiten**.
+4. Der Editor öffnet sich. Beim ersten Mal dauert das kurz, weil Godot alles vorbereitet und den C#-Code baut.
+5. Klicke oben rechts auf **▶** (oder drücke **F5**). Das Spiel startet.
+
+Ab jetzt steht das Projekt in der Projektverwaltung, und du kannst es mit einem Doppelklick öffnen.
+
+### Schritt 5: Später die neueste Version holen
+Wenn es im Projekt Änderungen gibt, holst du sie so: Terminal öffnen und eingeben:
+```
+cd $HOME\Documents\pfand
+```
+```
+git pull
+```
+Danach in Godot einfach wieder ▶ drücken.
+
+### Wenn etwas nicht klappt
+- **„.NET SDK not found“** oder rote C#-Fehler in Godot: Das .NET SDK 8 fehlt. Wiederhole Schritt 2 und starte Godot danach neu.
+- **Godot zeigt Fehler bei allen Skripten** oder es gibt oben keinen „Build“-Knopf: Du hast die normale statt der **.NET**-Version von Godot.
+- **`git clone` sagt „already exists“:** Den Ordner gibt es schon. Dann einfach mit Schritt 4 weitermachen.
+- **`git pull` meldet einen Konflikt:** Du hast selbst Dateien geändert, die auch im Projekt geändert wurden. Frag im Zweifel nach, bevor du etwas löschst.
+
+### Für Fortgeschrittene
+- **Klonen per SSH** (wenn du einen SSH-Schlüssel bei GitHub hinterlegt hast): `git clone git@github.com:derlegendere187/pfand.git`
+- **Ohne Editor starten** (im Projektordner):
   ```
   dotnet build
   Godot_v4.7.2-stable_mono_win64_console.exe --path .
   ```
+  Liegt Godot nicht im `PATH`, den vollen Pfad zur `.exe` angeben. Mit winget installiert, liegt sie unter `%LOCALAPPDATA%\Microsoft\WinGet\Packages\GodotEngine.GodotEngine.Mono_…\`.
 
 ## Steuerung
 - Beim ersten Start erklärt Kalle, ein alter Pfandsammler, wie alles funktioniert. Danach taucht er immer wieder auf und erklärt Neues (Laterne um 22 Uhr, Mülleimer, Kronkorken und Skilltree, Events …)
