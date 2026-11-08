@@ -34,10 +34,10 @@ public static class UpgradeDefs
             BasePrice = 2.00, Growth = 2.3, Max = 6, C1 = H("#e6cf9f"), C2 = H("#c9ad7a") },
         // Die Laterne zeigt Kalle um 22 Uhr. Sie steht außerhalb der Reihe und blockiert nichts.
         new UpgradeDef { Id = "laterne", Name = "LATERNE", Effect = "Leute bleiben abends länger, nachts kommen noch welche",
-            BasePrice = 8.00, Growth = 2.6, Max = 3, MaxBonus = gs => gs.SkillLevel("bau"), RevealedBy = gs => gs.LaterneHint,
+            BasePrice = 3.00, Growth = 2.2, Max = 3, MaxBonus = gs => gs.SkillLevel("bau"), RevealedBy = gs => gs.LaterneHint,
             C1 = H("#f2c75c"), C2 = H("#5a4a3a") },
         new UpgradeDef { Id = "tasche", Name = "TASCHE+", Effect = "+4 Plätze in der Tasche",
-            BasePrice = 3.00, Growth = 2.2, Max = 6, MaxBonus = gs => 2 * gs.SkillLevel("rucksack"), C1 = H("#b07a4a"), C2 = H("#f4ead2") },
+            BasePrice = 8.00, Growth = 2.6, Max = 6, MaxBonus = gs => 2 * gs.SkillLevel("rucksack"), C1 = H("#b07a4a"), C2 = H("#f4ead2") },
         new UpgradeDef { Id = "picknick", RevealNext = 1, Name = "PICKNICKDECKE", Effect = "Leute setzen sich auf Decken und bleiben länger",
             BasePrice = 6.00, Growth = 2.6, Max = 3, C1 = H("#d9735a"), C2 = H("#fffaf0") },
         new UpgradeDef { Id = "muelleimer", Name = "MÜLLEIMER", Effect = "Flaschen landen im Eimer",
