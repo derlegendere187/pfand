@@ -99,6 +99,7 @@ public static class ParkLayout
 
     /// <summary>Oktoberfest: erster langer Tisch so weit unter der Event-Mitte.</summary>
     public const float OktoberfestTableY = 4;
+    public const float OktoberfestTableGap = 42;     // Abstand der langen Tische
 
     /// <summary>Wo Events stattfinden (oben rechts).</summary>
     public static Vector2 EventCenter(Vector2 size) => new(Mathf.Round(0.76f * size.X), Mathf.Round(0.21f * size.Y));

@@ -76,6 +76,67 @@ public static class CapData
             new(4,2,3,1,"#f4ecd8"), new(3,3,2,5,"#f4ecd8"), new(4,8,3,1,"#f4ecd8"),
             new(8,3,1,1,"#f2c75c"), new(7,6,1,1,"#f2c75c"),
         }),
+
+        // --- Set GETRÄNKE & SNACKS ---
+        new("SNACKS", "MASSKRUG", "#6fa8d6", new Px[]
+        {
+            new(3,3,5,6,"#f2c75c"), new(3,2,5,1,"#fffaf0"), new(4,1,3,1,"#fffaf0"), new(4,4,1,4,"#fff3c4"),
+            new(8,4,1,1,"#c9ccd6"), new(9,4,1,4,"#c9ccd6"), new(8,7,1,1,"#c9ccd6"),
+        }),
+        new("SNACKS", "BREZEL", "#f4ecd8", new Px[]
+        {
+            new(3,3,2,1,"#b5651d"), new(7,3,2,1,"#b5651d"), new(2,4,1,3,"#b5651d"), new(9,4,1,3,"#b5651d"),
+            new(3,7,6,1,"#b5651d"), new(5,4,2,1,"#b5651d"), new(4,5,1,1,"#b5651d"), new(7,5,1,1,"#b5651d"), new(5,6,2,1,"#b5651d"),
+            new(4,3,1,1,"#fffaf0"), new(8,7,1,1,"#fffaf0"),
+        }),
+        new("SNACKS", "ZITRONE", "#4f8a4a", new Px[]
+        {
+            new(3,4,6,4,"#f2c75c"), new(4,3,4,1,"#f2c75c"), new(4,8,4,1,"#f2c75c"), new(7,2,2,1,"#8cc472"), new(4,4,1,1,"#fff3c4"),
+        }),
+        new("SNACKS", "KAFFEE", "#d9735a", new Px[]
+        {
+            new(3,5,5,4,"#fffaf0"), new(8,6,1,2,"#fffaf0"), new(3,5,5,1,"#6b3f2a"), new(4,2,1,2,"#f4ecd8"), new(6,3,1,2,"#f4ecd8"),
+        }),
+        new("SNACKS", "KIRSCHE", "#f4ecd8", new Px[]
+        {
+            new(3,6,2,2,"#b8432f"), new(7,6,2,2,"#b8432f"), new(4,3,1,3,"#2f6b32"), new(7,4,1,2,"#2f6b32"), new(5,2,2,1,"#2f6b32"),
+            new(3,6,1,1,"#e8a0b8"), new(7,6,1,1,"#e8a0b8"),
+        }),
+        new("SNACKS", "EIS", "#6fa8d6", new Px[]
+        {
+            new(4,6,4,1,"#c99a1e"), new(5,7,2,2,"#c99a1e"), new(4,3,4,3,"#e8a0b8"), new(5,2,2,1,"#e8a0b8"), new(6,1,1,1,"#b8432f"),
+            new(5,3,1,1,"#fff3c4"),
+        }),
+
+        // --- Set STADT ---
+        new("STADT", "FAHRRAD", "#f4ecd8", new Px[]
+        {
+            new(2,6,3,1,"#0b0c18"), new(2,8,3,1,"#0b0c18"), new(2,7,1,1,"#0b0c18"), new(4,7,1,1,"#0b0c18"),
+            new(7,6,3,1,"#0b0c18"), new(7,8,3,1,"#0b0c18"), new(7,7,1,1,"#0b0c18"), new(9,7,1,1,"#0b0c18"),
+            new(4,5,4,1,"#d9735a"), new(5,6,1,1,"#d9735a"), new(6,4,1,1,"#d9735a"), new(4,4,2,1,"#0b0c18"), new(7,3,2,1,"#0b0c18"),
+        }),
+        new("STADT", "AMPEL", "#4f8a4a", new Px[]
+        {
+            new(4,2,4,8,"#23254a"), new(5,3,2,1,"#d9735a"), new(5,5,2,1,"#f2c75c"), new(5,7,2,1,"#8cc472"),
+        }),
+        new("STADT", "HYDRANT", "#f4ecd8", new Px[]
+        {
+            new(4,4,4,5,"#d9735a"), new(5,2,2,2,"#d9735a"), new(3,5,1,2,"#b8432f"), new(8,5,1,2,"#b8432f"), new(3,9,6,1,"#b8432f"),
+            new(5,5,1,2,"#e8a0b8"),
+        }),
+        new("STADT", "BUS", "#f4ecd8", new Px[]
+        {
+            new(2,3,8,5,"#f2c75c"), new(3,4,1,1,"#6fa8d6"), new(5,4,1,1,"#6fa8d6"), new(7,4,2,1,"#6fa8d6"),
+            new(2,6,8,1,"#c99a1e"), new(3,8,2,1,"#0b0c18"), new(7,8,2,1,"#0b0c18"),
+        }),
+        new("STADT", "LATERNE", "#23254a", new Px[]
+        {
+            new(4,2,4,1,"#5a4a3a"), new(4,3,4,1,"#f2c75c"), new(3,4,6,1,"#fff3c4"), new(5,4,2,5,"#5a4a3a"), new(4,9,4,1,"#5a4a3a"),
+        }),
+        new("STADT", "PFANDAUTOMAT", "#f4ecd8", new Px[]
+        {
+            new(3,2,6,8,"#8a8f78"), new(4,3,4,2,"#2a1d14"), new(5,4,1,1,"#8cc472"), new(5,6,2,2,"#0b0c18"), new(3,9,6,1,"#5a4a3a"),
+        }),
     };
 
     public static int Count => All.Length;

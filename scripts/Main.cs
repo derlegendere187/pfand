@@ -107,6 +107,9 @@ public partial class Main : Control
         if (debugStart) KalleHints.MarkCurrent(gs);
         if (_args.TryGetValue("hint", out var hintId)) gs.SeenHints.Remove(hintId);
 
+        // Knöpfe nehmen keinen Tastatur-Fokus: sonst löst die Leertaste den zuletzt geklickten Knopf erneut aus
+        GetTree().NodeAdded += n => { if (n is BaseButton b) b.FocusMode = FocusModeEnum.None; };
+
         Theme = PfandTheme.Build();
         BuildUi();
         gs.Changed += RefreshAlbumButton;

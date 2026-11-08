@@ -16,13 +16,13 @@ Ein Incremental-Spiel: Du schaust von oben auf einen Park, sammelst die Pfandfla
 
 ## Steuerung
 - Beim ersten Start erklärt Kalle, ein alter Pfandsammler, wie alles funktioniert. Danach taucht er immer wieder auf und erklärt Neues (Laterne um 22 Uhr, Mülleimer, Kronkorken und Skilltree, Events …)
-- Flaschen anklicken (oder mit gedrückter Maustaste drüberwischen) → in die Tasche
+- Flaschen anklicken (oder mit gedrückter Maustaste drüberwischen) → in die Tasche. Drüberwischen leert auch Mülleimer und Kästen
 - Mülleimer anklicken → alle Flaschen daraus einsammeln
 - „Einwerfen“ im Automaten → Geld
 - Upgrades tauchen nach und nach auf: das nächste erst, wenn das vorherige oft genug gekauft ist (meist 2×)
 - **Kronkorken** stecken ab und zu in eingeworfenen Flaschen (Dosen haben keine). Sie landen im **Album** und sind die Währung für den **Skilltree**
 - Im **PARK-Ast** des Skilltrees schaltest du neue Upgrades frei (Picknickdecke, Mülleimer, Bank, Sammler, Imbiss, Grill …) und baust alle Objekte einer Sorte auf einmal aus (Tische an Bänken, größere Eimer …). Danach kaufst du sie rechts mit Geld
-- **Events** erscheinen erst, wenn sie im Skilltree gelernt sind. Sie kosten Geld, haben einen Cooldown und werden mit jedem Mal teurer
+- **Events** erscheinen erst, wenn sie im Skilltree gelernt sind. Sie kosten Geld, haben einen Cooldown, werden mit jedem Mal etwas teurer (höchstens doppelt) und machen alle Flaschen mehr wert, solange sie laufen. **Aktionen** sind kurze Boosts (z. B. 30 s doppelter Pfandwert), die auch neben einem Event laufen
 - Skilltree: Fläche mit der Maus ziehen, Knoten anklicken, „Lernen“ oder Doppelklick
 - Bierkasten (am Grill oder von Freundesgruppen stehen gelassen) anklicken → eine Flasche in die Tasche (mit Lastenrad: ganzer Kasten direkt zum Automaten)
 - Je weiter ein Knoten im Skilltree von der Wurzel weg ist, desto teurer ist er
@@ -39,7 +39,7 @@ Nach `--` anhängen, z. B. `... --path . -- --fresh --money=50`:
 | `--fresh` | Spielstand weder laden noch speichern (startet mit Kalles Einführung) |
 | `--notut` | Einführung überspringen |
 | `--autotut` | Einführung läuft von selbst durch (zum Testen) |
-| `--hint=muelleimer` | einen Tipp von Kalle erneut zeigen (`tasche_voll`, `laterne`, `kronkorken`, `muelleimer`, `sammler`, `kasten`, `events`, `grill`) |
+| `--hint=muelleimer` | einen Tipp von Kalle erneut zeigen (`tasche_voll`, `laterne`, `kronkorken`, `muelleimer`, `sammler`, `events`, `grill`) |
 | `--money=50` | Startgeld setzen |
 | `--late` | Park mit einigen Upgrades ausstatten |
 | `--imbiss` | Imbissbude freischalten und bauen |
@@ -49,7 +49,7 @@ Nach `--` anhängen, z. B. `... --path . -- --fresh --money=50`:
 | `--kk=20` | Kronkorken setzen |
 | `--captoast` | Kronkorken-Meldung nach 1 s einmal zeigen |
 | `--feedtest` | Tasche füllen und nach 1 s automatisch einwerfen |
-| `--event=konzert` | Event gratis sofort starten (`geburtstag`, `bierball`, `konzert`, `feiertag`, `maennertag`, `oktoberfest`) |
+| `--event=konzert` | Event gratis sofort starten (`geburtstag`, `bierball`, `konzert`, `feiertag`, `maennertag`, `oktoberfest`, Aktionen: `pfandaktion`, `happyhour`, `gluecksstraehne`) |
 | `--open=skills` | Skilltree, Album (`album`), Statistik (`stats`), Events-Tab (`events`) öffnen |
 | `--time=0.7` | Tageszeit setzen (0–1; ab 0.62 Abend, ab 0.82 Nacht) |
 | `--speed=4` | Spiel schneller laufen lassen |

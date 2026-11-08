@@ -40,7 +40,7 @@ public partial class EventPanel : PanelContainer
             var col = new VBoxContainer();
             col.AddThemeConstantOverride("separation", 2);
             c.Root.AddChild(col);
-            c.Name = PfandTheme.Title(def.Name, 8);
+            c.Name = PfandTheme.Title(def.Short ? "AKTION · " + def.Name : def.Name, 8);
             col.AddChild(c.Name);
             c.Desc = PfandTheme.Text(def.Desc, 20);
             c.Desc.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -80,7 +80,7 @@ public partial class EventPanel : PanelContainer
         foreach (var c in _cards)
         {
             bool unlocked = gs.EventUnlocked(c.Def);
-            bool running = gs.ActiveEvent == c.Def.Id;
+            bool running = gs.EventRunning(c.Def);
             double cd = gs.CooldownLeft(c.Def);
 
             c.Root.Visible = unlocked;
@@ -91,14 +91,17 @@ public partial class EventPanel : PanelContainer
             c.Name.AddThemeColorOverride("font_color", unlocked ? Palette.Ink : Palette.Muted);
             c.Desc.AddThemeColorOverride("font_color", unlocked ? Palette.InkSoft : Palette.Muted);
             double cost = gs.EventCost(c.Def);
-            int held = gs.TimesHeld(c.Def);
             c.Info.Text = $"Dauer {GameState.Seconds(c.Def.Duration)} · Pause {GameState.Seconds(c.Def.Cooldown * gs.CooldownFactor)}"
-                + (held > 0 ? $" · schon {held}× (jedes Mal teurer)" : "");
+                + (c.Def.ValueBonus > 1 ? $" · Flaschen ×{c.Def.ValueBonus.ToString("0.##").Replace('.', ',')}" : "");
 
             if (!unlocked) { c.Start.Text = "IM SKILLTREE"; c.Start.Disabled = true; }
-            else if (running) { c.Start.Text = $"LÄUFT · {GameState.Seconds(gs.EventTimeLeft)}"; c.Start.Disabled = true; }
+            else if (running)
+            {
+                double left = c.Def.Short ? gs.ActiveBoosts[c.Def.Id] : gs.EventTimeLeft;
+                c.Start.Text = $"LÄUFT · {GameState.Seconds(left)}"; c.Start.Disabled = true;
+            }
             else if (cd > 0) { c.Start.Text = $"WARTEN · {GameState.Seconds(cd)}"; c.Start.Disabled = true; }
-            else if (gs.ActiveEvent != null) { c.Start.Text = "ANDERES LÄUFT"; c.Start.Disabled = true; }
+            else if (!c.Def.Short && gs.ActiveEvent != null) { c.Start.Text = "ANDERES LÄUFT"; c.Start.Disabled = true; }
             else { c.Start.Text = "STARTEN · " + GameState.Euro(cost); c.Start.Disabled = gs.Money + 1e-9 < cost; }
         }
     }

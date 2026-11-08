@@ -122,11 +122,22 @@ public static class SkillDefs
             Effect = _ => "Event: Männertag – Bollerwagen ziehen durch den Park",
             Icon = new[] { "........", ".#o#o#..", ".#####..", "########", "#......#", "########", ".##..##.", ".##..##." } },
         new SkillDef { Id = "ev_oktoberfest", Branch = Events, Name = "OKTOBERFEST", Costs = new[] { 25 }, Parent = "ev_konzert", Pos = new(-4, 0),
-            Effect = _ => "Event: Oktoberfest im Festzelt",
+            Effect = _ => "Event: Oktoberfest – der ganze Park feiert, Flaschen doppelt so viel wert",
             Icon = new[] { "...##...", "..#oo#..", ".#o##o#.", "#o#oo#o#", "########", "#oooooo#", "#oo##oo#", "#oo##oo#" } },
         new SkillDef { Id = "ev_sponsor", Branch = Events, Name = "SPONSOREN", Costs = new[] { 6, 12, 20 }, Parent = "ev_maennertag", Pos = new(-3, 2),
             Effect = n => $"Events kosten {n * 15} % weniger",
             Icon = new[] { "...##...", ".######.", "##.##...", ".#####..", "...##.#.", "...##.##", ".######.", "...##..." } },
+
+        // Aktionen: kurze Boosts unter dem Feiertag
+        new SkillDef { Id = "ev_pfandaktion", Branch = Events, Name = "PFANDAKTION", Costs = new[] { 5 }, Parent = "ev_feiertag", Pos = new(-1, 2),
+            Effect = _ => "Aktion: 30 Sekunden lang sind alle Flaschen doppelt so viel wert",
+            Icon = new[] { "........", ".######.", "#oo##oo#", "#o#o#oo#", "#oo#o#o#", "#oo##oo#", ".######.", "........" } },
+        new SkillDef { Id = "ev_happyhour", Branch = Events, Name = "HAPPY HOUR", Costs = new[] { 5 }, Parent = "ev_pfandaktion", Pos = new(-2, 2),
+            Effect = _ => "Aktion: 30 Sekunden lang trinken alle doppelt so schnell",
+            Icon = new[] { "#......#", ".#....#.", "..####..", "..#oo#..", "..#oo#..", "...##...", "...##...", "..####.." } },
+        new SkillDef { Id = "ev_gluecksstraehne", Branch = Events, Name = "GLÜCKSSTRÄHNE", Costs = new[] { 6 }, Parent = "ev_pfandaktion", Pos = new(-1, 3),
+            Effect = _ => "Aktion: 30 Sekunden lang dreimal so viele Kronkorken",
+            Icon = new[] { "...##...", "..#oo#..", "########", ".#oooo#.", "..#oo#..", ".#o##o#.", "#o#..#o#", "........" } },
 
         // ---- Sammeln (unten) ----
         new SkillDef { Id = "aoe", Branch = Sammeln, Name = "GREIFZANGE", Costs = new[] { 1, 3, 6, 12 }, Pos = new(0, 1),

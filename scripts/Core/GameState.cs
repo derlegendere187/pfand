@@ -55,6 +55,7 @@ public class GameState
     public Dictionary<int, int> Caps = new();          // Album: Motiv -> wie oft gefunden
     public Dictionary<string, int> Skills = new();     // Skill -> Stufe
     public Dictionary<string, double> Cooldowns = new(); // Event -> Restzeit in Sekunden
+    public Dictionary<string, double> ActiveBoosts = new(); // laufende Aktionen -> Restzeit
     public Dictionary<string, int> EventCount = new();  // Event -> wie oft schon veranstaltet
     public string ActiveEvent;                          // null = kein Event
     public double EventTimeLeft;
@@ -105,14 +106,27 @@ public class GameState
 
     /// <summary>Album und Skilltree tauchen auf, sobald man den ersten Kronkorken hat.</summary>
     public bool SkillsVisible => Kronkorken > 0 || Caps.Count > 0 || Skills.Count > 0;
-    public double CapChance => Balance.CapDropChance * (1 + 0.5 * SkillLevel("glueck"));
+    public double CapChance => Balance.CapDropChance * (1 + 0.5 * SkillLevel("glueck")) * (BoostActive("gluecksstraehne") ? 3 : 1);
+
+    /// <summary>Laufendes Event und Pfandaktion machen eingeworfene Flaschen mehr wert.</summary>
+    public double EventValueBonus
+    {
+        get
+        {
+            double b = ActiveEvent != null ? EventDefs.Get(ActiveEvent)?.ValueBonus ?? 1 : 1;
+            foreach (var id in ActiveBoosts.Keys) b *= EventDefs.Get(id)?.ValueBonus ?? 1;
+            return b;
+        }
+    }
+    public bool BoostActive(string id) => ActiveBoosts.TryGetValue(id, out var t) && t > 0;
     public double CooldownFactor => 1 - 0.15 * SkillLevel("ev_cooldown");
     public double FeedInterval => Balance.FeedInterval / (1 + 0.5 * SkillLevel("abgabe"));
     public double RetroChance => Balance.RetroChancePerLevel * SkillLevel("retro");
     public double GoldChance => Balance.GoldChancePerLevel * SkillLevel("gold");
     /// <summary>Anteil der leeren Flaschen, die Besucher liegen lassen (der Rest wird mitgenommen).</summary>
     public double LeaveChance => Math.Min(1, Balance.LeaveChanceBase + Balance.LeaveChancePerLevel * SkillLevel("liegen"));
-    public double DrinkFactor => 1 - 0.1 * SkillLevel("durst");
+    public double DrinkFactor => (1 - 0.1 * SkillLevel("durst"))
+        * (BoostActive("happyhour") ? 0.5 : 1) * (ActiveEvent == "oktoberfest" ? 0.7 : 1);
     public double VisitorBoost => 0.15 * SkillLevel("stammgaeste");
     public int ExtraVisitorSlots => 2 * SkillLevel("stammgaeste");
     public double GroupCrateChance => Level("gruppen") > 0
@@ -142,7 +156,7 @@ public class GameState
     /// <summary>Eine Flasche direkt einwerfen (z. B. durch Sammler).</summary>
     public (double value, int cap) FeedDirect(BottleType t, Random rng)
     {
-        var v = Value(t);
+        var v = Value(t) * EventValueBonus;
         Money += v;
         TotalEarned += v;
         BottlesFed++;
@@ -224,19 +238,25 @@ public class GameState
     public bool AnyEventUnlocked => EventDefs.All.Exists(EventUnlocked);
     public int TimesHeld(EventDef e) => EventCount.TryGetValue(e.Id, out var n) ? n : 0;
     /// <summary>
-    /// Events kosten Geld. Der Preis wächst mit dem Pfandwert und mit jedem Mal, das man es schon veranstaltet hat.
+    /// Events kosten Geld. Der Preis steigt nur, wenn man es veranstaltet (höchstens bis zum doppelten Grundpreis).
     /// Sponsoren machen es billiger.
     /// </summary>
-    public double EventCost(EventDef e) => Math.Round(e.Cost * ValueMultiplier * (1 + Balance.EventCostGrowth * TimesHeld(e))
+    public double EventCost(EventDef e) => Math.Round(e.Cost * (1 + Balance.EventCostGrowth * Math.Min(TimesHeld(e), Balance.EventCostGrowthMax))
         * (1 - 0.15 * SkillLevel("ev_sponsor")), 2);
-    public bool CanStartEvent(EventDef e) => EventUnlocked(e) && ActiveEvent == null && CooldownLeft(e) <= 0 && Money + 1e-9 >= EventCost(e);
+    public bool EventRunning(EventDef e) => e.Short ? BoostActive(e.Id) : ActiveEvent == e.Id;
+    public bool CanStartEvent(EventDef e) => EventUnlocked(e) && (e.Short ? !BoostActive(e.Id) : ActiveEvent == null)
+        && CooldownLeft(e) <= 0 && Money + 1e-9 >= EventCost(e);
 
     public bool TryStartEvent(EventDef e, bool free = false)
     {
         if (!free && !CanStartEvent(e)) return false;
         if (!free) Money -= EventCost(e);
-        ActiveEvent = e.Id;
-        EventTimeLeft = e.Duration;
+        if (e.Short) ActiveBoosts[e.Id] = e.Duration;
+        else
+        {
+            ActiveEvent = e.Id;
+            EventTimeLeft = e.Duration;
+        }
         EventsHeld++;
         EventCount[e.Id] = TimesHeld(e) + 1;
         Cooldowns[e.Id] = e.Duration + e.Cooldown * CooldownFactor;
@@ -248,6 +268,14 @@ public class GameState
     {
         var keys = new List<string>(Cooldowns.Keys);
         foreach (var k in keys) Cooldowns[k] = Math.Max(0, Cooldowns[k] - dt);
+        if (ActiveBoosts.Count > 0)
+        {
+            foreach (var k in new List<string>(ActiveBoosts.Keys))
+            {
+                ActiveBoosts[k] -= dt;
+                if (ActiveBoosts[k] <= 0) { ActiveBoosts.Remove(k); Notify(); }
+            }
+        }
         if (ActiveEvent != null)
         {
             EventTimeLeft -= dt;

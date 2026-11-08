@@ -290,9 +290,16 @@ public static class Sprites
                     bool up = ((int)(time * 3) + i) % 2 == 0;
                     ci.DrawRect(new Rect2(tent.Position + new Vector2(20 + i * 50, up ? -10 : -8), 8, 6), i % 2 == 0 ? Color.FromHtml("#6fa8d6") : Palette.PanelLight);
                 }
-                for (int t = 0; t < 2; t++)
+                for (int n = 0; n < 3; n++) // Musiknoten steigen aus dem Zelt
                 {
-                    var tr = new Rect2(c + new Vector2(-84, ParkLayout.OktoberfestTableY + t * 50), 168, 12);
+                    float ph = (time * 0.6f + n * 0.33f) % 1f;
+                    var np = tent.Position + new Vector2(60 + n * 34 + Mathf.Sin(ph * 6 + n) * 6, -6 - ph * 30);
+                    ci.DrawRect(new Rect2(np.Round(), 3, 3), Palette.Ink);
+                    ci.DrawRect(new Rect2(np.Round() + new Vector2(2, -7), 1, 7), Palette.Ink);
+                }
+                for (int t = 0; t < 3; t++)
+                {
+                    var tr = new Rect2(c + new Vector2(-84, ParkLayout.OktoberfestTableY + t * ParkLayout.OktoberfestTableGap), 168, 12);
                     ci.DrawRect(tr.Grow(2), Palette.WoodDark);
                     ci.DrawRect(tr, Palette.Wood);
                     for (int i = 0; i < 5; i++) // Maßkrüge
@@ -382,19 +389,48 @@ public static class Sprites
     }
 
     /// <summary>Wimpelkette quer über den oberen Rand (Feiertag).</summary>
-    public static void Garland(CanvasItem ci, float width, float time)
+    public static void Garland(CanvasItem ci, float width, float time, float y = 10, bool bavarian = false)
     {
-        var colors = new[] { "#d9735a", "#f2c75c", "#6fa8d6", "#8cc472", "#b496e0" };
-        ci.DrawRect(new Rect2(0, 10, width, 2), Palette.InkSoft);
+        var colors = bavarian ? new[] { "#6fa8d6", "#fffaf0" } : new[] { "#d9735a", "#f2c75c", "#6fa8d6", "#8cc472", "#b496e0" };
+        y = Mathf.Round(y);
+        ci.DrawRect(new Rect2(0, y, width, 2), Palette.InkSoft);
         int n = (int)(width / 24);
         for (int i = 0; i < n; i++)
         {
             float x = 6 + i * 24;
             float sway = ((int)(time * 2) + i) % 2 == 0 ? 0 : 1;
             var c = Color.FromHtml(colors[i % colors.Length]);
-            ci.DrawRect(new Rect2(x, 12, 12, 4 + sway), c);
-            ci.DrawRect(new Rect2(x + 2, 16 + sway, 8, 4), c);
-            ci.DrawRect(new Rect2(x + 4, 20 + sway, 4, 3), c);
+            ci.DrawRect(new Rect2(x, y + 2, 12, 4 + sway), c);
+            ci.DrawRect(new Rect2(x + 2, y + 6 + sway, 8, 4), c);
+            ci.DrawRect(new Rect2(x + 4, y + 10 + sway, 4, 3), c);
+        }
+    }
+
+    /// <summary>Oktoberfest-Bude (40×34), zentriert: blau-weißes Dach, Theke, Schild mit Brezel oder Lebkuchenherz.</summary>
+    public static void Bude(CanvasItem ci, Vector2 pos, string sign, float time)
+    {
+        var o = (pos - new Vector2(20, 17)).Round();
+        ci.DrawRect(new Rect2(o + new Vector2(2, 32), 38, 3), new Color(0, 0, 0, 0.18f));
+        ci.DrawRect(new Rect2(o + new Vector2(0, 8), 40, 26), Palette.WoodDark);
+        ci.DrawRect(new Rect2(o + new Vector2(2, 10), 36, 22), Palette.Wood);
+        for (int i = 0; i < 5; i++)
+            ci.DrawRect(new Rect2(o + new Vector2(i * 8, 0), 8, 10), i % 2 == 0 ? Color.FromHtml("#6fa8d6") : Color.FromHtml("#fffaf0"));
+        ci.DrawRect(new Rect2(o + new Vector2(0, 22), 40, 4), Palette.WoodDark); // Theke
+        var c = o + new Vector2(20, 16);
+        if (sign == "herz")
+        {
+            var h = Color.FromHtml("#d9735a");
+            ci.DrawRect(new Rect2(c + new Vector2(-6, -4), 5, 3), h); ci.DrawRect(new Rect2(c + new Vector2(1, -4), 5, 3), h);
+            ci.DrawRect(new Rect2(c + new Vector2(-6, -1), 12, 3), h); ci.DrawRect(new Rect2(c + new Vector2(-4, 2), 8, 2), h);
+            ci.DrawRect(new Rect2(c + new Vector2(-2, 4), 4, 2), h);
+        }
+        else
+        {
+            var b = Color.FromHtml("#b5651d");
+            ci.DrawRect(new Rect2(c + new Vector2(-6, -4), 4, 2), b); ci.DrawRect(new Rect2(c + new Vector2(2, -4), 4, 2), b);
+            ci.DrawRect(new Rect2(c + new Vector2(-7, -2), 2, 4), b); ci.DrawRect(new Rect2(c + new Vector2(5, -2), 2, 4), b);
+            ci.DrawRect(new Rect2(c + new Vector2(-5, 2), 10, 2), b);
+            ci.DrawRect(new Rect2(c + new Vector2(-2, -2), 4, 2), b);
         }
     }
 

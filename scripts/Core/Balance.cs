@@ -43,7 +43,7 @@ public static class Balance
 
     // Bierball (Flunkyball)
     public const double BierballHitChance = 0.4;
-    public const double BierballDrinkRate = 0.8;    // Flaschen pro Sekunde, solange das eigene Team trinken darf
+    public const double BierballDrinkRate = 1.2;    // Flaschen pro Sekunde, solange das eigene Team trinken darf
     public const double BierballRunSpeed = 75;
 
     // Männertag: Gruppen mit Bollerwagen ziehen durch den Park
@@ -53,7 +53,7 @@ public static class Balance
     public const double MaennertagDropPerSecondWalking = 0.25;
 
     // Flaschen
-    public const int MaxGroundBottles = 80;
+    public const int MaxGroundBottles = 120;
     public const int StartBottles = 10;
     public const double BinChancePerBin = 0.25;
     public const double BinChanceMax = 0.8;
@@ -103,7 +103,8 @@ public static class Balance
     public const double BlanketChancePerLevel = 0.25;
 
     // Events werden mit jedem Mal teurer
-    public const double EventCostGrowth = 0.4;       // +40 % des Grundpreises pro Durchführung
+    public const double EventCostGrowth = 0.25;      // +25 % des Grundpreises pro Durchführung
+    public const int EventCostGrowthMax = 4;         // höchstens viermal (also maximal doppelter Preis)
 
     // Speichern
     public const double AutosaveSeconds = 30;

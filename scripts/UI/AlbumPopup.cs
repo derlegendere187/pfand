@@ -43,7 +43,14 @@ public partial class AlbumPopup : Control
 
         _sets = new VBoxContainer();
         _sets.AddThemeConstantOverride("separation", 12);
-        col.AddChild(_sets);
+        // Viele Sets: der Bereich scrollt, statt das Fenster zu sprengen
+        var scroll = new ScrollContainer
+        {
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            CustomMinimumSize = new Vector2(0, 470),
+        };
+        scroll.AddChild(_sets);
+        col.AddChild(scroll);
 
         col.AddChild(PfandTheme.Text("Jeder Fund ist auch 1 Kronkorken für den Skilltree – das Album behält ihn trotzdem.", 20, Palette.Muted));
 

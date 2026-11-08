@@ -76,17 +76,17 @@ public partial class ParkView : Control
         var gs = GameState.I;
         var bins = ParkLayout.Bins(Size, gs);
         int bin = Sim.BinAt(pos, bins);
-        if (bin >= 0 && isClick)
+        if (bin >= 0 && (isClick || Sim.BinContents[bin].Count > 0))
         {
-            EmptyInto(Sim.BinContents[bin], pos);
+            EmptyInto(Sim.BinContents[bin], pos, isClick);
             return;
         }
 
         // Bierkasten (Grill oder Freundesgruppe): Flasche für Flasche, mit Lastenrad der ganze Kasten
-        if (isClick && KastenAt(pos) is { } kasten)
+        if (KastenAt(pos) is { } kasten && (isClick || kasten.Count > 0))
         {
             if (gs.HasSkill("lastenrad")) DeliverKasten(kasten, pos);
-            else TakeOne(kasten, pos);
+            else TakeOne(kasten, pos, isClick);
             Sim.CleanupCrates();
             return;
         }
@@ -124,11 +124,11 @@ public partial class ParkView : Control
     static Rect2 CrateRect(GroupCrate c) => new(c.Pos, new Vector2(26, 32));
 
     /// <summary>Ohne Lastenrad nimmt man immer nur eine Flasche aus dem Kasten.</summary>
-    void TakeOne(List<BottleType> content, Vector2 pos)
+    void TakeOne(List<BottleType> content, Vector2 pos, bool loud = true)
     {
         var gs = GameState.I;
-        if (content.Count == 0) { Float(pos, "leer", Palette.Muted); return; }
-        if (!gs.TryAddToBag(content[content.Count - 1])) { Float(pos, "Tasche voll!", Palette.BadText); return; }
+        if (content.Count == 0) { if (loud) Float(pos, "leer", Palette.Muted); return; }
+        if (!gs.TryAddToBag(content[content.Count - 1])) { if (loud) Float(pos, "Tasche voll!", Palette.BadText); return; }
         content.RemoveAt(content.Count - 1);
         gs.CollectedByHand++;
         Float(pos, "+1", Palette.GoodText);
@@ -139,12 +139,13 @@ public partial class ParkView : Control
         => GameState.I.Level("grill") > 0 && ParkLayout.KastenRect(Size).Grow(4).HasPoint(pos);
 
     /// <summary>Eimer oder Kasten in die Tasche leeren, so weit Platz ist.</summary>
-    void EmptyInto(List<BottleType> content, Vector2 pos)
+    void EmptyInto(List<BottleType> content, Vector2 pos, bool loud = true)
     {
         var gs = GameState.I;
         int taken = 0;
         while (content.Count > 0 && gs.TryAddToBag(content[0])) { content.RemoveAt(0); taken++; }
         if (taken > 0) Float(pos, $"+{taken}", Palette.GoodText);
+        else if (!loud) return;
         else if (content.Count > 0) Float(pos, "Tasche voll!", Palette.BadText);
         else Float(pos, "leer", Palette.Muted);
         gs.Notify();
@@ -295,6 +296,24 @@ public partial class ParkView : Control
 
         // Feiertag: Wimpelkette über den Park
         if (gs.ActiveEvent == "feiertag") Sprites.Garland(this, size.X, _time);
+        if (gs.ActiveEvent == "oktoberfest")
+        {
+            // Der ganze Park ist Wiesn: blau-weiße Wimpel quer drüber, Buden in den Ecken
+            Sprites.Garland(this, size.X, _time, 10, true);
+            Sprites.Garland(this, size.X, _time + 0.5f, size.Y * 0.47f, true);
+            Sprites.Bude(this, new Vector2(size.X * 0.07f, size.Y * 0.08f), "brezel", _time);
+            Sprites.Bude(this, new Vector2(size.X * 0.93f, size.Y * 0.08f), "herz", _time);
+            Sprites.Bude(this, new Vector2(size.X * 0.93f, size.Y * 0.62f), "brezel", _time);
+        }
+        if (Sim.Bierball is { Phase: BierballGame.Step.Fliegt } bb)
+        {
+            float t = 1 - (float)(bb.Timer / BierballGame.FlyTime);
+            var fp = bb.FlyFrom.Lerp(bb.FlyTo, t) + new Vector2(0, -Mathf.Sin(t * Mathf.Pi) * 36);
+            Sprites.Bottle(this, fp.Round(), BottleType.Bier, t * 12, 0, 0.9f);
+        }
+
+        // Laufende Events und Aktionen unten rechts
+        StatusLines(gs, size);
 
 
         foreach (var c in Sim.Collectors)
@@ -364,6 +383,27 @@ public partial class ParkView : Control
         DrawRect(new Rect2(tip.X - 2 * p, tip.Y - 8 * p, 4 * p, 5 * p), Palette.Gold);
         for (int i = 0; i < 3; i++)
             DrawRect(new Rect2(tip.X - (4 - i) * p + p, tip.Y - (4 - i) * p + p, (8 - 2 * i) * p - 2 * p, p), Palette.Gold);
+    }
+
+    void StatusLines(GameState gs, Vector2 size)
+    {
+        var lines = new List<string>();
+        if (gs.ActiveEvent != null && EventDefs.Get(gs.ActiveEvent) is { } ev)
+            lines.Add($"{ev.Name} · {GameState.Seconds(gs.EventTimeLeft)}");
+        foreach (var kv in gs.ActiveBoosts)
+            if (EventDefs.Get(kv.Key) is { } b) lines.Add($"{b.Name} · {GameState.Seconds(kv.Value)}");
+        double bonus = gs.EventValueBonus;
+        if (bonus > 1.001) lines.Add($"Flaschen ×{bonus.ToString("0.##").Replace('.', ',')} wert");
+        var font = PfandTheme.Body;
+        float y = size.Y - 14 - (lines.Count - 1) * 22; // unten rechts, da verdeckt es keine Event-Bühne
+        foreach (var l in lines)
+        {
+            var w = font.GetStringSize(l, HorizontalAlignment.Left, -1, 22).X;
+            var p = new Vector2(size.X - w - 12, y);
+            DrawString(font, p + new Vector2(1, 1), l, HorizontalAlignment.Left, -1, 22, Palette.Ink);
+            DrawString(font, p, l, HorizontalAlignment.Left, -1, 22, Palette.PanelLight);
+            y += 22;
+        }
     }
 
     void Hint(string text)

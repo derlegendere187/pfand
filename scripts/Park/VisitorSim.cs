@@ -51,7 +51,10 @@ public class GroupCrate
 /// Bei einem Treffer trinkt das Werferteam, bis ein Läufer der Gegner die Flasche wieder aufgestellt hat.</summary>
 public class BierballGame
 {
-    public enum Step { Warten, Ausholen, Daneben, Hinlaufen, Aufstellen, Zuruecklaufen }
+    public enum Step { Warten, Ausholen, Fliegt, Daneben, Hinlaufen, Aufstellen, Zuruecklaufen }
+    public const double FlyTime = 0.45;
+    public Vector2 FlyFrom, FlyTo;  // geworfene Flasche
+    public bool Hit;
     public int Throwing;
     public Step Phase = Step.Warten;
     public double Timer = 1.5;
@@ -288,10 +291,35 @@ public class VisitorSim
     BottleType BottleFor(Visitor v, GameState gs)
     {
         if (v.EventId == "bierball" || v.EventId == "oktoberfest") return BottleType.Bier;
+        if (gs.ActiveEvent == "oktoberfest" && _rng.NextDouble() < 0.8) return BottleType.Bier; // ganzer Park auf der Wiesn
         if (v.EventId == "maennertag") return _rng.NextDouble() < 0.75 ? BottleType.Bier : BottleType.Dose;
         if (v.EventId == "konzert" && _rng.NextDouble() < 0.6) return BottleType.Dose;
         if (v.GrillSeat >= 0) return _rng.NextDouble() < 0.8 ? BottleType.Bier : BottleType.Dose;
         return RandomType(gs);
+    }
+
+    /// <summary>Freier Platz für einen Bierkasten neben der Decke: nicht auf Wegen, nicht an Eimern, Bänken & Co.</summary>
+    Vector2? CrateSpot(Vector2 blanket, List<Rect2> paths, List<Vector2> benches, List<Vector2> tables, GameState gs)
+    {
+        var size = new Vector2(26, 32);
+        var bins = ParkLayout.Bins(Size, gs);
+        var offsets = new[] { new Vector2(34, -16), new Vector2(-60, -16), new Vector2(-13, 24), new Vector2(-13, -58), new Vector2(40, 14), new Vector2(-66, 14) };
+        foreach (var off in offsets)
+        {
+            var r = new Rect2(blanket + off, size);
+            if (r.Position.X < 4 || r.Position.Y < 4 || r.End.X > Size.X - 4 || r.End.Y > Size.Y - 4) continue;
+            var c = r.GetCenter();
+            bool ok = true;
+            foreach (var p in paths) if (p.Grow(4).Intersects(r)) { ok = false; break; }
+            if (ok) foreach (var b in bins) if (b.DistanceTo(c) < 36) { ok = false; break; }
+            if (ok) foreach (var b in benches) if (b.DistanceTo(c) < 48) { ok = false; break; }
+            if (ok) foreach (var t in tables) if (t.DistanceTo(c) < 56) { ok = false; break; }
+            if (ok) foreach (var k in Crates) if (new Rect2(k.Pos, size).Grow(6).Intersects(r)) { ok = false; break; }
+            if (ok && gs.Level("imbiss") > 0 && ParkLayout.ImbissRect(Size).Grow(8).Intersects(r)) ok = false;
+            if (ok && gs.Level("grill") > 0 && ParkLayout.Grill(Size).DistanceTo(c) < 70) ok = false;
+            if (ok) return r.Position;
+        }
+        return null;
     }
 
     void ReleaseCrate(Visitor v, GameState gs)
@@ -412,8 +440,21 @@ public class VisitorSim
             case BierballGame.Step.Ausholen:
                 g.Timer -= dt;
                 if (g.Timer > 0) return;
+                // Der Werfer schleudert eine leere Flasche auf die Zielflasche
+                g.Hit = _rng.NextDouble() < Balance.BierballHitChance;
+                g.FlyFrom = g.Thrower.Pos + new Vector2(g.Thrower.Team == 0 ? 10 : -10, -6);
+                g.FlyTo = g.Hit ? c : c + new Vector2(Rf(-12, 12), Rf(18, 30) * (_rng.Next(2) == 0 ? -1 : 1));
+                g.Phase = BierballGame.Step.Fliegt;
+                g.Timer = BierballGame.FlyTime;
+                break;
+
+            case BierballGame.Step.Fliegt:
+                g.Timer -= dt;
+                if (g.Timer > 0) return;
+                // Die Wurfflasche bleibt liegen und kann eingesammelt werden
+                AddGroundBottle(g.FlyTo + new Vector2(Rf(-14, 14), Rf(10, 18)), BottleType.Bier);
                 var runners = guests.FindAll(v => v.Team != g.Throwing);
-                if (_rng.NextDouble() < Balance.BierballHitChance && runners.Count > 0)
+                if (g.Hit && runners.Count > 0)
                 {
                     g.BottleDown = true;
                     g.Runner = runners[_rng.Next(runners.Count)];
@@ -635,10 +676,8 @@ public class VisitorSim
         // Freundeskreis: weitere Leute kommen mit auf dieselbe Decke
         if (wantsGroup)
         {
-            if (_rng.NextDouble() < gs.GroupCrateChance)
+            if (_rng.NextDouble() < gs.GroupCrateChance && CrateSpot(v.BlanketPos, paths, benches, tables, gs) is { } cp)
             {
-                var cp = v.BlanketPos + new Vector2(34, -16);
-                cp = new Vector2(Mathf.Clamp(cp.X, 4, Size.X - 30), Mathf.Clamp(cp.Y, 4, Size.Y - 36));
                 v.Crate = new GroupCrate { Pos = cp, Owner = v };
                 Crates.Add(v.Crate);
             }
@@ -714,8 +753,8 @@ public class VisitorSim
                 // Zwei lange Tische vor dem Festzelt, Gäste auf beiden Seiten
                 for (int i = 0; i < def.Guests; i++)
                 {
-                    int table = i / 10, side = i / 5 % 2, seat = i % 5;
-                    float tableY = c.Y + ParkLayout.OktoberfestTableY + table * 50;
+                    int table = i / 10, side = i / 5 % 2, seat = i % 5; // je Tisch 10 Plätze
+                    float tableY = c.Y + ParkLayout.OktoberfestTableY + table * ParkLayout.OktoberfestTableGap;
                     list.Add(new Vector2(c.X - 64 + seat * 32, tableY + (side == 0 ? -8 : 20)));
                 }
                 break;
