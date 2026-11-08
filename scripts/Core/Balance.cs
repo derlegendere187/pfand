@@ -16,10 +16,10 @@ public static class Balance
     public const double StartTimeOfDay = 0.05;
 
     // Besucher
-    public const double SpawnIntervalBase = 6.0;     // Sekunden zwischen neuen Besuchern
+    public const double SpawnIntervalBase = 4.0;     // Sekunden zwischen neuen Besuchern
     public const double SpawnBonusPerPath = 0.5;     // +50 % Besucher pro Weg
     public const double SpawnBonusPerBin = 0.1;      // +10 % pro Mülleimer
-    public const int MaxVisitorsBase = 5;
+    public const int MaxVisitorsBase = 6;
     public const int MaxVisitorsPerPath = 4;
     public const int MaxVisitorsPerBench = 2;
     public const double StayBase = 22;               // Sekunden, die jemand sitzen bleibt
@@ -55,7 +55,7 @@ public static class Balance
 
     // Flaschen
     public const int MaxGroundBottles = 80;
-    public const int StartBottles = 4;
+    public const int StartBottles = 10;
     public const double BinChancePerBin = 0.25;
     public const double BinChanceMax = 0.8;
     public const int BinCapacity = 15;
@@ -64,9 +64,9 @@ public static class Balance
     public const double RetroChancePerLevel = 0.02;
     public const double GoldChancePerLevel = 0.004;
 
-    // Liegenlassen: Anfangs nimmt mehr als die Hälfte der Leute ihre Flaschen wieder mit
-    public const double LeaveChanceBase = 0.45;
-    public const double LeaveChancePerLevel = 0.09;   // Skill "Sorglose Gäste", 5 Stufen -> 90 %
+    // Liegenlassen: Anfangs nehmen 40 % der Leute ihre Flaschen wieder mit
+    public const double LeaveChanceBase = 0.6;
+    public const double LeaveChancePerLevel = 0.09;   // Skill "Sorglose Gäste", ab Stufe 5 -> 100 %
 
     // Klicken
     public const float ClickRadiusBase = 18;
@@ -92,7 +92,7 @@ public static class Balance
     public const double CapDropChance = 0.005;       // Chance auf einen Kronkorken (nicht bei Dosen), erst nach "Sammelalbum"
 
     // Picknickdecken: ohne Upgrade stehen die Leute nur kurz auf der Wiese herum
-    public const double StandStayFactor = 0.6;
+    public const double StandStayFactor = 0.85;
     public const double BlanketStayFactor = 1.3;
     public const double BlanketChanceBase = 0.5;     // Stufe 1: jeder Zweite hat eine Decke dabei
     public const double BlanketChancePerLevel = 0.25;

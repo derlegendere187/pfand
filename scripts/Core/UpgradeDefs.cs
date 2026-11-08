@@ -30,9 +30,9 @@ public static class UpgradeDefs
     public static readonly List<UpgradeDef> All = new()
     {
         new UpgradeDef { Id = "weg", Name = "WEG", Effect = "Mehr Leute kommen vorbei",
-            BasePrice = 3.00, Growth = 2.4, Max = 6, C1 = H("#e6cf9f"), C2 = H("#c9ad7a") },
+            BasePrice = 2.00, Growth = 2.3, Max = 6, C1 = H("#e6cf9f"), C2 = H("#c9ad7a") },
         new UpgradeDef { Id = "tasche", Name = "TASCHE+", Effect = "+4 Plätze in der Tasche",
-            BasePrice = 4.00, Growth = 2.2, Max = 6, MaxBonus = gs => 2 * gs.SkillLevel("rucksack"), C1 = H("#b07a4a"), C2 = H("#f4ead2") },
+            BasePrice = 3.00, Growth = 2.2, Max = 6, MaxBonus = gs => 2 * gs.SkillLevel("rucksack"), C1 = H("#b07a4a"), C2 = H("#f4ead2") },
         new UpgradeDef { Id = "picknick", RevealNext = 1, Name = "PICKNICKDECKE", Effect = "Leute setzen sich auf Decken und bleiben länger",
             BasePrice = 6.00, Growth = 2.6, Max = 3, C1 = H("#d9735a"), C2 = H("#fffaf0") },
         new UpgradeDef { Id = "muelleimer", Name = "MÜLLEIMER", Effect = "Flaschen landen im Eimer",
