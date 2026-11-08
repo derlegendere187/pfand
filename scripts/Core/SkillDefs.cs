@@ -54,6 +54,10 @@ public static class SkillDefs
         new SkillDef { Id = "abgabe", Branch = Wert, Name = "SCHNELLE ABGABE", Costs = new[] { 2, 4, 8 }, Parent = "wert", Pos = new(2, 0),
             Effect = n => $"Automat zählt {Pct(n * 0.5)} schneller",
             Icon = new[] { "........", "#...#...", "##..##..", "###.###.", "###.###.", "##..##..", "#...#...", "........" } },
+        new SkillDef { Id = "auto", Branch = Wert, Name = "AUTO-EINWURF", Costs = new[] { 3, 6 }, Parent = "abgabe", Pos = new(2, -1),
+            Effect = n => n >= 2 ? "Volle Tasche und Tasche nach 4 s Pause werden automatisch eingeworfen"
+                : "Eine volle Tasche wird automatisch eingeworfen",
+            Icon = new[] { "..####..", ".#oooo#.", ".#o##o#.", ".#oooo#.", ".######.", "...##...", ".######.", "..####.." } },
         new SkillDef { Id = "wert_glas", Branch = Wert, Name = "GLASKENNER", Costs = new[] { 3, 6, 12 }, Parent = "wert", Pos = new(1, -1),
             Effect = n => $"Bier- und Glasflaschen +{n * 50} % wert",
             Icon = new[] { "...##...", "...##...", "..#oo#..", "..#oo#..", "..####..", "..####..", "..#oo#..", "..####.." } },
@@ -65,16 +69,16 @@ public static class SkillDefs
             Icon = new[] { "........", "#..#..#.", "##.#.##.", "#######.", "#o#o#o#.", "#######.", "........", "........" } },
 
         // ---- Seltene Flaschen (oben) ----
-        new SkillDef { Id = "retro", Branch = Selten, Name = "RETRO-FLASCHEN", Costs = new[] { 2, 5, 10 }, Pos = new(0, -1),
+        new SkillDef { Id = "retro", Branch = Selten, Name = "RETRO-FLASCHEN", Costs = new[] { 2, 5, 10 }, Parent = "glueck", Pos = new(0, -2),
             Effect = n => $"{n * 2} % der Flaschen sind Retro (€ 0,75)",
             Icon = new[] { "...oo...", "...##...", "...##...", "..####..", ".#o##o#.", ".######.", ".#o##o#.", ".######." } },
-        new SkillDef { Id = "glueck", Branch = Selten, Name = "GLÜCKSDECKEL", Costs = new[] { 4, 8, 16 }, Parent = "retro", Pos = new(0, -2),
+        new SkillDef { Id = "glueck", Branch = Selten, Name = "GLÜCKSDECKEL", Costs = new[] { 1, 3, 8 }, Pos = new(0, -1),
             Effect = n => $"Chance auf Kronkorken +{n * 50} %",
             Icon = new[] { "..####..", ".#oooo#.", "#o#oo#o#", "#oo##oo#", "#oo##oo#", "#o#oo#o#", ".#oooo#.", "..####.." } },
-        new SkillDef { Id = "gold", Branch = Selten, Name = "GOLDENE FLASCHE", Costs = new[] { 10, 25 }, Parent = "glueck", Pos = new(0, -3),
+        new SkillDef { Id = "gold", Branch = Selten, Name = "GOLDENE FLASCHE", Costs = new[] { 10, 25 }, Parent = "retro", Pos = new(0, -3),
             Effect = n => $"Ganz selten ({(n * 0.4).ToString("0.0")} %) eine Flasche für € 5,00",
             Icon = new[] { "...o....", "...##...", "..#oo#..", "..#oo#..", ".#oooo#.", ".#o##o#.", ".#oooo#.", ".######." } },
-        new SkillDef { Id = "albumjaeger", Branch = Selten, Name = "ALBUMJÄGER", Costs = new[] { 12 }, Parent = "glueck", Pos = new(1, -2),
+        new SkillDef { Id = "albumjaeger", Branch = Selten, Name = "ALBUMJÄGER", Costs = new[] { 12 }, Parent = "retro", Pos = new(1, -2),
             Effect = _ => "Kronkorken sind öfter Motive, die dir noch fehlen",
             Icon = new[] { "########", "#oo#oo##", "#oo#oo##", "########", "#oo#..##", "#oo#..##", "########", "........" } },
 

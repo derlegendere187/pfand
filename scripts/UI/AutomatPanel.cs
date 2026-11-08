@@ -16,7 +16,8 @@ public partial class AutomatPanel : PanelContainer
     Label _bonTitle;
 
     bool _feeding;
-    double _feedAcc, _feedTotal, _pulse;
+    double _feedAcc, _feedTotal, _pulse, _bagIdle;
+    int _lastBagCount;
     readonly Dictionary<BottleType, (int count, double sum)> _receipt = new();
     readonly List<int> _capsFound = new();
     readonly Random _rng = new();
@@ -120,6 +121,7 @@ public partial class AutomatPanel : PanelContainer
         // Einführung: Einwerfen-Knopf pulsiert golden
         _feedButton.Modulate = gs.Tutorial == TutorialStep.Feed && !_feeding
             ? Colors.White.Lerp(Palette.Gold, 0.5f + 0.5f * Mathf.Sin((float)_pulse * 6)) : Colors.White;
+        AutoFeed(gs, delta);
         if (!_feeding) return;
         _feedAcc += delta;
         bool changed = false;
@@ -142,6 +144,16 @@ public partial class AutomatPanel : PanelContainer
             ShowBon();
         }
         if (changed || !_feeding) gs.Notify();
+    }
+
+    /// <summary>Skill Auto-Einwurf: Stufe 1 bei voller Tasche, Stufe 2 auch nach 4 s ohne neue Flasche.</summary>
+    void AutoFeed(GameState gs, double delta)
+    {
+        int lvl = gs.SkillLevel("auto");
+        if (gs.Bag.Count != _lastBagCount) { _lastBagCount = gs.Bag.Count; _bagIdle = 0; }
+        else _bagIdle += delta;
+        if (_feeding || lvl == 0 || gs.Bag.Count == 0) return;
+        if (gs.BagFull || (lvl >= 2 && _bagIdle >= 4)) StartFeeding();
     }
 
     void ShowEmptyBon()
