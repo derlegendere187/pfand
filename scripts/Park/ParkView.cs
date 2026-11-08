@@ -15,6 +15,7 @@ public partial class ParkView : Control
     readonly List<FloatText> _floats = new();
     readonly List<(Vector2 f, Color c, bool flower)> _decor = new();
     float _time;
+    Vector2 _mouse = new(-100, -100);
 
     public override void _Ready()
     {
@@ -46,6 +47,11 @@ public partial class ParkView : Control
         QueueRedraw();
     }
 
+    public override void _Notification(int what)
+    {
+        if (what == NotificationMouseExit) _mouse = new Vector2(-100, -100);
+    }
+
     public override void _GuiInput(InputEvent e)
     {
         if (e is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left && mb.Pressed)
@@ -55,7 +61,8 @@ public partial class ParkView : Control
         }
         else if (e is InputEventMouseMotion mm)
         {
-            bool over = Sim.BottleAt(mm.Position) != null || Sim.BinAt(mm.Position, ParkLayout.Bins(Size, GameState.I)) >= 0
+            _mouse = mm.Position;
+            bool over = Sim.BottlesAround(mm.Position, GameState.I.ClickRadius).Count > 0 || Sim.BinAt(mm.Position, ParkLayout.Bins(Size, GameState.I)) >= 0
                 || OverKasten(mm.Position);
             MouseDefaultCursorShape = over ? CursorShape.PointingHand : CursorShape.Arrow;
             // Mit gedrückter Maustaste drüberwischen sammelt auch
@@ -76,21 +83,30 @@ public partial class ParkView : Control
 
         if (OverKasten(pos) && isClick)
         {
-            EmptyInto(Sim.Kasten, pos);
+            if (gs.HasSkill("lastenrad")) DeliverKasten(pos);
+            else EmptyInto(Sim.Kasten, pos);
             return;
         }
 
-        var b = Sim.BottleAt(pos);
-        if (b == null) return;
-        if (gs.TryAddToBag(b.Type))
+        // Greifzange: alle Flaschen im Umkreis, die nächsten zuerst
+        var hits = Sim.BottlesAround(pos, gs.ClickRadius);
+        if (hits.Count == 0) return;
+        int got = 0;
+        foreach (var b in hits)
         {
+            if (!gs.TryAddToBag(b.Type)) break;
             Sim.Bottles.Remove(b);
-            Float(b.Pos, "+1", Palette.GoodText);
+            got++;
+        }
+        gs.CollectedByHand += got;
+        if (got > 0)
+        {
+            Float(hits[0].Pos, $"+{got}", Palette.GoodText);
             gs.Notify();
         }
         else if (isClick)
         {
-            Float(b.Pos, "Tasche voll!", Palette.BadText);
+            Float(hits[0].Pos, "Tasche voll!", Palette.BadText);
         }
     }
 
@@ -106,6 +122,27 @@ public partial class ParkView : Control
         if (taken > 0) Float(pos, $"+{taken}", Palette.GoodText);
         else if (content.Count > 0) Float(pos, "Tasche voll!", Palette.BadText);
         else Float(pos, "leer", Palette.Muted);
+        gs.Notify();
+    }
+
+    /// <summary>Lastenrad: der ganze Kasten geht direkt zum Automaten, volle Kästen bringen Kastenpfand.</summary>
+    void DeliverKasten(Vector2 pos)
+    {
+        var gs = GameState.I;
+        if (Sim.Kasten.Count == 0) { Float(pos, "leer", Palette.Muted); return; }
+        bool full = Sim.Kasten.Count >= Balance.KastenCapacity;
+        double sum = 0;
+        var rng = new Random();
+        foreach (var t in Sim.Kasten) sum += gs.FeedDirect(t, rng).value;
+        Sim.Kasten.Clear();
+        if (full)
+        {
+            gs.Money += Balance.KastenPfand;
+            gs.TotalEarned += Balance.KastenPfand;
+            sum += Balance.KastenPfand;
+            gs.KaestenAbgegeben++;
+        }
+        Float(pos, "+" + GameState.Euro(sum).Replace("€ ", "") + (full ? " KASTEN!" : ""), Palette.MoneyText);
         gs.Notify();
     }
 
@@ -249,6 +286,9 @@ public partial class ParkView : Control
             DrawString(font, f.Pos + new Vector2(1, 1), f.Text, HorizontalAlignment.Left, -1, 22, new Color(Palette.PanelLight, c.A));
             DrawString(font, f.Pos, f.Text, HorizontalAlignment.Left, -1, 22, c);
         }
+
+        if (gs.SkillLevel("aoe") > 0 && new Rect2(Vector2.Zero, size).HasPoint(_mouse))
+            DrawArc(_mouse, gs.ClickRadius, 0, Mathf.Tau, 32, new Color(Palette.PanelLight, 0.6f), 2);
 
         if (gs.BottlesFed == 0 && gs.Bag.Count == 0)
             Hint("Klicke auf Flaschen, um sie einzusammeln.");

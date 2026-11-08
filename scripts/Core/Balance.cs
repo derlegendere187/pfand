@@ -24,7 +24,7 @@ public static class Balance
     public const int MaxVisitorsPerBench = 2;
     public const double StayBase = 22;               // Sekunden, die jemand sitzen bleibt
     public const double StayBonusPerBench = 0.25;    // +25 % Verweildauer pro Bank
-    public const double DrinkInterval = 8;           // alle X Sekunden ist eine Flasche leer
+    public const double DrinkInterval = 5;           // alle X Sekunden ist eine Flasche leer
     public const double WalkSpeed = 45;              // Pixel pro Sekunde
     public const double EveningLeaveChancePerSecond = 0.1; // ohne Laternen
 
@@ -55,8 +55,19 @@ public static class Balance
     public const int BinCapacity = 15;
 
     // Seltene Flaschen (brauchen Skills)
-    public const double RetroChance = 0.04;
-    public const double GoldChance = 0.006;
+    public const double RetroChancePerLevel = 0.02;
+    public const double GoldChancePerLevel = 0.004;
+
+    // Liegenlassen: Anfangs nimmt mehr als die Hälfte der Leute ihre Flaschen wieder mit
+    public const double LeaveChanceBase = 0.45;
+    public const double LeaveChancePerLevel = 0.09;   // Skill "Sorglose Gäste", 5 Stufen -> 90 %
+
+    // Klicken
+    public const float ClickRadiusBase = 18;
+    public const float ClickRadiusPerLevel = 14;      // Skill "Greifzange"
+
+    // Lastenrad
+    public const double KastenPfand = 1.50;
 
     // Freundeskreis (Gruppen)
     public const double GroupChancePerLevel = 0.25;  // Chance, dass jemand Freunde mitbringt

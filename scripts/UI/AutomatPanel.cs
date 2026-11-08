@@ -118,9 +118,9 @@ public partial class AutomatPanel : PanelContainer
         var gs = GameState.I;
         _feedAcc += delta;
         bool changed = false;
-        while (_feedAcc >= Balance.FeedInterval && gs.Bag.Count > 0)
+        while (_feedAcc >= gs.FeedInterval && gs.Bag.Count > 0)
         {
-            _feedAcc -= Balance.FeedInterval;
+            _feedAcc -= gs.FeedInterval;
             var (type, value, cap) = gs.FeedOne(_rng);
             _feedTotal += value;
             var e = _receipt.TryGetValue(type, out var cur) ? cur : (0, 0.0);
@@ -133,6 +133,7 @@ public partial class AutomatPanel : PanelContainer
         {
             _feeding = false;
             _status.Text = "BEREIT";
+            gs.BestBon = System.Math.Max(gs.BestBon, _feedTotal);
             ShowBon();
         }
         if (changed || !_feeding) gs.Notify();

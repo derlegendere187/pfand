@@ -124,9 +124,9 @@ public class VisitorSim
         };
         var activeEvent = gs.ActiveEvent == null ? null : EventDefs.Get(gs.ActiveEvent);
         int maxVisitors = Balance.MaxVisitorsBase + Balance.MaxVisitorsPerPath * paths.Count + Balance.MaxVisitorsPerBench * benches.Count
-            + (imbiss ? Balance.ImbissMaxVisitors : 0) + tables.Count * 2 + (activeEvent?.Guests ?? 0);
+            + (imbiss ? Balance.ImbissMaxVisitors : 0) + tables.Count * 2 + (activeEvent?.Guests ?? 0) + gs.ExtraVisitorSlots;
         double boost = 1 + Balance.SpawnBonusPerPath * paths.Count + Balance.SpawnBonusPerBin * bins.Count
-            + (imbiss ? Balance.ImbissSpawnBonus : 0) + Balance.TableSpawnBonus * tables.Count + (activeEvent?.SpawnBoost ?? 0);
+            + (imbiss ? Balance.ImbissSpawnBonus : 0) + Balance.TableSpawnBonus * tables.Count + (activeEvent?.SpawnBoost ?? 0) + gs.VisitorBoost;
         double interval = Balance.SpawnIntervalBase / boost;
         if (phaseFactor > 0)
         {
@@ -145,7 +145,7 @@ public class VisitorSim
             gs.PeakVisitors = Visitors.Count;
             if (gs.PeakVisitors % 5 == 0) gs.Notify();
         }
-        double drinkInterval = Balance.DrinkInterval * (imbiss ? Balance.ImbissDrinkFactor : 1);
+        double drinkInterval = Balance.DrinkInterval * (imbiss ? Balance.ImbissDrinkFactor : 1) * gs.DrinkFactor;
 
         // --- Besucher bewegen ---
         for (int i = Visitors.Count - 1; i >= 0; i--)
@@ -246,6 +246,9 @@ public class VisitorSim
     void Drop(Visitor v, List<Vector2> bins, GameState gs)
     {
         var type = BottleFor(v, gs);
+        // Normale Besucher nehmen einen Teil ihrer Flaschen wieder mit
+        if (v.EventId == null && v.GrillSeat < 0 && type != BottleType.Gold && type != BottleType.Retro
+            && _rng.NextDouble() > gs.LeaveChance) return;
         if (v.GrillSeat >= 0 && type == BottleType.Bier && Kasten.Count < Balance.KastenCapacity)
         {
             _dropTimes.Enqueue(_clock);
@@ -633,8 +636,8 @@ public class VisitorSim
     // --- Flaschen ---
     BottleType RandomType(GameState gs)
     {
-        if (gs.HasSkill("gold") && _rng.NextDouble() < Balance.GoldChance) return BottleType.Gold;
-        if (gs.HasSkill("retro") && _rng.NextDouble() < Balance.RetroChance) return BottleType.Retro;
+        if (_rng.NextDouble() < gs.GoldChance) return BottleType.Gold;
+        if (_rng.NextDouble() < gs.RetroChance) return BottleType.Retro;
         double r = _rng.NextDouble();
         if (r < 0.35) return BottleType.Bier;
         if (r < 0.65) return BottleType.Dose;
@@ -689,14 +692,14 @@ public class VisitorSim
         while (Collectors.Count < wanted)
             Collectors.Add(new Collector { Pos = depot + new Vector2(Rf(0, 20), Rf(-20, 20)) });
 
-        double step = Balance.CollectorSpeed * dt;
+        double step = gs.CollectorSpeed * dt;
         foreach (var c in Collectors)
         {
             c.WalkPhase += (float)dt * 10;
             switch (c.State)
             {
                 case CollectorState.Sucht:
-                    if (c.Carry.Count >= Balance.CollectorCarry) { c.State = CollectorState.Abliefern; break; }
+                    if (c.Carry.Count >= gs.CollectorCarry) { c.State = CollectorState.Abliefern; break; }
                     var b = NearestFreeBottle(c.Pos);
                     if (b != null) { b.Claimed = true; c.TargetBottle = b; c.State = CollectorState.ZurFlasche; break; }
                     int bin = NearestFilledBin(c.Pos, bins);
@@ -723,7 +726,7 @@ public class VisitorSim
                     if (MoveTowards(ref c.Pos, bins[c.TargetBin] + new Vector2(0, 16), step))
                     {
                         var content = BinContents[c.TargetBin];
-                        while (content.Count > 0 && c.Carry.Count < Balance.CollectorCarry)
+                        while (content.Count > 0 && c.Carry.Count < gs.CollectorCarry)
                         {
                             c.Carry.Add(content[0]);
                             content.RemoveAt(0);
@@ -741,6 +744,7 @@ public class VisitorSim
                         foreach (var t in c.Carry)
                         {
                             var (v, cap) = gs.FeedDirect(t, _rng);
+                            gs.CollectedByCollectors++;
                             sum += v;
                             if (cap >= 0) caps++;
                         }
@@ -799,6 +803,15 @@ public class VisitorSim
             if (d < bestD) { bestD = d; best = b; }
         }
         return best;
+    }
+
+    /// <summary>Alle Flaschen im Umkreis, nach Abstand sortiert.</summary>
+    public List<GroundBottle> BottlesAround(Vector2 pos, float radius)
+    {
+        var list = new List<GroundBottle>();
+        foreach (var b in Bottles) if (b.Pos.DistanceTo(pos) < radius) list.Add(b);
+        list.Sort((a, b) => a.Pos.DistanceSquaredTo(pos).CompareTo(b.Pos.DistanceSquaredTo(pos)));
+        return list;
     }
 
     public int BinAt(Vector2 pos, List<Vector2> bins)

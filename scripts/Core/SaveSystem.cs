@@ -8,7 +8,7 @@ namespace Pfand.Core;
 
 public class SaveData
 {
-    public int Version { get; set; } = 2;
+    public int Version { get; set; } = 3;
     public double Money { get; set; }
     public double TotalEarned { get; set; }
     public long BottlesFed { get; set; }
@@ -18,8 +18,17 @@ public class SaveData
     public List<int> Bag { get; set; } = new();
     public Dictionary<string, int> Upgrades { get; set; } = new();
     public Dictionary<int, int> Caps { get; set; } = new();
-    public List<string> Skills { get; set; } = new();
+    public List<string> Skills { get; set; } = new();            // nur Version 2
+    public Dictionary<string, int> SkillLevels { get; set; } = new();
     public Dictionary<string, double> Cooldowns { get; set; } = new();
+    // Statistik (ab Version 3)
+    public double PlayTime { get; set; }
+    public Dictionary<int, long> FedByType { get; set; } = new();
+    public long CollectedByHand { get; set; }
+    public long CollectedByCollectors { get; set; }
+    public int EventsHeld { get; set; }
+    public int KaestenAbgegeben { get; set; }
+    public double BestBon { get; set; }
 }
 
 /// <summary>Speichert den Spielstand als JSON nach user://save.json.</summary>
@@ -40,8 +49,15 @@ public static class SaveSystem
             Bag = s.Bag.Select(b => (int)b).ToList(),
             Upgrades = new Dictionary<string, int>(s.Upgrades),
             Caps = new Dictionary<int, int>(s.Caps),
-            Skills = s.Skills.ToList(),
+            SkillLevels = new Dictionary<string, int>(s.Skills),
             Cooldowns = new Dictionary<string, double>(s.Cooldowns),
+            PlayTime = s.PlayTime,
+            FedByType = new Dictionary<int, long>(s.FedByType),
+            CollectedByHand = s.CollectedByHand,
+            CollectedByCollectors = s.CollectedByCollectors,
+            EventsHeld = s.EventsHeld,
+            KaestenAbgegeben = s.KaestenAbgegeben,
+            BestBon = s.BestBon,
         };
         var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
         using var f = FileAccess.Open(Path, FileAccess.ModeFlags.Write);
@@ -70,10 +86,29 @@ public static class SaveSystem
             s.Bag = data.Bag.Where(b => Enum.IsDefined(typeof(BottleType), b)).Select(b => (BottleType)b).ToList();
             s.Upgrades = data.Upgrades ?? new();
             s.Caps = (data.Caps ?? new()).Where(kv => kv.Key >= 0 && kv.Key < CapData.Count).ToDictionary(kv => kv.Key, kv => kv.Value);
-            s.Skills = new HashSet<string>(data.Skills ?? new());
             s.Cooldowns = data.Cooldowns ?? new();
             // Alte Spielstände (Version 1) kannten noch keine Kronkorken-Währung
             s.Kronkorken = data.Version < 2 ? s.Caps.Values.Sum() : data.Kronkorken;
+            if (data.Version < 3)
+            {
+                // Neuer Skilltree: alte Skills zurücksetzen, Kronkorken dafür erstatten
+                s.Skills = new();
+                foreach (var id in data.Skills ?? new())
+                    if (SkillDefs.OldCosts.TryGetValue(id, out var cost)) s.Kronkorken += cost;
+            }
+            else
+            {
+                s.Skills = (data.SkillLevels ?? new())
+                    .Where(kv => SkillDefs.Get(kv.Key) is { } d && kv.Value > 0)
+                    .ToDictionary(kv => kv.Key, kv => Math.Min(kv.Value, SkillDefs.Get(kv.Key).MaxLevel));
+            }
+            s.PlayTime = data.PlayTime;
+            s.FedByType = data.FedByType ?? new();
+            s.CollectedByHand = data.CollectedByHand;
+            s.CollectedByCollectors = data.CollectedByCollectors;
+            s.EventsHeld = data.EventsHeld;
+            s.KaestenAbgegeben = data.KaestenAbgegeben;
+            s.BestBon = data.BestBon;
             return true;
         }
         catch (Exception e)

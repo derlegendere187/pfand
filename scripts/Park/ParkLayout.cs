@@ -23,9 +23,13 @@ public static class ParkLayout
         (0.20f, 0.47f, 0.20f, 1f),
     };
 
-    static readonly Vector2[] BinSlots = { new(0.43f, 0.40f), new(0.53f, 0.55f), new(0.74f, 0.40f), new(0.25f, 0.55f) };
-    static readonly Vector2[] BenchSlots = { new(0.25f, 0.40f), new(0.65f, 0.40f), new(0.33f, 0.555f), new(0.64f, 0.555f), new(0.25f, 0.11f) };
-    static readonly Vector2[] LampSlots = { new(0.37f, 0.40f), new(0.57f, 0.555f), new(0.87f, 0.40f) };
+    // Die letzten drei Plätze jeder Liste gibt es erst mit dem Skill "Baugenehmigung"
+    static readonly Vector2[] BinSlots = { new(0.43f, 0.40f), new(0.53f, 0.55f), new(0.74f, 0.40f), new(0.25f, 0.55f),
+        new(0.51f, 0.12f), new(0.15f, 0.27f), new(0.84f, 0.73f) };
+    static readonly Vector2[] BenchSlots = { new(0.25f, 0.40f), new(0.65f, 0.40f), new(0.33f, 0.555f), new(0.64f, 0.555f), new(0.25f, 0.11f),
+        new(0.37f, 0.27f), new(0.62f, 0.89f), new(0.11f, 0.555f) };
+    static readonly Vector2[] LampSlots = { new(0.37f, 0.40f), new(0.57f, 0.555f), new(0.87f, 0.40f),
+        new(0.41f, 0.11f), new(0.84f, 0.87f), new(0.15f, 0.40f) };
 
     public static List<Rect2> Paths(Vector2 size, GameState gs)
     {

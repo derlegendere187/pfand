@@ -20,6 +20,9 @@ Ein Incremental-Spiel: Du schaust von oben auf einen Park, sammelst die Pfandfla
 - „Einwerfen“ im Automaten → Geld
 - Rechts zwischen **Upgrades** und **Events** umschalten; Events haben einen Cooldown
 - **Kronkorken** (selten beim Einwerfen) landen im **Album** und sind die Währung für den **Skilltree**
+- Skilltree: Fläche mit der Maus ziehen, Knoten anklicken, „Lernen“ oder Doppelklick
+- Bierkasten am Grill anklicken → Flaschen in die Tasche (mit Lastenrad: ganzer Kasten direkt zum Automaten)
+- **Stats** unten rechts zeigt die Statistik
 
 ## Debug-Parameter
 Nach `--` anhängen, z. B. `... --path . -- --fresh --money=50`:
@@ -31,9 +34,11 @@ Nach `--` anhängen, z. B. `... --path . -- --fresh --money=50`:
 | `--late` | Park mit einigen Upgrades ausstatten |
 | `--imbiss` | Imbissbude freischalten und bauen |
 | `--upgrades=sammler:2,tischtennis:1` | Upgrade-Stufen setzen |
-| `--allskills` | alle Skills lernen |
+| `--allskills` | alle Skills voll lernen |
+| `--skills=wert:2,aoe:1` | einzelne Skill-Stufen setzen |
+| `--kk=20` | Kronkorken setzen |
 | `--event=konzert` | Event sofort starten (`geburtstag`, `bierball`, `konzert`) |
-| `--open=skills` | Skilltree, Album (`album`) oder Events-Tab (`events`) öffnen |
+| `--open=skills` | Skilltree, Album (`album`), Statistik (`stats`) oder Events-Tab (`events`) öffnen |
 | `--time=0.7` | Tageszeit setzen (0–1; ab 0.62 Abend, ab 0.82 Nacht) |
 | `--speed=4` | Spiel schneller laufen lassen |
 | `--screenshot=PFAD --shotdelay=3` | Bildschirmfoto speichern und beenden |

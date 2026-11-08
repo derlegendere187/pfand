@@ -85,7 +85,7 @@ public partial class UpgradePanel : PanelContainer
         {
             int level = gs.Level(c.Def.Id);
             bool unlocked = c.Def.Unlocked(gs);
-            bool maxed = level >= c.Def.Max;
+            bool maxed = level >= gs.MaxLevel(c.Def);
             c.Owned.Text = level > 0 ? $"×{level}" : "";
 
             bool dim = !unlocked;

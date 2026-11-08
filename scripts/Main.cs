@@ -17,7 +17,9 @@ namespace Pfand;
 ///   --late             Park mit einigen Upgrades ausstatten
 ///   --imbiss           Imbissbude freischalten und bauen
 ///   --upgrades=a:1,b:2 Upgrade-Stufen setzen (z. B. sammler:2,tischtennis:1)
-///   --allskills        alle Skills lernen
+///   --allskills        alle Skills voll lernen
+///   --skills=wert:2,aoe:1  einzelne Skill-Stufen setzen
+///   --kk=20            Kronkorken setzen
 ///   --event=konzert    Event sofort starten
 ///   --time=0.7         Tageszeit setzen (0..1)
 ///   --speed=4          Spiel schneller laufen lassen
@@ -34,7 +36,8 @@ public partial class Main : Control
     ulong _startMs;
     AlbumPopup _album;
     SkillPopup _skills;
-    Label _albumCount, _skillCount;
+    StatsPopup _stats;
+    Label _albumCount, _skillCount, _statsCount;
     Button _tabUpgrades, _tabEvents;
     UpgradePanel _upgradePanel;
     EventPanel _eventPanel;
@@ -57,10 +60,17 @@ public partial class Main : Control
             gs.BottlesFed = 100;
         }
         if (_args.ContainsKey("allskills"))
-            foreach (var sk in SkillDefs.All) gs.Skills.Add(sk.Id);
+            foreach (var sk in SkillDefs.All) if (sk.MaxLevel > 0) gs.Skills[sk.Id] = sk.MaxLevel;
+        if (_args.TryGetValue("skills", out var sks))
+            foreach (var pair in sks.Split(','))
+            {
+                var kv = pair.Split(':');
+                if (kv.Length == 2 && int.TryParse(kv[1], out var lvl)) gs.Skills[kv[0]] = lvl;
+            }
+        if (_args.TryGetValue("kk", out var kk) && int.TryParse(kk, out var kkn)) gs.Kronkorken = kkn;
         if (_args.TryGetValue("event", out var evId) && EventDefs.Get(evId) is { } evDef)
         {
-            gs.Skills.Add(evDef.Skill);
+            gs.Skills[evDef.Skill] = 1;
             gs.TryStartEvent(evDef);
         }
         if (_args.TryGetValue("upgrades", out var ups))
@@ -87,6 +97,7 @@ public partial class Main : Control
         {
             if (open == "skills") _skills.CallDeferred(SkillPopup.MethodName.Open);
             else if (open == "album") _album.CallDeferred(AlbumPopup.MethodName.Open);
+            else if (open == "stats") _stats.CallDeferred(StatsPopup.MethodName.Open);
             else if (open == "events") ShowTab(true);
         }
     }
@@ -153,8 +164,10 @@ public partial class Main : Control
         bottom.AddThemeConstantOverride("separation", 8);
         var albumButton = BrownButton("ALBUM", out _albumCount);
         var skillButton = BrownButton("SKILLS", out _skillCount);
+        var statsButton = BrownButton("STATS", out _statsCount);
         bottom.AddChild(albumButton);
         bottom.AddChild(skillButton);
+        bottom.AddChild(statsButton);
         right.AddChild(bottom);
         body.AddChild(right);
 
@@ -164,6 +177,9 @@ public partial class Main : Control
         _skills = new SkillPopup();
         AddChild(_skills);
         skillButton.Pressed += _skills.Open;
+        _stats = new StatsPopup();
+        AddChild(_stats);
+        statsButton.Pressed += _stats.Open;
     }
 
     Button TabButton(string text)
@@ -224,6 +240,8 @@ public partial class Main : Control
 
     public override void _Process(double delta)
     {
+        GameState.I.PlayTime += delta;
+        _statsCount.Text = $"{(int)(GameState.I.PlayTime / 60)} min";
         _saveAcc += delta;
         if (_saveAcc >= Balance.AutosaveSeconds * Engine.TimeScale)
         {

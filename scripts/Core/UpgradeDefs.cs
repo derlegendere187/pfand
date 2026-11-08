@@ -15,6 +15,7 @@ public class UpgradeDef
     public string LockedText = "";
     public Func<GameState, string> LockedTextFn;
     public Func<GameState, bool> Unlocked = _ => true;
+    public Func<GameState, int> MaxBonus;          // z. B. durch Skills
     public Color C1, C2;
 
     public double Price(int level) => Math.Round(BasePrice * Math.Pow(Growth, level), 2);
@@ -29,19 +30,19 @@ public static class UpgradeDefs
         new UpgradeDef { Id = "weg", Name = "WEG", Effect = "Mehr Leute kommen vorbei",
             BasePrice = 1.50, Growth = 2.2, Max = 6, C1 = H("#e6cf9f"), C2 = H("#c9ad7a") },
         new UpgradeDef { Id = "tasche", Name = "TASCHE+", Effect = "+4 Plätze in der Tasche",
-            BasePrice = 1.00, Growth = 2.0, Max = 6, C1 = H("#b07a4a"), C2 = H("#f4ead2") },
+            BasePrice = 1.00, Growth = 2.0, Max = 6, MaxBonus = gs => 2 * gs.SkillLevel("rucksack"), C1 = H("#b07a4a"), C2 = H("#f4ead2") },
         new UpgradeDef { Id = "muelleimer", Name = "MÜLLEIMER", Effect = "Flaschen landen im Eimer",
-            BasePrice = 4.00, Growth = 2.0, Max = 4, C1 = H("#4f7a5a"), C2 = H("#2f4a38") },
+            BasePrice = 4.00, Growth = 2.0, Max = 4, MaxBonus = gs => gs.SkillLevel("bau"), C1 = H("#4f7a5a"), C2 = H("#2f4a38") },
         new UpgradeDef { Id = "bank", Name = "BANK", Effect = "Leute bleiben länger",
-            BasePrice = 8.00, Growth = 2.0, Max = 5, C1 = H("#b07a4a"), C2 = H("#7a5434") },
+            BasePrice = 8.00, Growth = 2.0, Max = 5, MaxBonus = gs => gs.SkillLevel("bau"), C1 = H("#b07a4a"), C2 = H("#7a5434") },
         new UpgradeDef { Id = "gruppen", Name = "FREUNDESKREIS", Effect = "Leute bringen Freunde mit",
             BasePrice = 6.00, Growth = 2.5, Max = 3, C1 = H("#6fa8d6"), C2 = H("#d9735a") },
         new UpgradeDef { Id = "sammler", Name = "SAMMLER", Effect = "Angestellte sammeln und werfen selbst ein",
-            BasePrice = 20.00, Growth = 2.0, Max = 5, C1 = H("#e08a4a"), C2 = H("#2a1d14") },
+            BasePrice = 20.00, Growth = 2.0, Max = 5, MaxBonus = gs => 2 * gs.SkillLevel("personal"), C1 = H("#e08a4a"), C2 = H("#2a1d14") },
         new UpgradeDef { Id = "tischtennis", Name = "TISCHTENNIS", Effect = "Spieler kommen und trinken viel",
             BasePrice = 40.00, Growth = 3.0, Max = 2, C1 = H("#4f8a6a"), C2 = H("#fffaf0") },
         new UpgradeDef { Id = "laterne", Name = "LATERNE", Effect = "Leute bleiben auch abends",
-            BasePrice = 25.00, Growth = 2.2, Max = 3, C1 = H("#f2c75c"), C2 = H("#5a4a3a") },
+            BasePrice = 25.00, Growth = 2.2, Max = 3, MaxBonus = gs => gs.SkillLevel("bau"), C1 = H("#f2c75c"), C2 = H("#5a4a3a") },
         new UpgradeDef { Id = "imbiss", Name = "IMBISSBUDE", Effect = "Mehr Leute, die mehr trinken",
             BasePrice = 150, Growth = 2.5, Max = 1,
             Unlocked = gs => gs.PeakVisitors >= Balance.ImbissUnlockVisitors,

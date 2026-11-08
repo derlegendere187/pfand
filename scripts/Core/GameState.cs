@@ -50,19 +50,30 @@ public class GameState
     public List<BottleType> Bag = new();
     public Dictionary<string, int> Upgrades = new();
     public Dictionary<int, int> Caps = new();          // Album: Motiv -> wie oft gefunden
-    public HashSet<string> Skills = new();
+    public Dictionary<string, int> Skills = new();     // Skill -> Stufe
     public Dictionary<string, double> Cooldowns = new(); // Event -> Restzeit in Sekunden
     public string ActiveEvent;                          // null = kein Event
     public double EventTimeLeft;
+
+    // Statistik
+    public double PlayTime;                             // Sekunden
+    public Dictionary<int, long> FedByType = new();     // BottleType -> Anzahl eingeworfen
+    public long CollectedByHand;
+    public long CollectedByCollectors;
+    public int EventsHeld;
+    public int KaestenAbgegeben;
+    public double BestBon;
 
     public event Action Changed;
 
     public void Notify() => Changed?.Invoke();
 
     public int Level(string id) => Upgrades.TryGetValue(id, out var l) ? l : 0;
-    public bool HasSkill(string id) => Skills.Contains(id);
+    public int SkillLevel(string id) => id == SkillDefs.Root ? 1 : Skills.TryGetValue(id, out var l) ? l : 0;
+    public bool HasSkill(string id) => SkillLevel(id) > 0;
 
     public int BagCapacity => Balance.BagBase + Level("tasche") * Balance.BagPerLevel;
+    public int MaxLevel(UpgradeDef d) => d.Max + (d.MaxBonus?.Invoke(this) ?? 0);
     public bool BagFull => Bag.Count >= BagCapacity;
 
     public DayPhase Phase =>
@@ -70,13 +81,30 @@ public class GameState
         TimeOfDay < Balance.NightStart ? DayPhase.Abend : DayPhase.Nacht;
 
     // --- Skill-Wirkungen ---
-    public double ValueMultiplier =>
-        1 + (HasSkill("wert1") ? 0.25 : 0) + (HasSkill("wert2") ? 0.25 : 0) + (HasSkill("wert3") ? 0.5 : 0);
+    public double ValueMultiplier => (1 + 0.2 * SkillLevel("wert")) * (HasSkill("wert_koenig") ? 2 : 1);
 
-    public double CapChance => Balance.CapDropChance * (HasSkill("glueck") ? 2 : 1);
-    public double CooldownFactor => HasSkill("ev_cooldown") ? 0.7 : 1.0;
+    public double TypeMultiplier(BottleType t) => t switch
+    {
+        BottleType.Bier or BottleType.Wasser or BottleType.Retro => 1 + 0.5 * SkillLevel("wert_glas"),
+        BottleType.Dose or BottleType.Plastik => 1 + 0.25 * SkillLevel("wert_dose"),
+        _ => 1,
+    };
 
-    public double Value(BottleType t) => BottleInfo.BaseValue(t) * ValueMultiplier;
+    public double CapChance => Balance.CapDropChance * (1 + 0.5 * SkillLevel("glueck"));
+    public double CooldownFactor => 1 - 0.15 * SkillLevel("ev_cooldown");
+    public double FeedInterval => Balance.FeedInterval / (1 + 0.5 * SkillLevel("abgabe"));
+    public double RetroChance => Balance.RetroChancePerLevel * SkillLevel("retro");
+    public double GoldChance => Balance.GoldChancePerLevel * SkillLevel("gold");
+    /// <summary>Anteil der leeren Flaschen, die Besucher liegen lassen (der Rest wird mitgenommen).</summary>
+    public double LeaveChance => Math.Min(1, Balance.LeaveChanceBase + Balance.LeaveChancePerLevel * SkillLevel("liegen"));
+    public double DrinkFactor => 1 - 0.1 * SkillLevel("durst");
+    public double VisitorBoost => 0.15 * SkillLevel("stammgaeste");
+    public int ExtraVisitorSlots => 2 * SkillLevel("stammgaeste");
+    public float ClickRadius => Balance.ClickRadiusBase + Balance.ClickRadiusPerLevel * SkillLevel("aoe");
+    public double CollectorSpeed => Balance.CollectorSpeed * (1 + 0.25 * SkillLevel("flink"));
+    public int CollectorCarry => Balance.CollectorCarry + 2 * SkillLevel("flink");
+
+    public double Value(BottleType t) => BottleInfo.BaseValue(t) * ValueMultiplier * TypeMultiplier(t);
 
     public bool TryAddToBag(BottleType t)
     {
@@ -101,11 +129,19 @@ public class GameState
         Money += v;
         TotalEarned += v;
         BottlesFed++;
+        FedByType[(int)t] = (FedByType.TryGetValue((int)t, out var n) ? n : 0) + 1;
         int cap = -1;
         double chance = CapChance * (t == BottleType.Retro || t == BottleType.Gold ? 5 : 1);
         if (BottleInfo.HasCap(t) && rng.NextDouble() < chance)
         {
             cap = rng.Next(CapData.Count);
+            // Albumjäger: oft ein Motiv, das noch fehlt
+            if (HasSkill("albumjaeger") && Caps.ContainsKey(cap) && rng.NextDouble() < 0.6)
+            {
+                var missing = new List<int>();
+                for (int i = 0; i < CapData.Count; i++) if (!Caps.ContainsKey(i)) missing.Add(i);
+                if (missing.Count > 0) cap = missing[rng.Next(missing.Count)];
+            }
             Caps[cap] = (Caps.TryGetValue(cap, out var c) ? c : 0) + 1;
             Kronkorken++;
         }
@@ -116,7 +152,7 @@ public class GameState
     public bool CanBuy(UpgradeDef d)
     {
         int l = Level(d.Id);
-        return d.Unlocked(this) && l < d.Max && Money + 1e-9 >= d.Price(l);
+        return d.Unlocked(this) && l < MaxLevel(d) && Money + 1e-9 >= d.Price(l);
     }
 
     public bool TryBuy(UpgradeDef d)
@@ -130,14 +166,17 @@ public class GameState
     }
 
     // --- Skills ---
-    public bool SkillAvailable(SkillDef s) => !HasSkill(s.Id) && (s.Requires == null || HasSkill(s.Requires));
-    public bool CanBuySkill(SkillDef s) => SkillAvailable(s) && Kronkorken >= s.Cost;
+    /// <summary>Lernbar, sobald der Elternknoten gelernt ist.</summary>
+    public bool SkillAvailable(SkillDef s) => s.Id != SkillDefs.Root && HasSkill(s.Parent ?? SkillDefs.Root);
+    public bool SkillMaxed(SkillDef s) => SkillLevel(s.Id) >= s.MaxLevel;
+    public int NextSkillCost(SkillDef s) => SkillMaxed(s) ? 0 : s.Costs[SkillLevel(s.Id)];
+    public bool CanBuySkill(SkillDef s) => SkillAvailable(s) && !SkillMaxed(s) && Kronkorken >= NextSkillCost(s);
 
     public bool TryBuySkill(SkillDef s)
     {
         if (!CanBuySkill(s)) return false;
-        Kronkorken -= s.Cost;
-        Skills.Add(s.Id);
+        Kronkorken -= NextSkillCost(s);
+        Skills[s.Id] = SkillLevel(s.Id) + 1;
         Notify();
         return true;
     }
@@ -152,6 +191,7 @@ public class GameState
         if (!CanStartEvent(e)) return false;
         ActiveEvent = e.Id;
         EventTimeLeft = e.Duration;
+        EventsHeld++;
         Cooldowns[e.Id] = e.Duration + e.Cooldown * CooldownFactor;
         Notify();
         return true;
