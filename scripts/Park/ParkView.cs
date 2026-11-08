@@ -74,7 +74,7 @@ public partial class ParkView : Control
             _mouse = mm.Position;
             bool overBottle = Sim.BottlesAround(mm.Position, GameState.I.ClickRadius).Count > 0;
             _hoverObject = overBottle || OverKasten(mm.Position) ? null : ObjectAt(mm.Position);
-            bool over = overBottle || _hoverObject != null || OverKasten(mm.Position);
+            bool over = overBottle || OverKasten(mm.Position) || Sim.BinAt(mm.Position, ParkLayout.Bins(Size, GameState.I)) >= 0;
             MouseDefaultCursorShape = over ? CursorShape.PointingHand : CursorShape.Arrow;
             // Mit gedrückter Maustaste drüberwischen sammelt auch
             if ((mm.ButtonMask & MouseButtonMask.Left) != 0) TryCollect(mm.Position, false);
@@ -101,12 +101,7 @@ public partial class ParkView : Control
 
         // Greifzange: alle Flaschen im Umkreis, die nächsten zuerst
         var hits = Sim.BottlesAround(pos, gs.ClickRadius);
-        if (hits.Count == 0)
-        {
-            // Keine Flasche getroffen: Klick auf ein Objekt öffnet den Ausbau
-            if (isClick && ObjectAt(pos) is { } o) ObjectClicked?.Invoke(o.kind, o.index);
-            return;
-        }
+        if (hits.Count == 0) return;
         int got = 0;
         foreach (var b in hits)
         {
@@ -266,7 +261,13 @@ public partial class ParkView : Control
         foreach (var b in Sim.Bottles)
         {
             float pop = Mathf.Min(1f, b.Age * 5f);
-            Sprites.Bottle(this, b.Pos, b.Type, b.Rot, b.ColorIdx, 0.6f + 0.4f * pop);
+            Sprites.Bottle(this, b.Pos, b.Type, b.Rot, b.ColorIdx, (0.6f + 0.4f * pop) * 1.3f, true);
+        }
+        // Jede Flasche funkelt alle paar Sekunden kurz auf (zeitversetzt)
+        foreach (var b in Sim.Bottles)
+        {
+            float phase = (_time * 0.5f + (b.Pos.X * 0.013f + b.Pos.Y * 0.007f)) % 1f;
+            if (phase < 0.12f) Sprites.Sparkle(this, (b.Pos + new Vector2(6, -10)).Round(), Mathf.Sin(phase / 0.12f * Mathf.Pi));
         }
 
         foreach (var v in Sim.Visitors)
@@ -362,7 +363,7 @@ public partial class ParkView : Control
         else if (gs.BottlesFed == 0 && gs.Bag.Count >= 3)
             Hint("Wirf die Flaschen links im Automaten ein.");
         else if (gs.Ausbau.Count == 0 && gs.Level("bank") > 0 && gs.Money >= 12 && gs.BottlesFed > 30)
-            Hint("Tipp: Klick auf eine Bank, um sie auszubauen.");
+            Hint("Tipp: Rechtsklick auf eine Bank, um sie auszubauen.");
     }
 
     void Hint(string text)

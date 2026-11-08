@@ -20,6 +20,7 @@ namespace Pfand;
 ///   --allskills        alle Skills voll lernen
 ///   --skills=wert:2,aoe:1  einzelne Skill-Stufen setzen
 ///   --kk=20            Kronkorken setzen
+///   --feedtest         Tasche füllen und automatisch einwerfen
 ///   --ausbau=bank:0:2,muelleimer:1:2  Ausbaustufen setzen (Sorte:Nummer:Stufe)
 ///   --event=konzert    Event sofort starten
 ///   --time=0.7         Tageszeit setzen (0..1)
@@ -39,6 +40,7 @@ public partial class Main : Control
     SkillPopup _skills;
     StatsPopup _stats;
     AusbauPopup _ausbau;
+    AutomatPanel _automat;
     Label _albumCount, _skillCount, _statsCount;
     Button _tabUpgrades, _tabEvents;
     UpgradePanel _upgradePanel;
@@ -110,6 +112,13 @@ public partial class Main : Control
                 _ausbau.CallDeferred(AusbauPopup.MethodName.Open, a[1], ai);
             else if (open == "events") ShowTab(true);
         }
+        if (_args.ContainsKey("feedtest"))
+        {
+            // Tasche mit gemischten Flaschen füllen und nach 1 s einwerfen (zum Prüfen des Pfandbons)
+            var types = new[] { BottleType.Bier, BottleType.Dose, BottleType.Plastik, BottleType.Wasser };
+            for (int i = 0; i < gs.BagCapacity; i++) gs.Bag.Add(types[i % types.Length]);
+            GetTree().CreateTimer(1.0).Timeout += _automat.StartFeeding;
+        }
     }
 
     void BuildUi()
@@ -137,7 +146,8 @@ public partial class Main : Control
 
         // Links: Automat
         var left = Column("AUTOMAT", 200);
-        left.AddChild(new AutomatPanel());
+        _automat = new AutomatPanel();
+        left.AddChild(_automat);
         body.AddChild(left);
 
         // Mitte: Spielfeld

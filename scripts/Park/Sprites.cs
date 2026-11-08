@@ -25,10 +25,24 @@ public static class Sprites
     }
 
     /// <summary>Flasche, zentriert auf pos, gedreht um rot (Radiant).</summary>
-    public static void Bottle(CanvasItem ci, Vector2 pos, BottleType t, float rot, int colorIdx, float scale = 1f)
+    public static void Bottle(CanvasItem ci, Vector2 pos, BottleType t, float rot, int colorIdx, float scale = 1f, bool onGround = false)
     {
         float p = 3 * scale;
-        ci.DrawSetTransform(pos, rot, Vector2.One);
+        if (onGround)
+        {
+            // Schatten (nicht gedreht) und dunkler Umriss, damit Flaschen auf dem Gras auffallen
+            ci.DrawRect(new Rect2(pos + new Vector2(-7, 4) * scale, new Vector2(16, 6) * scale), new Color(0, 0, 0, 0.22f));
+            ci.DrawSetTransform(pos, rot, Vector2.One);
+            float w = 1.5f * scale;
+            if (t == BottleType.Dose)
+                ci.DrawRect(new Rect2(-1.5f * p - w, -2 * p - w, 3 * p + 2 * w, 4 * p + 2 * w), Palette.Ink);
+            else
+            {
+                ci.DrawRect(new Rect2(-0.5f * p - w, -4 * p - w, p + 2 * w, 3 * p + 2 * w), Palette.Ink);
+                ci.DrawRect(new Rect2(-1.5f * p - w, -1 * p - w, 3 * p + 2 * w, 5 * p + 2 * w), Palette.Ink);
+            }
+        }
+        else ci.DrawSetTransform(pos, rot, Vector2.One);
         switch (t)
         {
             case BottleType.Bier:
@@ -55,9 +69,13 @@ public static class Sprites
                 R(ci, o, p, 0, 0, 3, 4, c);
                 R(ci, o, p, 0, 0, 3, 1, Color.FromHtml("#d6ccb8"));
                 R(ci, o, p, 0, 2, 3, 1, Palette.PanelLight);
+                if (onGround) R(ci, o, p, 0, 0.5f, 0.6f, 3, new Color(1, 1, 1, 0.55f)); // Glanz
                 break;
             }
         }
+        // Glanzstreifen auf Glas und Plastik
+        if (onGround && t != BottleType.Dose)
+            R(ci, new Vector2(-1.5f * p, -4 * p), p, 0.2f, 3.3f, 0.6f, 4, new Color(1, 1, 1, 0.5f));
         ci.DrawSetTransform(Vector2.Zero, 0, Vector2.One);
     }
 
@@ -68,6 +86,14 @@ public static class Sprites
         R(ci, o, p, 1, 1, 1, 2, body);
         R(ci, o, p, 0, 3, 3, 5, body);
         if (label) R(ci, o, p, 0, 5, 3, 1, Palette.PanelLight);
+    }
+
+    /// <summary>Kurzes Funkeln (kleines Plus), um liegende Flaschen zu finden.</summary>
+    public static void Sparkle(CanvasItem ci, Vector2 pos, float strength)
+    {
+        var c = new Color(1, 1, 0.92f, strength);
+        ci.DrawRect(new Rect2(pos.X - 1, pos.Y - 5, 2, 10), c);
+        ci.DrawRect(new Rect2(pos.X - 5, pos.Y - 1, 10, 2), c);
     }
 
     /// <summary>Picknickdecke, die sich ausbreitet: open = 0 (Rolle) … 1 (ganz offen).</summary>

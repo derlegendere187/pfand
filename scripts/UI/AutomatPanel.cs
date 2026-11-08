@@ -72,7 +72,8 @@ public partial class AutomatPanel : PanelContainer
         bcol.AddChild(_bonTitle);
         var scroll = new ScrollContainer
         {
-            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            // ShowNever statt Disabled: sonst gibt der Scroller die Breite seines Inhalts an die Spalte weiter
+            HorizontalScrollMode = ScrollContainer.ScrollMode.ShowNever,
             VerticalScrollMode = ScrollContainer.ScrollMode.ShowNever,
             SizeFlagsVertical = SizeFlags.ExpandFill,
         };
@@ -100,7 +101,7 @@ public partial class AutomatPanel : PanelContainer
         _bag.UpdateMinSize();
     }
 
-    void StartFeeding()
+    public void StartFeeding()
     {
         if (_feeding || GameState.I.Bag.Count == 0) return;
         _feeding = true;
@@ -142,7 +143,9 @@ public partial class AutomatPanel : PanelContainer
     void ShowEmptyBon()
     {
         ClearBon();
-        _bonLines.AddChild(PfandTheme.Text("Noch nichts eingeworfen.", 20, Palette.Muted));
+        var empty = PfandTheme.Text("Noch nichts eingeworfen.", 20, Palette.Muted);
+        empty.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _bonLines.AddChild(empty);
     }
 
     void ShowBon()
@@ -155,11 +158,12 @@ public partial class AutomatPanel : PanelContainer
         // Gleiche Kronkorken in einer Zeile zusammenfassen
         var counted = new Dictionary<int, int>();
         foreach (var cap in _capsFound) counted[cap] = counted.TryGetValue(cap, out var k) ? k + 1 : 1;
+        if (counted.Count > 0) _bonLines.AddChild(PfandTheme.Text("Kronkorken:", 20, Palette.GoodText));
         foreach (var kv in counted)
         {
             bool isNew = GameState.I.Caps.TryGetValue(kv.Key, out var n) && n == kv.Value;
             string times = kv.Value > 1 ? $"{kv.Value}× " : "";
-            AddBonLine("+ " + times + "Kronkorken " + Capitalize(CapData.All[kv.Key].Name), isNew ? "NEU!" : "", Palette.GoodText);
+            AddBonLine("+ " + times + Capitalize(CapData.All[kv.Key].Name), isNew ? "NEU!" : "", Palette.GoodText);
         }
     }
 
@@ -175,7 +179,9 @@ public partial class AutomatPanel : PanelContainer
         l.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         l.ClipText = true;
         row.AddChild(l);
-        row.AddChild(PfandTheme.Text(right, bold ? 24 : 20, color));
+        var r = PfandTheme.Text(right, bold ? 24 : 20, color);
+        r.HorizontalAlignment = HorizontalAlignment.Right;
+        row.AddChild(r);
         _bonLines.AddChild(row);
     }
 

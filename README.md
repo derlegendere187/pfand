@@ -19,7 +19,7 @@ Ein Incremental-Spiel: Du schaust von oben auf einen Park, sammelst die Pfandfla
 - Mülleimer anklicken → alle Flaschen daraus einsammeln
 - „Einwerfen“ im Automaten → Geld
 - Rechts zwischen **Upgrades** und **Events** umschalten; Events kosten Geld und haben einen Cooldown
-- **Ausbau:** Bank, Imbiss, Tischtennisplatte oder Grill anklicken (Mülleimer: Rechtsklick) → einzelnes Objekt ausbauen
+- **Ausbau:** Rechtsklick auf Bank, Mülleimer, Imbiss, Tischtennisplatte oder Grill → einzelnes Objekt ausbauen
 - **Kronkorken** (selten beim Einwerfen) landen im **Album** und sind die Währung für den **Skilltree**
 - Skilltree: Fläche mit der Maus ziehen, Knoten anklicken, „Lernen“ oder Doppelklick
 - Bierkasten am Grill anklicken → Flaschen in die Tasche (mit Lastenrad: ganzer Kasten direkt zum Automaten)
@@ -38,6 +38,7 @@ Nach `--` anhängen, z. B. `... --path . -- --fresh --money=50`:
 | `--allskills` | alle Skills voll lernen |
 | `--skills=wert:2,aoe:1` | einzelne Skill-Stufen setzen |
 | `--kk=20` | Kronkorken setzen |
+| `--feedtest` | Tasche füllen und nach 1 s automatisch einwerfen |
 | `--ausbau=bank:0:2,muelleimer:1:1` | Ausbaustufen setzen (Sorte:Nummer:Stufe) |
 | `--event=konzert` | Event gratis sofort starten (`geburtstag`, `bierball`, `konzert`, `feiertag`, `maennertag`, `oktoberfest`) |
 | `--open=skills` | Skilltree, Album (`album`), Statistik (`stats`), Events-Tab (`events`) oder Ausbau (`ausbau:bank:0`) öffnen |
