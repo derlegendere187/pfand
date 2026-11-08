@@ -17,6 +17,7 @@ public class SaveData
     public double TimeOfDay { get; set; }
     public List<int> Bag { get; set; } = new();
     public Dictionary<string, int> Upgrades { get; set; } = new();
+    public Dictionary<string, int> Ausbau { get; set; } = new();
     public Dictionary<int, int> Caps { get; set; } = new();
     public List<string> Skills { get; set; } = new();            // nur Version 2
     public Dictionary<string, int> SkillLevels { get; set; } = new();
@@ -48,6 +49,7 @@ public static class SaveSystem
             TimeOfDay = s.TimeOfDay,
             Bag = s.Bag.Select(b => (int)b).ToList(),
             Upgrades = new Dictionary<string, int>(s.Upgrades),
+            Ausbau = new Dictionary<string, int>(s.Ausbau),
             Caps = new Dictionary<int, int>(s.Caps),
             SkillLevels = new Dictionary<string, int>(s.Skills),
             Cooldowns = new Dictionary<string, double>(s.Cooldowns),
@@ -85,6 +87,7 @@ public static class SaveSystem
             s.TimeOfDay = data.TimeOfDay;
             s.Bag = data.Bag.Where(b => Enum.IsDefined(typeof(BottleType), b)).Select(b => (BottleType)b).ToList();
             s.Upgrades = data.Upgrades ?? new();
+            s.Ausbau = data.Ausbau ?? new();
             s.Caps = (data.Caps ?? new()).Where(kv => kv.Key >= 0 && kv.Key < CapData.Count).ToDictionary(kv => kv.Key, kv => kv.Value);
             s.Cooldowns = data.Cooldowns ?? new();
             // Alte Spielstände (Version 1) kannten noch keine Kronkorken-Währung

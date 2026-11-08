@@ -49,6 +49,7 @@ public class GameState
     public double TimeOfDay = Balance.StartTimeOfDay;
     public List<BottleType> Bag = new();
     public Dictionary<string, int> Upgrades = new();
+    public Dictionary<string, int> Ausbau = new();      // "bank:2" -> Ausbaustufe der dritten Bank
     public Dictionary<int, int> Caps = new();          // Album: Motiv -> wie oft gefunden
     public Dictionary<string, int> Skills = new();     // Skill -> Stufe
     public Dictionary<string, double> Cooldowns = new(); // Event -> Restzeit in Sekunden
@@ -165,6 +166,24 @@ public class GameState
         return true;
     }
 
+    // --- Ausbau einzelner Objekte ---
+    public int AusbauLevel(string kind, int index) => Ausbau.TryGetValue(AusbauDefs.Key(kind, index), out var l) ? l : 0;
+    public bool AusbauMaxed(string kind, int index) => AusbauLevel(kind, index) >= AusbauDefs.Kinds[kind].Steps.Length;
+    public double AusbauPrice(string kind, int index) => AusbauDefs.Price(kind, index, AusbauLevel(kind, index));
+    public bool CanBuyAusbau(string kind, int index) => !AusbauMaxed(kind, index) && Money + 1e-9 >= AusbauPrice(kind, index);
+
+    public bool TryBuyAusbau(string kind, int index)
+    {
+        if (!CanBuyAusbau(kind, index)) return false;
+        Money -= AusbauPrice(kind, index);
+        Ausbau[AusbauDefs.Key(kind, index)] = AusbauLevel(kind, index) + 1;
+        Notify();
+        return true;
+    }
+
+    public int BinCapacity(int bin) => AusbauLevel("muelleimer", bin) switch { 0 => Balance.BinCapacity, 1 => 25, _ => 40 };
+    public int BenchSeats(int bench) => AusbauLevel("bank", bench) >= 2 ? 4 : 2;
+
     // --- Skills ---
     /// <summary>Lernbar, sobald der Elternknoten gelernt ist.</summary>
     public bool SkillAvailable(SkillDef s) => s.Id != SkillDefs.Root && HasSkill(s.Parent ?? SkillDefs.Root);
@@ -184,11 +203,14 @@ public class GameState
     // --- Events ---
     public double CooldownLeft(EventDef e) => Cooldowns.TryGetValue(e.Id, out var c) ? Math.Max(0, c) : 0;
     public bool EventUnlocked(EventDef e) => HasSkill(e.Skill);
-    public bool CanStartEvent(EventDef e) => EventUnlocked(e) && ActiveEvent == null && CooldownLeft(e) <= 0;
+    /// <summary>Events kosten Geld. Der Preis wächst mit dem Pfandwert mit, Sponsoren machen es billiger.</summary>
+    public double EventCost(EventDef e) => Math.Round(e.Cost * ValueMultiplier * (1 - 0.15 * SkillLevel("ev_sponsor")), 2);
+    public bool CanStartEvent(EventDef e) => EventUnlocked(e) && ActiveEvent == null && CooldownLeft(e) <= 0 && Money + 1e-9 >= EventCost(e);
 
-    public bool TryStartEvent(EventDef e)
+    public bool TryStartEvent(EventDef e, bool free = false)
     {
-        if (!CanStartEvent(e)) return false;
+        if (!free && !CanStartEvent(e)) return false;
+        if (!free) Money -= EventCost(e);
         ActiveEvent = e.Id;
         EventTimeLeft = e.Duration;
         EventsHeld++;

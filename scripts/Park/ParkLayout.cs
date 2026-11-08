@@ -26,7 +26,7 @@ public static class ParkLayout
     // Die letzten drei Plätze jeder Liste gibt es erst mit dem Skill "Baugenehmigung"
     static readonly Vector2[] BinSlots = { new(0.43f, 0.40f), new(0.53f, 0.55f), new(0.74f, 0.40f), new(0.25f, 0.55f),
         new(0.51f, 0.12f), new(0.15f, 0.27f), new(0.84f, 0.73f) };
-    static readonly Vector2[] BenchSlots = { new(0.25f, 0.40f), new(0.65f, 0.40f), new(0.33f, 0.555f), new(0.64f, 0.555f), new(0.25f, 0.11f),
+    static readonly Vector2[] BenchSlots = { new(0.25f, 0.40f), new(0.65f, 0.40f), new(0.33f, 0.555f), new(0.64f, 0.58f), new(0.25f, 0.11f),
         new(0.37f, 0.27f), new(0.62f, 0.89f), new(0.11f, 0.555f) };
     static readonly Vector2[] LampSlots = { new(0.37f, 0.40f), new(0.57f, 0.555f), new(0.87f, 0.40f),
         new(0.41f, 0.11f), new(0.84f, 0.87f), new(0.15f, 0.40f) };
@@ -78,6 +78,27 @@ public static class ParkLayout
 
     /// <summary>Bierkasten neben dem Grill (26×32).</summary>
     public static Rect2 KastenRect(Vector2 size) => new(Grill(size) + new Vector2(28, 6), new Vector2(26, 32));
+
+    /// <summary>Abstand der zweiten Bank (gegenüber am Tisch) zur ersten.</summary>
+    public const float BenchOppositeY = 40;
+
+    // Richtung, in die Tisch und zweite Bank zeigen (weg vom Weg): -1 = nach oben, +1 = nach unten
+    static readonly int[] BenchDirs = { -1, -1, 1, -1, -1, 1, 1, 1 };
+
+    /// <summary>Versatz von Tisch (half = true) bzw. zweiter Bank zur Bank Nummer i.</summary>
+    public static Vector2 BenchOpposite(int i, bool half = false)
+        => new(0, (i < BenchDirs.Length ? BenchDirs[i] : 1) * BenchOppositeY * (half ? 0.5f : 1));
+
+    /// <summary>Fläche einer Bank samt Ausbau (für Klick und Hervorhebung).</summary>
+    public static Rect2 BenchRect(Vector2 bench, int i, int level)
+    {
+        var r = new Rect2(bench - new Vector2(34, 13), 68, 26);
+        if (level >= 1) r = r.Expand(bench + BenchOpposite(i, level < 2) + new Vector2(0, BenchOpposite(i).Y > 0 ? 13 : -13));
+        return r;
+    }
+
+    /// <summary>Oktoberfest: erster langer Tisch so weit unter der Event-Mitte.</summary>
+    public const float OktoberfestTableY = 4;
 
     /// <summary>Wo Events stattfinden (oben rechts).</summary>
     public static Vector2 EventCenter(Vector2 size) => new(Mathf.Round(0.76f * size.X), Mathf.Round(0.21f * size.Y));

@@ -92,6 +92,19 @@ public static class SkillDefs
             Effect = n => $"Event-Pausen -{n * 15} %",
             Icon = new[] { "..####..", ".#oooo#.", "#oo#ooo#", "#oo#ooo#", "#oo###o#", "#oooooo#", ".#oooo#.", "..####.." } },
 
+        new SkillDef { Id = "ev_feiertag", Branch = Events, Name = "FEIERTAG", Costs = new[] { 12 }, Parent = "ev_geburtstag", Pos = new(-1, 1),
+            Effect = _ => "Event: Feiertag – einen ganzen Tag lang volle Wiese",
+            Icon = new[] { "#......#", "##....##", "#o#..#o#", "#oo##oo#", "########", "........", ".#.#.#..", "........" } },
+        new SkillDef { Id = "ev_maennertag", Branch = Events, Name = "MÄNNERTAG", Costs = new[] { 15 }, Parent = "ev_bierball", Pos = new(-3, 1),
+            Effect = _ => "Event: Männertag – Bollerwagen ziehen durch den Park",
+            Icon = new[] { "........", ".#o#o#..", ".#####..", "########", "#......#", "########", ".##..##.", ".##..##." } },
+        new SkillDef { Id = "ev_oktoberfest", Branch = Events, Name = "OKTOBERFEST", Costs = new[] { 30 }, Parent = "ev_konzert", Pos = new(-4, 0),
+            Effect = _ => "Event: Oktoberfest im Festzelt",
+            Icon = new[] { "...##...", "..#oo#..", ".#o##o#.", "#o#oo#o#", "########", "#oooooo#", "#oo##oo#", "#oo##oo#" } },
+        new SkillDef { Id = "ev_sponsor", Branch = Events, Name = "SPONSOREN", Costs = new[] { 4, 8, 14 }, Parent = "ev_konzert", Pos = new(-3, -1),
+            Effect = n => $"Events kosten {n * 15} % weniger",
+            Icon = new[] { "...##...", ".######.", "##.##...", ".#####..", "...##.#.", "...##.##", ".######.", "...##..." } },
+
         // ---- Sammeln (unten) ----
         new SkillDef { Id = "aoe", Branch = Sammeln, Name = "GREIFZANGE", Costs = new[] { 1, 3, 6, 12 }, Pos = new(0, 1),
             Effect = n => $"Ein Klick sammelt alle Flaschen im Umkreis ({n} von 4)",

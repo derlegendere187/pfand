@@ -88,13 +88,14 @@ public partial class EventPanel : PanelContainer
                 unlocked ? Palette.Border : Palette.MachineDark, 4, 8));
             c.Name.AddThemeColorOverride("font_color", unlocked ? Palette.Ink : Palette.Muted);
             c.Desc.AddThemeColorOverride("font_color", unlocked ? Palette.InkSoft : Palette.Muted);
+            double cost = gs.EventCost(c.Def);
             c.Info.Text = $"Dauer {GameState.Seconds(c.Def.Duration)} · Pause {GameState.Seconds(c.Def.Cooldown * gs.CooldownFactor)}";
 
             if (!unlocked) { c.Start.Text = "IM SKILLTREE"; c.Start.Disabled = true; }
             else if (running) { c.Start.Text = $"LÄUFT · {GameState.Seconds(gs.EventTimeLeft)}"; c.Start.Disabled = true; }
             else if (cd > 0) { c.Start.Text = $"WARTEN · {GameState.Seconds(cd)}"; c.Start.Disabled = true; }
             else if (gs.ActiveEvent != null) { c.Start.Text = "ANDERES LÄUFT"; c.Start.Disabled = true; }
-            else { c.Start.Text = "STARTEN"; c.Start.Disabled = false; }
+            else { c.Start.Text = "STARTEN · " + GameState.Euro(cost); c.Start.Disabled = gs.Money + 1e-9 < cost; }
         }
     }
 }

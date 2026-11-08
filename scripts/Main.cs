@@ -20,6 +20,7 @@ namespace Pfand;
 ///   --allskills        alle Skills voll lernen
 ///   --skills=wert:2,aoe:1  einzelne Skill-Stufen setzen
 ///   --kk=20            Kronkorken setzen
+///   --ausbau=bank:0:2,muelleimer:1:2  Ausbaustufen setzen (Sorte:Nummer:Stufe)
 ///   --event=konzert    Event sofort starten
 ///   --time=0.7         Tageszeit setzen (0..1)
 ///   --speed=4          Spiel schneller laufen lassen
@@ -37,6 +38,7 @@ public partial class Main : Control
     AlbumPopup _album;
     SkillPopup _skills;
     StatsPopup _stats;
+    AusbauPopup _ausbau;
     Label _albumCount, _skillCount, _statsCount;
     Button _tabUpgrades, _tabEvents;
     UpgradePanel _upgradePanel;
@@ -71,8 +73,14 @@ public partial class Main : Control
         if (_args.TryGetValue("event", out var evId) && EventDefs.Get(evId) is { } evDef)
         {
             gs.Skills[evDef.Skill] = 1;
-            gs.TryStartEvent(evDef);
+            gs.TryStartEvent(evDef, free: true);
         }
+        if (_args.TryGetValue("ausbau", out var aus))
+            foreach (var pair in aus.Split(','))
+            {
+                var kv = pair.Split(':');
+                if (kv.Length == 3 && int.TryParse(kv[2], out var lvl)) gs.Ausbau[kv[0] + ":" + kv[1]] = lvl;
+            }
         if (_args.TryGetValue("upgrades", out var ups))
             foreach (var pair in ups.Split(','))
             {
@@ -98,6 +106,8 @@ public partial class Main : Control
             if (open == "skills") _skills.CallDeferred(SkillPopup.MethodName.Open);
             else if (open == "album") _album.CallDeferred(AlbumPopup.MethodName.Open);
             else if (open == "stats") _stats.CallDeferred(StatsPopup.MethodName.Open);
+            else if (open.StartsWith("ausbau:") && open.Split(':') is { Length: 3 } a && int.TryParse(a[2], out var ai))
+                _ausbau.CallDeferred(AusbauPopup.MethodName.Open, a[1], ai);
             else if (open == "events") ShowTab(true);
         }
     }
@@ -177,6 +187,9 @@ public partial class Main : Control
         _skills = new SkillPopup();
         AddChild(_skills);
         skillButton.Pressed += _skills.Open;
+        _ausbau = new AusbauPopup();
+        AddChild(_ausbau);
+        park.ObjectClicked += _ausbau.Open;
         _stats = new StatsPopup();
         AddChild(_stats);
         statsButton.Pressed += _stats.Open;

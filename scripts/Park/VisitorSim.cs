@@ -5,7 +5,7 @@ using Pfand.Core;
 
 namespace Pfand.Park;
 
-public enum VisitorState { Kommt, Imbiss, Sitzt, PacktEin, Geht }
+public enum VisitorState { Kommt, Imbiss, Sitzt, PacktEin, Geht, Wandert }
 
 public class Visitor
 {
@@ -18,7 +18,7 @@ public class Visitor
     public float BlanketOpen;      // 0 = zusammengerollt, 1 = ausgebreitet
     public bool WantsSnack;
     public Vector2 SnackSpot;
-    public int Seat = -1;          // Bankplatz (Bank * 2 + Seite), -1 = keiner
+    public int Seat = -1;          // Bankplatz (Bank * 4 + Platz), -1 = keiner
     public int TableSeat = -1;     // Tischtennis (Platte * 2 + Seite), -1 = keiner
     public Visitor Leader;         // gehört zu einer Gruppe; geht, wenn der Leader geht
     public string EventId;         // Gast eines Events
@@ -28,6 +28,12 @@ public class Visitor
     public float DrinkAnim;        // Flasche am Mund (0..1)
     public double DrinkProgress;   // Bierball: wie weit die Flasche leer ist
     public float WalkPhase;
+    // Männertag: Gruppe zieht mit Bollerwagen von Halt zu Halt
+    public bool Wagon;
+    public List<Vector2> Waypoints;
+    public int WaypointIdx;
+    public double PauseTimer;
+    public Vector2 FollowOffset;
 }
 
 /// <summary>Bierball wie im echten Leben: Ein Team wirft auf die Flasche in der Mitte.
@@ -84,7 +90,8 @@ public class VisitorSim
 
     readonly Random _rng = new();
     readonly Queue<double> _dropTimes = new();
-    double _clock, _spawnAcc, _grillWait = 2;
+    double _clock, _spawnAcc, _grillWait = 2, _mtTimer;
+    int _mtGroups;
     bool _seeded;
     string _eventSpawnedFor;
 
@@ -124,7 +131,8 @@ public class VisitorSim
         };
         var activeEvent = gs.ActiveEvent == null ? null : EventDefs.Get(gs.ActiveEvent);
         int maxVisitors = Balance.MaxVisitorsBase + Balance.MaxVisitorsPerPath * paths.Count + Balance.MaxVisitorsPerBench * benches.Count
-            + (imbiss ? Balance.ImbissMaxVisitors : 0) + tables.Count * 2 + (activeEvent?.Guests ?? 0) + gs.ExtraVisitorSlots;
+            + (imbiss ? Balance.ImbissMaxVisitors + (gs.AusbauLevel("imbiss", 0) >= 1 ? 4 : 0) : 0) + tables.Count * 2
+            + (activeEvent?.Guests ?? 0) + (activeEvent?.ExtraVisitors ?? 0) + gs.ExtraVisitorSlots;
         double boost = 1 + Balance.SpawnBonusPerPath * paths.Count + Balance.SpawnBonusPerBin * bins.Count
             + (imbiss ? Balance.ImbissSpawnBonus : 0) + Balance.TableSpawnBonus * tables.Count + (activeEvent?.SpawnBoost ?? 0) + gs.VisitorBoost;
         double interval = Balance.SpawnIntervalBase / boost;
@@ -139,13 +147,15 @@ public class VisitorSim
         }
         if (gs.Level("grill") > 0) UpdateGrill(dt, paths, phaseFactor);
         UpdateBierball(dt, gs, bins);
+        UpdateMaennertag(dt, gs, paths);
 
         if (Visitors.Count > gs.PeakVisitors)
         {
             gs.PeakVisitors = Visitors.Count;
             if (gs.PeakVisitors % 5 == 0) gs.Notify();
         }
-        double drinkInterval = Balance.DrinkInterval * (imbiss ? Balance.ImbissDrinkFactor : 1) * gs.DrinkFactor;
+        double drinkInterval = Balance.DrinkInterval * (imbiss ? Balance.ImbissDrinkFactor : 1) * gs.DrinkFactor
+            * (gs.AusbauLevel("imbiss", 0) >= 2 ? 0.85 : 1);
 
         // --- Besucher bewegen ---
         for (int i = Visitors.Count - 1; i >= 0; i--)
@@ -168,7 +178,7 @@ public class VisitorSim
                     {
                         v.State = VisitorState.Sitzt;
                         v.StayTimer = Balance.StayBase * (1 + Balance.StayBonusPerBench * benches.Count) * R(0.7, 1.3);
-                        if (v.GrillSeat >= 0) v.StayTimer *= Balance.GrillStayFactor;
+                        v.StayTimer *= StayFactor(v, gs);
                         v.DrinkTimer = DrinkIntervalFor(v, drinkInterval) * R(0.6, 1.2);
                     }
                     break;
@@ -208,6 +218,10 @@ public class VisitorSim
                 case VisitorState.Geht:
                     if (Walk(v, v.Exit, dt)) Visitors.RemoveAt(i);
                     break;
+
+                case VisitorState.Wandert:
+                    UpdateWanderer(v, dt, bins, gs);
+                    break;
             }
         }
 
@@ -227,16 +241,28 @@ public class VisitorSim
 
     double DrinkIntervalFor(Visitor v, double normal)
     {
+        var gs = GameState.I;
         if (v.EventId == "bierball") return double.MaxValue; // trinken nur nach Treffern
         if (v.EventId != null) return EventDefs.Get(v.EventId)?.GuestDrinkInterval ?? normal;
-        if (v.GrillSeat >= 0) return normal * Balance.GrillDrinkFactor;
-        if (v.TableSeat >= 0) return normal * Balance.TableDrinkFactor;
+        if (v.GrillSeat >= 0) return normal * Balance.GrillDrinkFactor * (gs.AusbauLevel("grill", 0) >= 2 ? 0.7 : 1);
+        if (v.TableSeat >= 0) return normal * Balance.TableDrinkFactor * (gs.AusbauLevel("tischtennis", v.TableSeat / 2) >= 1 ? 0.75 : 1);
+        if (v.Seat >= 0 && gs.AusbauLevel("bank", v.Seat / 4) >= 1) return normal * 0.85;
         return normal;
+    }
+
+    /// <summary>Wie viel länger jemand bleibt (Grill, ausgebaute Bänke und Platten).</summary>
+    static double StayFactor(Visitor v, GameState gs)
+    {
+        if (v.GrillSeat >= 0) return Balance.GrillStayFactor * (gs.AusbauLevel("grill", 0) >= 1 ? 1.5 : 1);
+        if (v.Seat >= 0 && gs.AusbauLevel("bank", v.Seat / 4) >= 1) return 1.5;
+        if (v.TableSeat >= 0 && gs.AusbauLevel("tischtennis", v.TableSeat / 2) >= 1) return 1.5;
+        return 1;
     }
 
     BottleType BottleFor(Visitor v, GameState gs)
     {
-        if (v.EventId == "bierball") return BottleType.Bier;
+        if (v.EventId == "bierball" || v.EventId == "oktoberfest") return BottleType.Bier;
+        if (v.EventId == "maennertag") return _rng.NextDouble() < 0.75 ? BottleType.Bier : BottleType.Dose;
         if (v.EventId == "konzert" && _rng.NextDouble() < 0.6) return BottleType.Dose;
         if (v.GrillSeat >= 0) return _rng.NextDouble() < 0.8 ? BottleType.Bier : BottleType.Dose;
         return RandomType(gs);
@@ -386,6 +412,76 @@ public class VisitorSim
         }
     }
 
+    // --- Männertag ---
+    void UpdateMaennertag(double dt, GameState gs, List<Rect2> paths)
+    {
+        if (gs.ActiveEvent != "maennertag") { _mtGroups = 0; _mtTimer = 0; return; }
+        if (_mtGroups >= Balance.MaennertagGroups) return;
+        _mtTimer -= dt;
+        if (_mtTimer > 0) return;
+        _mtTimer = Balance.MaennertagGroupInterval;
+        _mtGroups++;
+
+        // Route: drei Halte quer durch den Park
+        var start = EdgePoint(paths);
+        var route = new List<Vector2>();
+        for (int k = 0; k < 3; k++)
+            route.Add(new Vector2(Rf(60, Size.X - 60), Rf(60, Size.Y - 60)));
+        var exit = EdgePoint(paths);
+
+        Visitor leader = null;
+        var offsets = new[] { Vector2.Zero, new Vector2(-20, -14), new Vector2(20, -14), new Vector2(0, -26) };
+        int n = 3 + _rng.Next(2);
+        for (int i = 0; i < n; i++)
+        {
+            var g = NewVisitor(paths);
+            g.EventId = "maennertag";
+            g.State = VisitorState.Wandert;
+            g.Pos = start + offsets[i];
+            g.Exit = exit;
+            g.FollowOffset = offsets[i];
+            g.DrinkTimer = R(1, 3);
+            if (leader == null) { leader = g; g.Wagon = true; g.Waypoints = route; }
+            else g.Leader = leader;
+            Visitors.Add(g);
+        }
+    }
+
+    void UpdateWanderer(Visitor v, double dt, List<Vector2> bins, GameState gs)
+    {
+        bool pausing;
+        if (v.Leader == null)
+        {
+            // Anführer zieht den Bollerwagen von Halt zu Halt
+            pausing = v.PauseTimer > 0;
+            if (pausing) v.PauseTimer -= dt;
+            else if (v.WaypointIdx >= v.Waypoints.Count) { v.State = VisitorState.Geht; return; }
+            else if (Walk(v, v.Waypoints[v.WaypointIdx], dt))
+            {
+                v.WaypointIdx++;
+                v.PauseTimer = Balance.MaennertagStopSeconds;
+            }
+        }
+        else
+        {
+            var l = v.Leader;
+            if (!Visitors.Contains(l) || l.State == VisitorState.Geht) { v.State = VisitorState.Geht; v.Exit = l.Exit; return; }
+            pausing = l.PauseTimer > 0;
+            if (!MoveTowards(ref v.Pos, l.Pos + v.FollowOffset, Balance.WalkSpeed * 1.2 * dt)) v.WalkPhase += (float)dt * 10;
+        }
+
+        // Beim Halt wird getrunken, unterwegs fällt auch mal eine Flasche aus dem Wagen
+        v.DrinkTimer -= dt;
+        if (pausing && v.DrinkTimer <= 0)
+        {
+            DropBottle(v.Pos, bins, gs, BottleFor(v, gs));
+            v.DrinkTimer = R(1.2, 2.2);
+        }
+        else if (!pausing && _rng.NextDouble() < Balance.MaennertagDropPerSecondWalking * dt)
+            DropBottle(v.Pos, bins, gs, BottleFor(v, gs));
+        v.DrinkAnim = Mathf.MoveToward(v.DrinkAnim, pausing ? 1 : 0, (float)dt * 3);
+    }
+
     void NextTurn(BierballGame g)
     {
         g.Throwing = 1 - g.Throwing;
@@ -437,7 +533,8 @@ public class VisitorSim
     void Spawn(GameState gs, List<Rect2> paths, List<Vector2> benches, List<Vector2> tables, bool alreadySitting)
     {
         var v = NewVisitor(paths);
-        v.WantsSnack = gs.Level("imbiss") > 0 && _rng.NextDouble() < Balance.ImbissVisitChance;
+        v.WantsSnack = gs.Level("imbiss") > 0
+            && _rng.NextDouble() < Balance.ImbissVisitChance + (gs.AusbauLevel("imbiss", 0) >= 1 ? 0.2 : 0);
         v.SnackSpot = ParkLayout.ImbissFront(Size) + new Vector2(Rf(-50, 50), Rf(0, 16));
 
         // Platz suchen: Tischtennis, Bank oder Decke auf der Wiese
@@ -452,15 +549,16 @@ public class VisitorSim
         else if (freeSeat >= 0 && _rng.NextDouble() < 0.6)
         {
             v.Seat = freeSeat;
-            var bench = benches[freeSeat / 2];
-            v.Target = bench + new Vector2(freeSeat % 2 == 0 ? -14 : 14, 0);
+            v.Target = SeatSpot(benches, freeSeat);
         }
         else
         {
             v.HasBlanket = true;
             v.BlanketPos = FreeGrassSpot(paths, benches, tables);
             v.Target = v.BlanketPos + new Vector2(Rf(-12, 12), Rf(-4, 4));
-            wantsGroup = _rng.NextDouble() < Balance.GroupChancePerLevel * gs.Level("gruppen");
+            // Am Feiertag kommen viele Familien und Freundesgruppen
+            double groupChance = Balance.GroupChancePerLevel * gs.Level("gruppen") + (gs.ActiveEvent == "feiertag" ? 0.5 : 0);
+            wantsGroup = _rng.NextDouble() < groupChance;
         }
 
         if (alreadySitting) SitDown(v);
@@ -537,6 +635,18 @@ public class VisitorSim
                     list.Add(c + new Vector2(teamA ? -70 : 70, -36 + (i / 2) * 24));
                 }
                 break;
+            case EventKind.Oktoberfest:
+                // Zwei lange Tische vor dem Festzelt, Gäste auf beiden Seiten
+                for (int i = 0; i < def.Guests; i++)
+                {
+                    int table = i / 10, side = i / 5 % 2, seat = i % 5;
+                    float tableY = c.Y + ParkLayout.OktoberfestTableY + table * 50;
+                    list.Add(new Vector2(c.X - 64 + seat * 32, tableY + (side == 0 ? -8 : 20)));
+                }
+                break;
+            case EventKind.Feiertag:
+            case EventKind.Maennertag:
+                break; // keine festen Plätze
             default: // Konzert: Publikum vor der Bühne
                 for (int i = 0; i < def.Guests; i++)
                     list.Add(c + new Vector2(-72 + (i % 6) * 29 + (i / 6 % 2) * 12, -6 + (i / 6) * 26));
@@ -550,13 +660,23 @@ public class VisitorSim
     // --- Plätze ---
     int FreeSeat(List<Vector2> benches)
     {
-        for (int seat = 0; seat < benches.Count * 2; seat++)
+        var gs = GameState.I;
+        for (int seat = 0; seat < benches.Count * 4; seat++)
         {
+            if (seat % 4 >= gs.BenchSeats(seat / 4)) continue;
             bool taken = false;
             foreach (var v in Visitors) if (v.Seat == seat) { taken = true; break; }
             if (!taken) return seat;
         }
         return -1;
+    }
+
+    /// <summary>Plätze 0/1 auf der Bank, 2/3 auf der zweiten Bank gegenüber am Tisch.</summary>
+    public static Vector2 SeatSpot(List<Vector2> benches, int seat)
+    {
+        var bench = benches[seat / 4];
+        int k = seat % 4;
+        return bench + new Vector2(k % 2 == 0 ? -14 : 14, 0) + (k >= 2 ? ParkLayout.BenchOpposite(seat / 4) : Vector2.Zero);
     }
 
     int FreeTableSeat(List<Vector2> tables)
@@ -652,13 +772,15 @@ public class VisitorSim
         // Mit Mülleimern landen manche Flaschen im Eimer (seltene nie – die sieht man gern liegen)
         if (bins.Count > 0 && type != BottleType.Gold && type != BottleType.Retro)
         {
-            double chance = Math.Min(Balance.BinChanceMax, Balance.BinChancePerBin * bins.Count);
+            int rings = 0;
+            for (int i = 0; i < bins.Count; i++) if (gs.AusbauLevel("muelleimer", i) >= 2) rings++;
+            double chance = Math.Min(Balance.BinChanceMax + 0.1, Balance.BinChancePerBin * bins.Count + 0.1 * rings);
             if (_rng.NextDouble() < chance)
             {
                 int best = -1; float bestD = float.MaxValue;
                 for (int i = 0; i < bins.Count; i++)
                 {
-                    if (BinContents[i].Count >= Balance.BinCapacity) continue;
+                    if (BinContents[i].Count >= gs.BinCapacity(i)) continue;
                     float d = bins[i].DistanceTo(near);
                     if (d < bestD) { bestD = d; best = i; }
                 }

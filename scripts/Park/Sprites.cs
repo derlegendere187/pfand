@@ -248,6 +248,35 @@ public static class Sprites
                 Bottle(ci, c + (targetDown ? new Vector2(6, 4) : Vector2.Zero), BottleType.Bier, rot, 0, 1.3f);
                 break;
             }
+            case EventKind.Oktoberfest:
+            {
+                // Festzelt mit blau-weißem Rautendach, davor zwei lange Biertische
+                var tent = new Rect2(c + new Vector2(-96, -86), 192, 66);
+                ci.DrawRect(tent.Grow(4), Palette.InkSoft);
+                ci.DrawRect(tent, Palette.PanelLight);
+                for (int x = 0; x < 192; x += 16)
+                for (int y = 0; y < 48; y += 16)
+                    if ((x / 16 + y / 16) % 2 == 0) ci.DrawRect(new Rect2(tent.Position + new Vector2(x, y), 16, 16), Color.FromHtml("#6fa8d6"));
+                ci.DrawRect(new Rect2(tent.Position + new Vector2(0, 48), 192, 4), Palette.InkSoft);
+                ci.DrawRect(new Rect2(tent.Position + new Vector2(80, 52), 32, 14), Palette.Ink); // Eingang
+                for (int i = 0; i < 4; i++) // Wimpel auf dem Dach
+                {
+                    bool up = ((int)(time * 3) + i) % 2 == 0;
+                    ci.DrawRect(new Rect2(tent.Position + new Vector2(20 + i * 50, up ? -10 : -8), 8, 6), i % 2 == 0 ? Color.FromHtml("#6fa8d6") : Palette.PanelLight);
+                }
+                for (int t = 0; t < 2; t++)
+                {
+                    var tr = new Rect2(c + new Vector2(-84, ParkLayout.OktoberfestTableY + t * 50), 168, 12);
+                    ci.DrawRect(tr.Grow(2), Palette.WoodDark);
+                    ci.DrawRect(tr, Palette.Wood);
+                    for (int i = 0; i < 5; i++) // Maßkrüge
+                        ci.DrawRect(new Rect2(tr.Position + new Vector2(14 + i * 32, 3), 6, 6), Palette.Gold);
+                }
+                break;
+            }
+            case EventKind.Feiertag:
+            case EventKind.Maennertag:
+                break; // eigene Darstellung in ParkView (Wimpelkette, Bollerwagen)
             default:
             {
                 // Bühne mit Boxen und Lichtern
@@ -287,6 +316,60 @@ public static class Sprites
         R(ci, o, p, 0, 3, 16, 1, Palette.WoodDark);
         R(ci, o, p, 0, 0, 1, 5, Palette.InkSoft);
         R(ci, o, p, 15, 0, 1, 5, Palette.InkSoft);
+    }
+
+    /// <summary>Tisch zwischen zwei Bänken (16×4, Pixel 4), zentriert.</summary>
+    public static void PicnicTable(CanvasItem ci, Vector2 pos, float p = 4)
+    {
+        var o = pos - new Vector2(8 * p, 2 * p);
+        R(ci, o, p, 0, 0, 16, 4, Palette.WoodDark);
+        R(ci, o, p, 0.5f, 0.5f, 15, 3, Palette.Wood);
+        R(ci, o, p, 3, 1, 1.5f, 2, Palette.PanelLight);   // Teller
+        R(ci, o, p, 10, 1, 1, 2, Color.FromHtml("#8a5a2e")); // Flasche
+    }
+
+    /// <summary>Pfandring: Metallring um den Eimer, in dem Flaschen stehen.</summary>
+    public static void Pfandring(CanvasItem ci, Vector2 pos)
+    {
+        ci.DrawArc(pos, 21, 0, Mathf.Tau, 24, Color.FromHtml("#8a8a80"), 4);
+        for (int i = 0; i < 6; i++)
+        {
+            float a = i / 6f * Mathf.Tau + 0.3f;
+            var bp = pos + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * 21;
+            ci.DrawRect(new Rect2(bp.Round() - new Vector2(2, 2), 4, 4), i % 2 == 0 ? Color.FromHtml("#8a5a2e") : Color.FromHtml("#4f8a4a"));
+        }
+    }
+
+    /// <summary>Bollerwagen mit Bierkasten. Räder wackeln, solange er fährt.</summary>
+    public static void Bollerwagen(CanvasItem ci, Vector2 pos, float time, float p = 3)
+    {
+        var o = pos - new Vector2(6 * p, 4 * p);
+        float wob = Mathf.Sin(time * 12) > 0 ? 0 : 0.5f;
+        R(ci, o, p, 0, 7, 12, 1, new Color(0, 0, 0, 0.15f));
+        R(ci, o, p, 0, 1, 12, 6, Palette.WoodDark);
+        R(ci, o, p, 1, 2, 10, 4, Palette.Wood);
+        R(ci, o, p, 2, 2, 6, 4, Color.FromHtml("#b8432f"));                 // Kasten
+        for (int i = 0; i < 3; i++) R(ci, o, p, 2.5f + i * 2, 3, 1, 1, Palette.Gold);
+        R(ci, o, p, 12, 3, 4, 1, Palette.InkSoft);                          // Deichsel
+        R(ci, o, p, 1, 7 + wob, 2, 1, Palette.Ink);
+        R(ci, o, p, 9, 7 + wob, 2, 1, Palette.Ink);
+    }
+
+    /// <summary>Wimpelkette quer über den oberen Rand (Feiertag).</summary>
+    public static void Garland(CanvasItem ci, float width, float time)
+    {
+        var colors = new[] { "#d9735a", "#f2c75c", "#6fa8d6", "#8cc472", "#b496e0" };
+        ci.DrawRect(new Rect2(0, 10, width, 2), Palette.InkSoft);
+        int n = (int)(width / 24);
+        for (int i = 0; i < n; i++)
+        {
+            float x = 6 + i * 24;
+            float sway = ((int)(time * 2) + i) % 2 == 0 ? 0 : 1;
+            var c = Color.FromHtml(colors[i % colors.Length]);
+            ci.DrawRect(new Rect2(x, 12, 12, 4 + sway), c);
+            ci.DrawRect(new Rect2(x + 2, 16 + sway, 8, 4), c);
+            ci.DrawRect(new Rect2(x + 4, 20 + sway, 4, 3), c);
+        }
     }
 
     /// <summary>Mülleimer von oben (6×6), zentriert. fill = 0..1</summary>

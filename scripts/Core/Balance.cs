@@ -44,8 +44,14 @@ public static class Balance
 
     // Bierball (Flunkyball)
     public const double BierballHitChance = 0.4;
-    public const double BierballDrinkRate = 0.45;    // Flaschen pro Sekunde, solange das eigene Team trinken darf
+    public const double BierballDrinkRate = 0.8;    // Flaschen pro Sekunde, solange das eigene Team trinken darf
     public const double BierballRunSpeed = 75;
+
+    // Männertag: Gruppen mit Bollerwagen ziehen durch den Park
+    public const int MaennertagGroups = 3;
+    public const double MaennertagGroupInterval = 15;
+    public const double MaennertagStopSeconds = 5;
+    public const double MaennertagDropPerSecondWalking = 0.25;
 
     // Flaschen
     public const int MaxGroundBottles = 80;
