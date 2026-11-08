@@ -13,6 +13,9 @@ obj/
 .vscode/
 mono_crash.*
 
+# Lokale Tool-Einstellungen
+.claude/settings.local.json
+
 # System
 Thumbs.db
 .DS_Store
