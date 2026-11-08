@@ -13,6 +13,7 @@ public partial class TutorialOverlay : Control
     public ParkView Park;
     public AutomatPanel Automat;
     public bool AutoAdvance;        // Debug: läuft von selbst durch
+    public System.Func<bool> Busy;  // ein Fenster ist offen: Tipps warten
 
     static readonly string[] IntroPages =
     {
@@ -29,12 +30,6 @@ public partial class TutorialOverlay : Control
         "Gleich kommen mehr Leute. Mit dem Geld kaufst du rechts Upgrades. Fang mit einem Weg an, dann kommen noch mehr.",
     };
 
-    static readonly string[] LaternePages =
-    {
-        "Oh, schon 22 Uhr! Im Dunkeln gehen die Leute nach Hause, und neue kommen kaum noch.",
-        "Kauf dir eine Laterne! Dann bleiben die Leute abends länger, und nachts kommen sogar noch welche. Du findest sie rechts bei den Upgrades.",
-    };
-
     ColorRect _dim;
     bool _hint;                     // Kalle gibt gerade einen Tipp (außerhalb der Einführung)
     Control _box;
@@ -45,7 +40,7 @@ public partial class TutorialOverlay : Control
     string[] _pages;
     int _page;
     TutorialStep _shownFor = (TutorialStep)(-1);
-    double _typed, _wait, _autoT;
+    double _typed, _wait, _autoT, _hintPause = 1;
 
     public override void _Ready()
     {
@@ -107,18 +102,11 @@ public partial class TutorialOverlay : Control
 
         if (gs.Tutorial != _shownFor) Enter(gs.Tutorial);
 
-        // Um 22 Uhr kommt Kalle noch einmal und empfiehlt die Laterne
-        if (!gs.TutorialActive && !gs.LaterneHint && !Visible && _wait <= 0 && gs.Phase == DayPhase.Nacht)
+        // Nach der Einführung erklärt Kalle neue Funktionen, sobald sie das erste Mal wichtig werden
+        if (!gs.TutorialActive && !Visible && _wait <= 0 && !(Busy?.Invoke() ?? false))
         {
-            gs.LaterneHint = true;
-            if (gs.Level("laterne") == 0)
-            {
-                _hint = true;
-                _pages = LaternePages;
-                _page = 0;
-                ShowPage();
-            }
-            gs.Notify();
+            _hintPause -= delta;
+            if (_hintPause <= 0) TryHint(gs);
         }
         gs.ClockPaused = Visible && _dim.Visible;
 
@@ -150,6 +138,22 @@ public partial class TutorialOverlay : Control
                 }
                 else if (gs.Tutorial == TutorialStep.Feed) Automat.StartFeeding();
             }
+        }
+    }
+
+    void TryHint(GameState gs)
+    {
+        foreach (var h in KalleHints.All)
+        {
+            if (gs.SeenHints.Contains(h.Id) || !h.When(gs)) continue;
+            gs.SeenHints.Add(h.Id);
+            gs.Notify();
+            if (h.Skip?.Invoke(gs) ?? false) continue;
+            _hint = true;
+            _pages = h.Pages;
+            _page = 0;
+            _wait = 0.6;
+            return;
         }
     }
 
@@ -195,7 +199,7 @@ public partial class TutorialOverlay : Control
         if (_page < _pages.Length - 1) { _page++; ShowPage(); return; }
 
         var gs = GameState.I;
-        if (_hint) { _hint = false; Hide(); return; }
+        if (_hint) { _hint = false; _hintPause = 2; Hide(); return; }
         if (_shownFor == TutorialStep.Intro) gs.Tutorial = TutorialStep.WatchGuest;
         else if (_shownFor == TutorialStep.Outro) gs.Tutorial = TutorialStep.Done;
         gs.Notify();

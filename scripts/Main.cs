@@ -15,6 +15,7 @@ namespace Pfand;
 ///   --fresh            Spielstand nicht laden und nicht speichern (startet mit der Einführung)
 ///   --notut            Einführung überspringen
 ///   --autotut          Einführung läuft von selbst durch (zum Testen)
+///   --hint=muelleimer  einen Tipp von Kalle erneut zeigen, sobald er zutrifft
 ///   --money=50         Startgeld setzen
 ///   --late             Park mit einigen Upgrades ausstatten
 ///   --imbiss           Imbissbude freischalten und bauen
@@ -58,8 +59,9 @@ public partial class Main : Control
         bool loaded = !_noSave && SaveSystem.Load(gs);
         // Ganz neues Spiel: Kalle erklärt erst einmal alles (Debug-Startwerte überspringen das)
         if (!loaded) gs.Tutorial = TutorialStep.Intro;
+        bool debugStart = false;
         foreach (var k in new[] { "notut", "money", "late", "imbiss", "upgrades", "allskills", "skills", "kk", "feedtest", "ausbau", "event", "open" })
-            if (_args.ContainsKey(k)) gs.Tutorial = TutorialStep.Done;
+            if (_args.ContainsKey(k)) { gs.Tutorial = TutorialStep.Done; debugStart = true; }
         if (_args.TryGetValue("money", out var m) && double.TryParse(m, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var money)) gs.Money = money;
         if (_args.ContainsKey("late"))
         {
@@ -107,6 +109,10 @@ public partial class Main : Control
             _shotDelay = _args.TryGetValue("shotdelay", out var d) && double.TryParse(d, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var dd) ? dd : 3;
         }
         _startMs = Time.GetTicksMsec();
+
+        // Debug-Start: Kalle erklärt nichts, was schon da ist (--hint=ID zeigt einen Tipp gezielt)
+        if (debugStart) KalleHints.MarkCurrent(gs);
+        if (_args.TryGetValue("hint", out var hintId)) gs.SeenHints.Remove(hintId);
 
         Theme = PfandTheme.Build();
         BuildUi();
@@ -215,7 +221,11 @@ public partial class Main : Control
         AddChild(_stats);
         statsButton.Pressed += _stats.Open;
 
-        var tutorial = new TutorialOverlay { Park = park, Automat = _automat, AutoAdvance = _args.ContainsKey("autotut") };
+        var tutorial = new TutorialOverlay
+        {
+            Park = park, Automat = _automat, AutoAdvance = _args.ContainsKey("autotut"),
+            Busy = () => _skills.Visible || _album.Visible || _stats.Visible || _ausbau.Visible,
+        };
         AddChild(tutorial);
     }
 

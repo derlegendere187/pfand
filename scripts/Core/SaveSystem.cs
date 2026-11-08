@@ -24,7 +24,8 @@ public class SaveData
     public Dictionary<string, double> Cooldowns { get; set; } = new();
     public Dictionary<string, int> EventCount { get; set; } = new();
     public bool TutorialDone { get; set; }
-    public bool LaterneHint { get; set; }
+    public bool LaterneHint { get; set; }                        // nur alte Spielstände
+    public List<string> SeenHints { get; set; }                  // null = Spielstand von vor Kalles Tipps
     // Statistik (ab Version 3)
     public double PlayTime { get; set; }
     public Dictionary<int, long> FedByType { get; set; } = new();
@@ -58,7 +59,7 @@ public static class SaveSystem
             Cooldowns = new Dictionary<string, double>(s.Cooldowns),
             EventCount = new Dictionary<string, int>(s.EventCount),
             TutorialDone = !s.TutorialActive,
-            LaterneHint = s.LaterneHint,
+            SeenHints = s.SeenHints.ToList(),
             PlayTime = s.PlayTime,
             FedByType = new Dictionary<int, long>(s.FedByType),
             CollectedByHand = s.CollectedByHand,
@@ -98,7 +99,8 @@ public static class SaveSystem
             s.Cooldowns = data.Cooldowns ?? new();
             s.EventCount = data.EventCount ?? new();
             // Alte Spielstände kennen die Einführung noch nicht: wer schon Flaschen eingeworfen hat, braucht sie nicht
-            s.LaterneHint = data.LaterneHint || s.Upgrades.ContainsKey("laterne");
+            s.SeenHints = new HashSet<string>(data.SeenHints ?? new());
+            if (data.LaterneHint || s.Upgrades.ContainsKey("laterne")) s.SeenHints.Add("laterne");
             s.Tutorial = data.TutorialDone || data.BottlesFed > 0 ? TutorialStep.Done : TutorialStep.Intro;
             // Alte Spielstände (Version 1) kannten noch keine Kronkorken-Währung
             s.Kronkorken = data.Version < 2 ? s.Caps.Values.Sum() : data.Kronkorken;
@@ -124,6 +126,8 @@ public static class SaveSystem
             s.EventsHeld = data.EventsHeld;
             s.KaestenAbgegeben = data.KaestenAbgegeben;
             s.BestBon = data.BestBon;
+            // Alte Spielstände: Kalle erklärt nichts, was man schon kennt
+            if (data.SeenHints == null) KalleHints.MarkCurrent(s);
             return true;
         }
         catch (Exception e)

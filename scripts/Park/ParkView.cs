@@ -367,8 +367,6 @@ public partial class ParkView : Control
             Hint("Klicke auf Flaschen, um sie einzusammeln.");
         else if (gs.BottlesFed == 0 && gs.Bag.Count >= 3)
             Hint("Wirf die Flaschen links im Automaten ein.");
-        else if (gs.Ausbau.Count == 0 && gs.Level("bank") > 0 && gs.Money >= 12 && gs.BottlesFed > 30)
-            Hint("Tipp: Rechtsklick auf eine Bank, um sie auszubauen.");
     }
 
     /// <summary>Pixelpfeil nach unten, Spitze bei tip.</summary>

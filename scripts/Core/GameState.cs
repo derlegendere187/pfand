@@ -61,7 +61,8 @@ public class GameState
     public double EventTimeLeft;
     public TutorialStep Tutorial = TutorialStep.Done;   // neue Spiele beginnen mit Intro
     public bool TutorialActive => Tutorial != TutorialStep.Done;
-    public bool LaterneHint;                            // Kalle hat um 22 Uhr die Laterne empfohlen
+    public HashSet<string> SeenHints = new();           // Kalles Tipps, die schon kamen
+    public bool LaterneHint => SeenHints.Contains("laterne");
     public bool ClockPaused;                            // Kalle redet gerade: die Uhr steht
 
     // Statistik

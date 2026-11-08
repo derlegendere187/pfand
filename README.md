@@ -15,7 +15,7 @@ Ein Incremental-Spiel: Du schaust von oben auf einen Park, sammelst die Pfandfla
   ```
 
 ## Steuerung
-- Beim ersten Start erklärt Kalle, ein alter Pfandsammler, wie alles funktioniert. Um 22 Uhr kommt er wieder und empfiehlt die Laterne
+- Beim ersten Start erklärt Kalle, ein alter Pfandsammler, wie alles funktioniert. Danach taucht er immer wieder auf und erklärt Neues (Laterne um 22 Uhr, Mülleimer und Rechtsklick-Ausbau, Kronkorken, Skilltree, Events …)
 - Flaschen anklicken (oder mit gedrückter Maustaste drüberwischen) → in die Tasche
 - Mülleimer anklicken → alle Flaschen daraus einsammeln
 - „Einwerfen“ im Automaten → Geld
@@ -35,6 +35,7 @@ Nach `--` anhängen, z. B. `... --path . -- --fresh --money=50`:
 | `--fresh` | Spielstand weder laden noch speichern (startet mit Kalles Einführung) |
 | `--notut` | Einführung überspringen |
 | `--autotut` | Einführung läuft von selbst durch (zum Testen) |
+| `--hint=muelleimer` | einen Tipp von Kalle erneut zeigen (`tasche_voll`, `laterne`, `muelleimer`, `sammler`, `album`, `kronkorken`, `events`, `grill`) |
 | `--money=50` | Startgeld setzen |
 | `--late` | Park mit einigen Upgrades ausstatten |
 | `--imbiss` | Imbissbude freischalten und bauen |

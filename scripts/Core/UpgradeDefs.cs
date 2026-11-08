@@ -36,7 +36,7 @@ public static class UpgradeDefs
         new UpgradeDef { Id = "laterne", Name = "LATERNE", Effect = "Leute bleiben abends länger, nachts kommen noch welche",
             BasePrice = 3.00, Growth = 2.2, Max = 3, MaxBonus = gs => gs.SkillLevel("bau"), RevealedBy = gs => gs.LaterneHint,
             C1 = H("#f2c75c"), C2 = H("#5a4a3a") },
-        new UpgradeDef { Id = "tasche", Name = "TASCHE+", Effect = "+4 Plätze in der Tasche",
+        new UpgradeDef { Id = "tasche", RevealNext = 1, Name = "TASCHE+", Effect = "+4 Plätze in der Tasche",
             BasePrice = 8.00, Growth = 2.6, Max = 6, MaxBonus = gs => 2 * gs.SkillLevel("rucksack"), C1 = H("#b07a4a"), C2 = H("#f4ead2") },
         new UpgradeDef { Id = "picknick", RevealNext = 1, Name = "PICKNICKDECKE", Effect = "Leute setzen sich auf Decken und bleiben länger",
             BasePrice = 6.00, Growth = 2.6, Max = 3, C1 = H("#d9735a"), C2 = H("#fffaf0") },
