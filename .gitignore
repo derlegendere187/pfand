@@ -1,0 +1,18 @@
+# Godot
+.godot/
+*.import.tmp
+export_presets.cfg
+screenshots/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.vscode/
+mono_crash.*
+
+# System
+Thumbs.db
+.DS_Store
