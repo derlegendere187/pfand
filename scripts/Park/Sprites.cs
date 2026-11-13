@@ -24,68 +24,109 @@ public static class Sprites
         R(ci, o, p, 3, 5, 2, 1, Palette.Skin);
     }
 
-    /// <summary>Flasche, zentriert auf pos, gedreht um rot (Radiant).</summary>
-    public static void Bottle(CanvasItem ci, Vector2 pos, BottleType t, float rot, int colorIdx, float scale = 1f, bool onGround = false)
+    /// <summary>
+    /// Zeichnet ein Pixelraster aus Textzeilen. Jedes Zeichen ist ein Kunstpixel der Größe p,
+    /// '.' bleibt leer. Gleiche Zeichen in einer Zeile werden zu einem Rechteck zusammengefasst.
+    /// </summary>
+    static void Map(CanvasItem ci, Vector2 o, float p, string[] rows, System.Func<char, Color?> pal)
     {
-        float p = 3 * scale;
-        if (onGround)
+        for (int y = 0; y < rows.Length; y++)
         {
-            // Schatten (nicht gedreht) und dunkler Umriss, damit Flaschen auf dem Gras auffallen
-            ci.DrawRect(new Rect2(pos + new Vector2(-7, 4) * scale, new Vector2(16, 6) * scale), new Color(0, 0, 0, 0.22f));
-            ci.DrawSetTransform(pos, rot, Vector2.One);
-            float w = 1.5f * scale;
-            if (t == BottleType.Dose)
-                ci.DrawRect(new Rect2(-1.5f * p - w, -2 * p - w, 3 * p + 2 * w, 4 * p + 2 * w), Palette.Ink);
-            else
+            var row = rows[y];
+            int x = 0;
+            while (x < row.Length)
             {
-                ci.DrawRect(new Rect2(-0.5f * p - w, -4 * p - w, p + 2 * w, 3 * p + 2 * w), Palette.Ink);
-                ci.DrawRect(new Rect2(-1.5f * p - w, -1 * p - w, 3 * p + 2 * w, 5 * p + 2 * w), Palette.Ink);
+                char ch = row[x];
+                int n = 1;
+                while (x + n < row.Length && row[x + n] == ch) n++;
+                if (ch != '.' && pal(ch) is { } c) R(ci, o, p, x, y, n, 1, c);
+                x += n;
             }
         }
-        else ci.DrawSetTransform(pos, rot, Vector2.One);
-        switch (t)
-        {
-            case BottleType.Bier:
-                BottleShape(ci, p, Color.FromHtml("#8a5a2e"), Color.FromHtml("#c8553d"), true);
-                break;
-            case BottleType.Wasser:
-                BottleShape(ci, p, Color.FromHtml("#4f8a4a"), Color.FromHtml("#6fa8d6"), true);
-                break;
-            case BottleType.Plastik:
-                BottleShape(ci, p, Color.FromHtml("#a9d4ee"), Color.FromHtml("#3f7fb5"), false);
-                break;
-            case BottleType.Retro:
-                BottleShape(ci, p, Color.FromHtml("#7fbfa8"), Color.FromHtml("#d9735a"), true);
-                R(ci, new Vector2(-1.5f * p, -4 * p), p, 2, 3, 1, 2, Palette.PanelLight);
-                break;
-            case BottleType.Gold:
-                BottleShape(ci, p, Palette.Gold, Color.FromHtml("#c99a1e"), false);
-                R(ci, new Vector2(-1.5f * p, -4 * p), p, 0, 3, 1, 2, Palette.PanelLight);
-                break;
-            default:
-            {
-                var o = new Vector2(-1.5f * p, -2 * p);
-                var c = Palette.Cans[colorIdx % Palette.Cans.Length];
-                R(ci, o, p, 0, 0, 3, 4, c);
-                R(ci, o, p, 0, 0, 3, 1, Color.FromHtml("#d6ccb8"));
-                R(ci, o, p, 0, 2, 3, 1, Palette.PanelLight);
-                if (onGround) R(ci, o, p, 0, 0.5f, 0.6f, 3, new Color(1, 1, 1, 0.55f)); // Glanz
-                break;
-            }
-        }
-        // Glanzstreifen auf Glas und Plastik
-        if (onGround && t != BottleType.Dose)
-            R(ci, new Vector2(-1.5f * p, -4 * p), p, 0.2f, 3.3f, 0.6f, 4, new Color(1, 1, 1, 0.5f));
-        ci.DrawSetTransform(Vector2.Zero, 0, Vector2.One);
     }
 
-    static void BottleShape(CanvasItem ci, float p, Color body, Color cap, bool label)
+    static readonly string[] GlassBottle =
     {
-        var o = new Vector2(-1.5f * p, -4 * p);
-        R(ci, o, p, 1, 0, 1, 1, cap);
-        R(ci, o, p, 1, 1, 1, 2, body);
-        R(ci, o, p, 0, 3, 3, 5, body);
-        if (label) R(ci, o, p, 0, 5, 3, 1, Palette.PanelLight);
+        "..oo..",
+        ".occo.",
+        ".oCCo.",
+        ".ohbo.",
+        ".ohdo.",
+        "ohbbdo",
+        "ohbbdo",
+        "ollLLo",
+        "ollLLo",
+        "ohbbdo",
+        "ohbbdo",
+        "ohbddo",
+        ".oooo.",
+    };
+
+    static readonly string[] CanArt =
+    {
+        ".oooo.",
+        "oSssSo",
+        "osTTso",
+        "ohccdo",
+        "ohwwdo",
+        "ohccdo",
+        "ohccdo",
+        "oSssSo",
+        ".oooo.",
+    };
+
+    // Farben je Sorte: Glas, Schatten, Glanz, Deckel, Deckel dunkel, Etikett (null = keins)
+    static (string body, string dark, string hi, string cap, string capDark, string label) BottleColors(BottleType t) => t switch
+    {
+        BottleType.Bier => ("#8a5a2e", "#5e3a1c", "#b88450", "#c8553d", "#8e3526", "#f2ead8"),
+        BottleType.Wasser => ("#4f8a4a", "#33603a", "#7ab870", "#6fa8d6", "#3f7fb5", "#f2ead8"),
+        BottleType.Plastik => ("#a9d4ee", "#78aed0", "#e4f4fc", "#3f7fb5", "#2a5a88", null),
+        BottleType.Retro => ("#7fbfa8", "#4f8f78", "#b4e2d0", "#d9735a", "#a04a3a", "#d9735a"),
+        _ => ("#f2c45a", "#c99a1e", "#fff0a0", "#c99a1e", "#8a6a10", null),
+    };
+
+    /// <summary>Flasche oder Dose, zentriert auf pos, gedreht um rot (Radiant). Feine Pixel (2 × scale).</summary>
+    public static void Bottle(CanvasItem ci, Vector2 pos, BottleType t, float rot, int colorIdx, float scale = 1f, bool onGround = false)
+    {
+        float p = 2 * scale;
+        if (onGround)
+            ci.DrawRect(new Rect2(pos + new Vector2(-7, 5) * scale, new Vector2(16, 5) * scale), new Color(0, 0, 0, 0.22f));
+        ci.DrawSetTransform(pos, rot, Vector2.One);
+        var ink = Palette.Ink;
+        if (t == BottleType.Dose)
+        {
+            var c = Palette.Cans[colorIdx % Palette.Cans.Length];
+            Map(ci, new Vector2(-3 * p, -4.5f * p), p, CanArt, ch => ch switch
+            {
+                'o' => ink,
+                'S' => Color.FromHtml("#e8e2d4"),
+                's' => Color.FromHtml("#b8b0a0"),
+                'T' => Color.FromHtml("#8a8478"),
+                'c' => c,
+                'h' => c.Lightened(0.35f),
+                'd' => c.Darkened(0.3f),
+                'w' => Palette.PanelLight,
+                _ => null,
+            });
+        }
+        else
+        {
+            var k = BottleColors(t);
+            Color H(string x) => Color.FromHtml(x);
+            Map(ci, new Vector2(-3 * p, -6.5f * p), p, GlassBottle, ch => ch switch
+            {
+                'o' => ink,
+                'c' => H(k.cap),
+                'C' => H(k.capDark),
+                'b' => H(k.body),
+                'd' => H(k.dark),
+                'h' => H(k.hi),
+                'l' => k.label == null ? H(k.body) : H(k.label),
+                'L' => k.label == null ? H(k.dark) : H(k.label).Darkened(0.15f),
+                _ => null,
+            });
+        }
+        ci.DrawSetTransform(Vector2.Zero, 0, Vector2.One);
     }
 
     /// <summary>Kurzes Funkeln (kleines Plus), um liegende Flaschen zu finden.</summary>
@@ -107,13 +148,23 @@ public static class Sprites
         ci.DrawSetTransform(Vector2.Zero, 0, Vector2.One);
     }
 
-    /// <summary>Zusammengerollte Decke unterm Arm (5×2).</summary>
-    public static void RolledBlanket(CanvasItem ci, Vector2 pos, Color c, float p = 3)
+    /// <summary>Zusammengerollte Decke unterm Arm (11×5 feine Pixel).</summary>
+    public static void RolledBlanket(CanvasItem ci, Vector2 pos, Color c, float p = 2)
     {
-        var o = pos - new Vector2(2.5f * p, p);
-        R(ci, o, p, 0, 0, 5, 2, c);
-        R(ci, o, p, 1, 0, 1, 2, Palette.PanelLight);
-        R(ci, o, p, 3, 0, 1, 2, Palette.PanelLight);
+        var o = pos - new Vector2(5.5f * p, 2.5f * p);
+        var edge = c.Darkened(0.5f);
+        R(ci, o, p, 1, 0, 9, 5, edge);
+        R(ci, o, p, 0, 1, 11, 3, edge);
+        for (int x = 1; x < 9; x++)
+        {
+            var mid = (x / 2) % 2 == 0 ? c : Gingham(c, false, true);
+            R(ci, o, p, x, 1, 1, 1, mid.Lightened(0.2f));
+            R(ci, o, p, x, 2, 1, 1, mid);
+            R(ci, o, p, x, 3, 1, 1, mid.Darkened(0.2f));
+        }
+        // Stirnseite mit Wickel
+        R(ci, o, p, 9, 1, 1, 3, Cream);
+        R(ci, o, p, 9, 2, 1, 1, c.Darkened(0.2f));
     }
 
     /// <summary>Imbissbude von oben (28×20, Pixel 5) in rect.</summary>
@@ -340,14 +391,39 @@ public static class Sprites
         }
     }
 
-    /// <summary>Picknickdecke (15×11), zentriert.</summary>
-    public static void Blanket(CanvasItem ci, Vector2 pos, Color c, float p = 4)
+    static readonly Color Cream = Color.FromHtml("#f4ead2");
+
+    /// <summary>Vichy-Karo: Kreuzung voll, ein Streifen halb, sonst Creme.</summary>
+    static Color Gingham(Color c, bool bx, bool by)
+        => bx && by ? c.Darkened(0.12f) : bx || by ? Cream.Lerp(c, 0.55f) : Cream;
+
+    /// <summary>Picknickdecke (30×22 feine Pixel), zentriert. Vichy-Karo mit Fransen.</summary>
+    public static void Blanket(CanvasItem ci, Vector2 pos, Color c, float p = 2)
     {
-        var o = pos - new Vector2(7.5f * p, 5.5f * p);
-        R(ci, o, p, 0, 0, 15, 11, c);
-        for (int y = 0; y < 11; y += 3)
-        for (int x = (y / 3) % 2 * 3; x < 15; x += 6)
-            R(ci, o, p, x, y, 3, Mathf.Min(3, 11 - y), Palette.PanelLight);
+        const int W = 30, H = 22;
+        var o = pos - new Vector2(W / 2f * p, H / 2f * p);
+        R(ci, o, p, 1, 1, W, H, new Color(0, 0, 0, 0.18f)); // Schatten
+        for (int y = 0; y < H; y++)
+        {
+            bool by = (y / 3) % 2 == 0;
+            int x = 0;
+            while (x < W)
+            {
+                bool bx = (x / 3) % 2 == 0;
+                int n = Mathf.Min(3 - x % 3, W - x);
+                var col = Gingham(c, bx, by);
+                if (y == 0) col = col.Lightened(0.15f);
+                else if (y == H - 1) col = col.Darkened(0.2f);
+                R(ci, o, p, x, y, n, 1, col);
+                x += n;
+            }
+        }
+        // Fransen an den kurzen Seiten
+        for (int y = 1; y < H - 1; y += 2)
+        {
+            R(ci, o, p, -1, y, 1, 1, Cream.Darkened(0.06f));
+            R(ci, o, p, W, y, 1, 1, Cream.Darkened(0.15f));
+        }
     }
 
     /// <summary>Bank von oben (16×5), zentriert.</summary>
@@ -499,14 +575,44 @@ public static class Sprites
         if (fill > 0.67f) R(ci, o, p, 2, 3, 2, 2, Color.FromHtml("#4f8a4a"));
     }
 
-    /// <summary>Laterne von oben (5×5), zentriert.</summary>
-    public static void Lamp(CanvasItem ci, Vector2 pos, float p = 4)
+    static readonly string[] LampArt =
     {
-        var o = pos - new Vector2(2.5f * p, 2.5f * p);
-        R(ci, o, p, 1, 0, 3, 5, Palette.LampPost);
-        R(ci, o, p, 0, 1, 5, 3, Palette.LampPost);
-        R(ci, o, p, 1, 1, 3, 3, Palette.LampLight);
-        R(ci, o, p, 2, 2, 1, 1, Palette.PanelLight);
+        "...ooo...",
+        "..oRRRo..",
+        ".oRrRRRo.",
+        "ooooooooo",
+        ".oWYoYYo.",
+        ".oYYoYYo.",
+        ".oYMoMYo.",
+        ".oMMoMMo.",
+        "ooooooooo",
+        "...oPo...",
+        "...oPo...",
+        "...oPo...",
+        "...oPo...",
+        "...oPo...",
+        "...oPo...",
+        "...oPo...",
+        "..oPPPo..",
+        ".ooooooo.",
+    };
+
+    /// <summary>Parklaterne (9×18 feine Pixel), wie die Figuren leicht von vorn. Fuß knapp unter pos.</summary>
+    public static void Lamp(CanvasItem ci, Vector2 pos, float p = 2)
+    {
+        var o = pos - new Vector2(4.5f * p, 12 * p);
+        R(ci, o, p, 1, 17, 8, 2, new Color(0, 0, 0, 0.2f)); // Schatten
+        Map(ci, o, p, LampArt, ch => ch switch
+        {
+            'o' => Color.FromHtml("#1e1e24"),
+            'R' => Color.FromHtml("#3a3a44"),
+            'r' => Color.FromHtml("#5a5a66"),
+            'P' => Color.FromHtml("#4a4a56"),
+            'W' => Color.FromHtml("#fff6d8"),
+            'Y' => Color.FromHtml("#ffe2a0"),
+            'M' => Color.FromHtml("#e8b860"),
+            _ => null,
+        });
     }
 
     /// <summary>Lichtkegel als gestufter Pixelkreis.</summary>

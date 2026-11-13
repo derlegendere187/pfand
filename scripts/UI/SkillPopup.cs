@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using Godot;
 using Pfand.Core;
 using Pfand.Park;
@@ -361,6 +362,47 @@ public partial class SkillCanvas : Control
         R(1.5f, 3, 1, 1, Edge);
     }
 
+    const string CompareMark = "\u0001";
+    static readonly Regex Number = new(@"[+-]?\d+(?:[.,]\d+)?(?:\s?%|\s+s\b)?");
+
+    /// <summary>Erster Wert, der sich mit der nächsten Stufe ändert: (jetzt, danach). null bei Einmal-Skills.</summary>
+    static (string from, string to)? Change(SkillDef d, int lvl)
+    {
+        if (d.MaxLevel <= 1) return null;
+        var a = Number.Matches(d.Effect(lvl));
+        var b = Number.Matches(d.Effect(lvl + 1));
+        if (a.Count != b.Count) return null;
+        for (int i = 0; i < a.Count; i++)
+            if (a[i].Value != b[i].Value) return (a[i].Value, b[i].Value);
+        return null;
+    }
+
+    /// <summary>"statt …"-Angaben fallen weg, der Pfeil zeigt den Vergleich schon.</summary>
+    static string WithoutStatt(string s)
+    {
+        s = Regex.Replace(s, @"\s*\([^)]*statt[^)]*\)", "");
+        s = Regex.Replace(s, @" statt [+-]?\d+(?:[.,]\d+)?(?:\s?%)?", "");
+        return s;
+    }
+
+    /// <summary>Jetzt-Wert grau, kleiner Pixelpfeil, neuer Wert grün.</summary>
+    void DrawCompare(Font font, Vector2 baseline, string from, string to)
+    {
+        const int size = 26;
+        DrawString(font, baseline, from, HorizontalAlignment.Left, -1, size, Wood.Muted);
+        float x = baseline.X + font.GetStringSize(from, HorizontalAlignment.Left, -1, size).X + 10;
+        float cy = baseline.Y - 8;
+        const float q = 2;
+        DrawRect(new Rect2(x, cy - q / 2, 5 * q, q), RingGot);
+        for (int i = 0; i < 4; i++)
+        {
+            float hh = (7 - 2 * i) * q;
+            DrawRect(new Rect2(x + (5 + i) * q, cy - hh / 2, q, hh), RingGot);
+        }
+        x += 9 * q + 10;
+        DrawString(font, new Vector2(x, baseline.Y), to, HorizontalAlignment.Left, -1, size, GoodInk);
+    }
+
     /// <summary>Beschreibung am Mauszeiger im Holz-Stil: Name, Stufe, Effekt, Preis.</summary>
     void DrawTooltip(SkillDef d, GameState gs)
     {
@@ -377,7 +419,11 @@ public partial class SkillCanvas : Control
         else
         {
             if (d.MaxLevel > 1) lines.Add(($"Stufe {lvl}/{d.MaxLevel}", Wood.Muted));
-            lines.Add((d.Effect(maxed ? lvl : lvl + 1), Wood.Ink));
+            var change = maxed ? null : Change(d, lvl);
+            string effect = d.Effect(maxed ? lvl : lvl + 1);
+            if (change != null) effect = WithoutStatt(effect);
+            lines.Add((effect, Wood.Ink));
+            if (change != null) lines.Add((CompareMark + change.Value.from + CompareMark + change.Value.to, Wood.Ink));
             if (maxed) lines.Add(("Voll ausgebaut", GoodInk));
             else
             {
@@ -391,7 +437,8 @@ public partial class SkillCanvas : Control
         var heights = new float[lines.Count];
         for (int i = 0; i < lines.Count; i++)
         {
-            heights[i] = font.GetMultilineStringSize(lines[i].text, HorizontalAlignment.Left, inner, size).Y;
+            heights[i] = lines[i].text.StartsWith(CompareMark, StringComparison.Ordinal) ? 30
+                : font.GetMultilineStringSize(lines[i].text, HorizontalAlignment.Left, inner, size).Y;
             h += heights[i] + 2;
         }
         h += pad - 2;
@@ -415,6 +462,13 @@ public partial class SkillCanvas : Control
         y += 6;
         for (int i = 0; i < lines.Count; i++)
         {
+            if (lines[i].text.StartsWith(CompareMark, StringComparison.Ordinal))
+            {
+                var parts = lines[i].text.Split(CompareMark);
+                DrawCompare(font, new Vector2(pos.X + pad, y + 24), parts[1], parts[2]);
+                y += heights[i] + 2;
+                continue;
+            }
             DrawMultilineString(font, new Vector2(pos.X + pad, y + size * 0.8f), lines[i].text, HorizontalAlignment.Left, inner, size, -1, lines[i].color);
             y += heights[i] + 2;
         }
