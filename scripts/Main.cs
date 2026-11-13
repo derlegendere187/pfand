@@ -58,7 +58,7 @@ public partial class Main : Control
         // Ganz neues Spiel: Kalle erklärt erst einmal alles (Debug-Startwerte überspringen das)
         if (!loaded) gs.Tutorial = TutorialStep.Intro;
         bool debugStart = false;
-        foreach (var k in new[] { "notut", "money", "late", "imbiss", "upgrades", "allskills", "skills", "kk", "feedtest", "event", "open" })
+        foreach (var k in new[] { "notut", "money", "late", "imbiss", "upgrades", "allskills", "skills", "kk", "allcaps", "feedtest", "event", "open" })
             if (_args.ContainsKey(k)) { gs.Tutorial = TutorialStep.Done; debugStart = true; }
         if (_args.TryGetValue("money", out var m) && double.TryParse(m, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var money)) gs.Money = money;
         if (_args.ContainsKey("late"))
@@ -79,6 +79,8 @@ public partial class Main : Control
                 if (kv.Length == 2 && int.TryParse(kv[1], out var lvl)) gs.Skills[kv[0]] = lvl;
             }
         if (_args.TryGetValue("kk", out var kk) && int.TryParse(kk, out var kkn)) gs.Kronkorken = kkn;
+        if (_args.ContainsKey("allcaps"))
+            for (int i = 0; i < CapData.Count; i++) gs.Caps[i] = 1;
         if (_args.TryGetValue("event", out var evId) && EventDefs.Get(evId) is { } evDef)
         {
             gs.Skills[evDef.Skill] = 1;
