@@ -47,19 +47,19 @@ public static class SkillDefs
     static string Unlock(string upgradeId)
     {
         var u = UpgradeDefs.Get(upgradeId);
-        return $"Schaltet das Upgrade {u.Name} frei: {u.Effect}. Kaufen kannst du es danach rechts bei den Upgrades.";
+        return $"Upgrade {u.Name}: {u.Effect}";
     }
 
     static string EventUnlock(string eventId)
     {
         var e = EventDefs.Get(eventId);
-        return $"Event {e.Name}: {e.Desc}. Starten kannst du es rechts bei EVENTS, es kostet Kronkorken.";
+        return $"Event: {e.Desc}";
     }
 
     static string AktionUnlock(string eventId)
     {
         var e = EventDefs.Get(eventId);
-        return $"Ab und zu liegt ein Flyer im Park. Klickst du ihn direkt an, startet die Aktion {e.Name}: {e.Desc} ({GameState.Seconds(e.Duration)}).";
+        return $"Flyer im Park: {e.Desc} ({GameState.Seconds(e.Duration)})";
     }
 
     /// <summary>Wie viele Knoten zwischen Wurzel und d liegen (direkt an der Wurzel = 1).</summary>
@@ -108,7 +108,7 @@ public static class SkillDefs
     public static readonly List<SkillDef> All = new()
     {
         new SkillDef { Id = Root, Branch = Start, Name = "PFANDSAMMLER", Max = 0, Pos = new(0, 0),
-            Effect = _ => "Hier fängt alles an. Von hier wachsen die Äste.",
+            Effect = _ => "",
             Icon = new[] { "..####..", "..#oo#..", "...##...", "..####..", ".#oooo#.", ".#o##o#.", ".#oooo#.", "..####.." } },
 
         // ---- Pfandwert (rechts) ----
@@ -117,46 +117,46 @@ public static class SkillDefs
         S("abgabe", Wert, "SCHNELLE ABGABE", "wert", 2, 0, 2, 1.25, 15, n => $"Automat zählt {n * 10} % schneller",
             new[] { "........", "#...#...", "##..##..", "###.###.", "###.###.", "##..##..", "#...#...", "........" }),
         S("kombo", Wert, "LANGER BON", "auto", 4, 0, 6, 1.6, 5,
-            n => $"Kombo-Bonus beim Einwerfen bis {Pct(Balance.KomboMax + n * Balance.KomboMaxPerLevel)} statt {Pct(Balance.KomboMax)}",
+            n => $"Kombo bis {Pct(Balance.KomboMax + n * Balance.KomboMaxPerLevel)} statt {Pct(Balance.KomboMax)}",
             new[] { ".######.", ".#oooo#.", ".######.", ".#oooo#.", ".######.", ".#oooo#.", ".#o#o#o.", "........" }),
         S("wert_koenig", Wert, "PFANDKÖNIG", "kombo", 5, 0, 150, 1, 1, _ => "Alle Flaschen doppelt so viel wert",
             new[] { "........", "#..#..#.", "##.#.##.", "#######.", "#o#o#o#.", "#######.", "........", "........" }),
-        S("auto", Wert, "AUTO-EINWURF", "abgabe", 3, 0, 4, 1, 1, _ => "Eine volle Tasche wird automatisch eingeworfen",
+        S("auto", Wert, "AUTO-EINWURF", "abgabe", 3, 0, 4, 1, 1, _ => "Volle Tasche wird automatisch eingeworfen",
             new[] { "..####..", ".#oooo#.", ".#o##o#.", ".#oooo#.", ".######.", "...##...", ".######.", "..####.." }),
         S("auto_pause", Wert, "AUTO-PAUSE", "auto", 3, -1, 6, 1, 1,
-            _ => "Auch eine halbvolle Tasche wird eingeworfen, wenn du 4 s lang nichts einsammelst", IClock),
+            _ => "Auch halbvolle Tasche nach 4 s ohne Sammeln", IClock),
 
         // ---- Flaschensorten (oben): am Anfang gibt es nur Bier. Glasflaschen sind der allererste Knoten ----
         S("bier_wert", Sorten, "BIERKENNER", null, 1, -1, 1, 1.3, 10, n => $"Bierflaschen +{n * 10} % wert", IBier),
         S("bier_oft", Sorten, "MEHR BIER", "bier_wert", 2, -1, 2, 1.4, 5, n => $"Bier wird {n * 10} % öfter getrunken", IPlus),
         S("s_glas", Sorten, "GLASFLASCHEN", null, 0, -1, 1, 1, 1,
-            _ => $"Leute trinken jetzt auch aus Glasflaschen ({GameState.Euro(BottleInfo.BaseValue(BottleType.Wasser))}, mit Kronkorken)", IGlas),
+            _ => $"Glasflaschen: {GameState.Euro(BottleInfo.BaseValue(BottleType.Wasser))}, mit Kronkorken", IGlas),
         S("glas_wert", Sorten, "GLASKENNER", "s_glas", 1, -2, 2, 1.3, 10, n => $"Glasflaschen +{n * 10} % wert", ICoin),
         S("glas_oft", Sorten, "MEHR GLAS", "glas_wert", 2, -2, 3, 1.4, 5, n => $"Glasflaschen {n * 15} % öfter", IPlus),
         S("s_plastik", Sorten, "PLASTIKFLASCHEN", "s_glas", 0, -2, 8, 1, 1,
-            _ => $"Leute trinken jetzt auch aus Plastikflaschen ({GameState.Euro(BottleInfo.BaseValue(BottleType.Plastik))}, mit Deckel)", IPlastik),
+            _ => $"Plastikflaschen: {GameState.Euro(BottleInfo.BaseValue(BottleType.Plastik))}", IPlastik),
         S("plastik_wert", Sorten, "PLASTIKPROFI", "s_plastik", 1, -3, 2, 1.3, 10, n => $"Plastikflaschen +{n * 10} % wert", ICoin),
         S("plastik_oft", Sorten, "MEHR PLASTIK", "plastik_wert", 2, -3, 3, 1.4, 5, n => $"Plastikflaschen {n * 15} % öfter", IPlus),
         S("s_dose", Sorten, "DOSEN", "s_plastik", 0, -3, 10, 1, 1,
-            _ => $"Leute trinken jetzt auch aus Dosen ({GameState.Euro(BottleInfo.BaseValue(BottleType.Dose))}, aber ohne Kronkorken)", IDose),
+            _ => $"Dosen: {GameState.Euro(BottleInfo.BaseValue(BottleType.Dose))}, ohne Kronkorken", IDose),
         S("dose_wert", Sorten, "DOSENPROFI", "s_dose", 1, -4, 2, 1.3, 10, n => $"Dosen +{n * 10} % wert", ICoin),
         S("dose_oft", Sorten, "MEHR DOSEN", "dose_wert", 2, -4, 3, 1.4, 5, n => $"Dosen {n * 15} % öfter", IPlus),
         S("retro", Sorten, "RETRO-FLASCHEN", "s_dose", 0, -4, 8, 1.4, 6,
             n => $"{(n * Balance.RetroChancePerLevel * 100).ToString("0.0")} % der Flaschen sind Retro ({GameState.Euro(BottleInfo.BaseValue(BottleType.Retro))})",
             new[] { "...oo...", "...##...", "...##...", "..####..", ".#o##o#.", ".######.", ".#o##o#.", ".######." }),
         S("gold", Sorten, "GOLDENE FLASCHE", "retro", 0, -5, 40, 1.8, 3,
-            n => $"Ganz selten ({(n * Balance.GoldChancePerLevel * 100).ToString("0.0")} %) eine Flasche für {GameState.Euro(BottleInfo.BaseValue(BottleType.Gold))}",
+            n => $"{(n * Balance.GoldChancePerLevel * 100).ToString("0.0")} % Goldflaschen ({GameState.Euro(BottleInfo.BaseValue(BottleType.Gold))})",
             new[] { "...o....", "...##...", "..#oo#..", "..#oo#..", ".#oooo#.", ".#o##o#.", ".#oooo#.", ".######." }),
 
         // ---- Glück (unten rechts): Kronkorken und Aktionen ----
         S("glueck", Glueck, "GLÜCKSDECKEL", null, 1, 1, 2, 1.35, 10, n => $"Chance auf Kronkorken +{n * 10} %", ICap),
         S("kenner", Glueck, "KENNERBLICK", "glueck", 2, 1, 4, 1.5, 5, n => $"Seltene Motive kommen {n * 15} % öfter",
             new[] { "...##...", "..#oo#..", ".#oooo#.", "#oooooo#", ".#oooo#.", "..#oo#..", "...##...", "........" }),
-        S("albumjaeger", Glueck, "ALBUMJÄGER", "kenner", 3, 1, 8, 1.5, 6, n => $"{n * 10} % der Kronkorken sind Motive, die dir noch fehlen",
+        S("albumjaeger", Glueck, "ALBUMJÄGER", "kenner", 3, 1, 8, 1.5, 6, n => $"{n * 10} % der Kronkorken sind neue Motive",
             new[] { "########", "#oo#oo##", "#oo#oo##", "########", "#oo#..##", "#oo#..##", "########", "........" }),
         S("ak_pfandaktion", Glueck, "PFANDAKTION", "glueck", 1, 2, 5, 1, 1, _ => AktionUnlock("pfandaktion"),
             new[] { "........", ".######.", "#oo##oo#", "#o#o#oo#", "#oo#o#o#", "#oo##oo#", ".######.", "........" }),
-        S("flyer", Glueck, "FLYER", "ak_pfandaktion", 2, 2, 4, 1.3, 10, n => $"Flyer für Aktionen liegen {n * 10} % öfter im Park", IFlyer),
+        S("flyer", Glueck, "FLYER", "ak_pfandaktion", 2, 2, 4, 1.3, 10, n => $"Flyer {n * 10} % öfter", IFlyer),
         S("ak_happyhour", Glueck, "HAPPY HOUR", "ak_pfandaktion", 1, 3, 6, 1, 1, _ => AktionUnlock("happyhour"),
             new[] { "#......#", ".#....#.", "..####..", "..#oo#..", "..#oo#..", "...##...", "...##...", "..####.." }),
         S("ak_gluecksstraehne", Glueck, "GLÜCKSSTRÄHNE", "ak_happyhour", 1, 4, 8, 1, 1, _ => AktionUnlock("gluecksstraehne"),
@@ -196,7 +196,7 @@ public static class SkillDefs
         S("platz", Gaeste, "GROSSER PARK", "stammgaeste", -4, 0, 4, 1.3, 10, n => $"+{n} Plätze im Park",
             new[] { "........", "########", "#oo#ooo#", "#oo#ooo#", "####o###", "#ooo#oo#", "########", "........" }),
         S("revier", Gaeste, "RUHIGES REVIER", "platz", -5, 0, 5, 1.4, 5,
-            n => $"Andere Sammler kommen später: Flaschen bleiben {Balance.BottleLifetime + n * Balance.BottleLifetimePerLevel} statt {Balance.BottleLifetime} s liegen", IEye),
+            n => $"Flaschen bleiben {Balance.BottleLifetime + n * Balance.BottleLifetimePerLevel} statt {Balance.BottleLifetime} s liegen", IEye),
 
         // ---- Sammeln (unten) ----
         S("aoe", Sammeln, "GREIFZANGE", null, 0, 1, 1, 1.25, 20, n => $"Sammelradius der Maus +{n * 15} %",
@@ -205,7 +205,7 @@ public static class SkillDefs
         S("rucksack", Sammeln, "WANDERRUCKSACK", "u_tasche", 0, 3, 3, 1.3, 10, n => $"TASCHE+ kann {n}× öfter gekauft werden",
             new[] { "..####..", ".#....#.", "########", "#oooooo#", "#o####o#", "#oooooo#", "#oooooo#", "########" }),
         S("lastenrad", Sammeln, "LASTENRAD", "rucksack", 0, 4, 10, 1, 1,
-            _ => $"Leere Kästen nimmst du mit: stehen gelassene Kästen und volle Grillkästen bringen nach dem Leeren {GameState.Euro(Balance.KastenPfand)} Kastenpfand",
+            _ => $"Leere Kästen bringen {GameState.Euro(Balance.KastenPfand)} Kastenpfand",
             new[] { "........", "..####..", "..#oo#..", "#######.", "#....#..", ".##..##.", "#oo##oo#", ".##..##." }),
 
         // ---- Park (oben links): Upgrades freischalten und Objekte ausbauen ----
@@ -214,19 +214,19 @@ public static class SkillDefs
             new[] { "........", "#o#o#o#o", "o#o#o#o#", "#o#o#o#o", "o#o#o#o#", "#o#o#o#o", "........", "........" }),
         S("u_gruppen", Park, "FREUNDESKREIS", "u_picknick", -2, -1, 3, 1, 1, _ => Unlock("gruppen"), IPeople),
         S("kastenrunde", Park, "BIERKASTEN", "u_gruppen", -3, -1, 3, 1.3, 10,
-            n => $"Freundesgruppen bringen mit {Pct(Balance.GroupCrateChanceBase + n * Balance.GroupCrateChancePerLevel)} Chance einen Bierkasten mit",
+            n => $"{Pct(Balance.GroupCrateChanceBase + n * Balance.GroupCrateChancePerLevel)} der Gruppen bringen einen Bierkasten",
             new[] { "........", "########", "#o#o#o##", "########", "#o#o#o##", "########", "#o#o#o##", "########" }),
         S("u_muelleimer", Park, "MÜLLEIMER", "u_picknick", -1, -2, 2, 1, 1, _ => Unlock("muelleimer"),
             new[] { "..####..", "########", ".#o#o#o.", ".#o#o#o.", ".#o#o#o.", ".#o#o#o.", ".######.", "........" }),
         S("eimer_gross", Park, "GROSSE EIMER", "u_muelleimer", -2, -2, 2, 1.3, 8,
             n => $"Alle Mülleimer fassen {Balance.BinCapacity + n * Balance.BinCapacityPerLevel} statt {Balance.BinCapacity} Flaschen",
             new[] { "########", "########", "#o#o#o##", "#o#o#o##", "#o#o#o##", "#o#o#o##", "#o#o#o##", "########" }),
-        S("eimer_ring", Park, "PFANDRINGE", "eimer_gross", -3, -2, 3, 1.4, 5, n => $"Pfandringe an allen Eimern: pro Eimer landen {n * 3} % mehr Flaschen darin",
+        S("eimer_ring", Park, "PFANDRINGE", "eimer_gross", -3, -2, 3, 1.4, 5, n => $"Pro Eimer landen {n * 3} % mehr Flaschen darin",
             new[] { "..####..", ".#oooo#.", "#o####o#", "#o#..#o#", "#o#..#o#", "#o####o#", ".#oooo#.", "..####.." }),
         S("u_bank", Park, "BANK", "u_muelleimer", -1, -3, 3, 1, 1, _ => Unlock("bank"),
             new[] { "........", "########", "#oooooo#", "########", "........", "########", ".#....#.", ".#....#." }),
-        S("bank_tisch", Park, "TISCHE", "u_bank", -2, -3, 3, 1.4, 5, n => $"Alle Bänke bekommen einen Tisch: Leute bleiben dort {n * 10} % länger", ITable),
-        S("bank_doppel", Park, "SITZGRUPPEN", "bank_tisch", -3, -3, 8, 1, 1, _ => "Eine zweite Bank gegenüber am Tisch: 4 statt 2 Plätze",
+        S("bank_tisch", Park, "TISCHE", "u_bank", -2, -3, 3, 1.4, 5, n => $"Leute auf Bänken bleiben {n * 10} % länger", ITable),
+        S("bank_doppel", Park, "SITZGRUPPEN", "bank_tisch", -3, -3, 8, 1, 1, _ => "4 statt 2 Plätze pro Bank",
             new[] { "########", "........", "########", "#oooooo#", "########", "........", "########", ".#....#." }),
         S("tischrunde", Park, "TISCHRUNDE", "bank_doppel", -4, -3, 4, 1.4, 5, n => $"Leute auf Bänken trinken {n * 3} % schneller", ITable),
         S("bau", Park, "BAUGENEHMIGUNG", "tischrunde", -5, -3, 6, 1.6, 5, n => $"Mülleimer, Bänke und Laternen: Maximum +{n}",
@@ -238,7 +238,7 @@ public static class SkillDefs
             new[] { "...##...", "..####..", "...##...", ".######.", "#.####.#", "..#..#..", ".#....#.", "#......#" }),
         S("tragkraft", Park, "STARKE SAMMLER", "flink", -4, -4, 4, 1.4, 6, n => $"Sammler tragen {n} Flaschen mehr", IBag),
         S("ehrlich", Park, "EHRLICHE SAMMLER", "tragkraft", -5, -4, 3, 1.3, 10,
-            n => $"Sammler geben dir Kronkorken ab: {n * 10} % so oft wie beim eigenen Einwerfen", ICap),
+            n => $"Sammler bringen Kronkorken ({n * 10} % so oft wie du)", ICap),
         S("u_tischtennis", Park, "TISCHTENNIS", "u_sammler", -1, -5, 5, 1, 1, _ => Unlock("tischtennis"),
             new[] { "########", "#ooo#oo#", "#ooo#oo#", "########", "#ooo#oo#", "#ooo#oo#", "########", ".#....#." }),
         S("tt_turnier", Park, "TURNIERPLATTEN", "u_tischtennis", -2, -5, 3, 1.4, 5, n => $"Tischtennis-Spieler bleiben {n * 10} % länger",
@@ -246,9 +246,9 @@ public static class SkillDefs
         S("tt_sieger", Park, "SIEGERBIER", "tt_turnier", -3, -5, 4, 1.4, 5, n => $"Tischtennis-Spieler trinken {n * 5} % schneller", ITrophy),
         S("u_imbiss", Park, "IMBISSBUDE", "u_tischtennis", -1, -6, 8, 1, 1, _ => Unlock("imbiss"),
             new[] { "#o#o#o#o", "########", "#......#", "#.####.#", "#.#oo#.#", "#......#", "########", "#......#" }),
-        S("imbiss_theke", Park, "GRÖSSERE THEKE", "u_imbiss", -2, -6, 3, 1.4, 6, n => $"Mit Imbiss passen {n} Leute mehr in den Park",
+        S("imbiss_theke", Park, "GRÖSSERE THEKE", "u_imbiss", -2, -6, 3, 1.4, 6, n => $"+{n} Plätze im Park mit Imbiss",
             new[] { "#o#o#o#o", "########", "#......#", "########", "#oooooo#", "########", "#......#", "#......#" }),
-        S("imbiss_kuehl", Park, "GETRÄNKEKÜHLSCHRANK", "imbiss_theke", -3, -6, 4, 1.4, 5, n => $"Mit Imbiss trinken alle im Park {n * 3} % schneller", IFridge),
+        S("imbiss_kuehl", Park, "GETRÄNKEKÜHLSCHRANK", "imbiss_theke", -3, -6, 4, 1.4, 5, n => $"Alle trinken {n * 3} % schneller mit Imbiss", IFridge),
         S("imbiss_schild", Park, "WERBESCHILD", "imbiss_kuehl", -4, -6, 4, 1.5, 4, n => $"{n * 5} % mehr Leute holen sich erst was am Imbiss",
             new[] { "########", "#oooooo#", "#o#oo#o#", "#oooooo#", "########", "...##...", "...##...", "..####.." }),
         S("u_grill", Park, "GRILLPLATZ", "u_imbiss", -1, -7, 12, 1, 1, _ => Unlock("grill"),

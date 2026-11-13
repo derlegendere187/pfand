@@ -77,7 +77,7 @@ public partial class SkillPopup : Control
         foreach (var c in new Control[] { _name, _branch, _level, _nowTitle, _now, _nextTitle, _next })
             icol.AddChild(c);
         icol.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
-        var hint = PfandTheme.Text("Maus über einen Knoten zeigt, was er bringt. Ziehen verschiebt den Baum. Doppelklick lernt. Jeder gelernte Knoten lässt neue Äste wachsen.", 20, Palette.Muted);
+        var hint = PfandTheme.Text("Ziehen: verschieben\nDoppelklick: lernen", 20, Palette.Muted);
         hint.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         icol.AddChild(hint);
         icol.AddChild(_buy);
@@ -119,9 +119,7 @@ public partial class SkillPopup : Control
             _branch.Text = d.Branch.Name;
             _level.Text = "";
             _nowTitle.Visible = _now.Visible = false;
-            _nextTitle.Visible = _next.Visible = true;
-            int gate = SkillDefs.GateOf(d), spent = gs.SpentOnSkills;
-            _next.Text = $"Ein neuer Ast wächst, wenn du insgesamt {gate} Kronkorken im Skilltree ausgegeben hast. Noch {gate - spent}.";
+            _nextTitle.Visible = _next.Visible = false;
             _buy.Text = "UNBEKANNT";
             _buy.Disabled = true;
             return;
@@ -129,13 +127,14 @@ public partial class SkillPopup : Control
 
         _name.Text = d.Name;
         _name.AddThemeColorOverride("font_color", d.Branch.Color.Darkened(0.2f));
-        _branch.Text = isRoot ? "Wurzel" : "Ast: " + d.Branch.Name;
+        _branch.Text = isRoot || d.Branch.Name == d.Name ? "" : d.Branch.Name;
         _level.Text = isRoot ? "" : $"Stufe {lvl} / {d.MaxLevel}";
-        _nowTitle.Visible = _now.Visible = lvl > 0 || isRoot;
-        _now.Text = d.Effect(Math.Max(1, lvl));
+        // Überschriften nur, wenn es zwei Werte zu unterscheiden gibt
         bool maxed = gs.SkillMaxed(d);
-        _nextTitle.Visible = _next.Visible = !maxed && !isRoot;
-        if (!maxed && !isRoot) _next.Text = d.Effect(lvl + 1);
+        // Nur ein Effekt: der der nächsten Stufe, ausgebaut der aktuelle
+        _now.Visible = _nowTitle.Visible = _nextTitle.Visible = false;
+        _next.Visible = !isRoot;
+        if (!isRoot) _next.Text = d.Effect(maxed ? lvl : lvl + 1);
 
         if (isRoot) { _buy.Text = "START"; _buy.Disabled = true; }
         else if (maxed) { _buy.Text = "MAXIMUM"; _buy.Disabled = true; }
@@ -320,16 +319,13 @@ public partial class SkillCanvas : Control
         if (StateOf(d) == NodeState.Teaser)
         {
             // Noch geschlossener Ast: nur verraten, wann er wächst
-            int gate = SkillDefs.GateOf(d);
             title = "NEUER AST";
-            lines.Add(($"Wächst, wenn du insgesamt {gate} Kronkorken im Skilltree ausgegeben hast (noch {gate - gs.SpentOnSkills}).", Palette.Ink));
         }
-        else if (root) lines.Add((d.Effect(1), Palette.Ink));
+        else if (root) return;
         else
         {
             lines.Add(($"{d.Branch.Name} · Stufe {lvl}/{d.MaxLevel}", Palette.Muted));
-            if (lvl > 0) lines.Add(("Jetzt: " + d.Effect(lvl), Palette.Ink));
-            if (!maxed) lines.Add(((lvl > 0 ? "Nächste Stufe: " : "Du bekommst: ") + d.Effect(lvl + 1), Palette.Ink));
+            lines.Add((d.Effect(maxed ? lvl : lvl + 1), Palette.Ink));
 
             if (maxed) lines.Add(("Voll ausgebaut", Palette.GoodText));
             else if (!gs.SkillAvailable(d)) lines.Add(("Erst " + SkillDefs.Get(d.Parent).Name + " lernen", Palette.BadText));
@@ -337,7 +333,7 @@ public partial class SkillCanvas : Control
             {
                 int cost = gs.NextSkillCost(d);
                 bool ok = gs.Kronkorken >= cost;
-                lines.Add(($"Kostet {cost} Kronkorken" + (ok ? "" : $" (dir fehlen {cost - gs.Kronkorken})"), ok ? Palette.GoodText : Palette.BadText));
+                lines.Add(($"Kostet {cost} Kronkorken", ok ? Palette.GoodText : Palette.BadText));
             }
         }
 
@@ -410,8 +406,7 @@ public partial class SkillCanvas : Control
 
         if (state == NodeState.Teaser)
         {
-            DrawString(PfandTheme.Pixel, new Vector2(r.Position.X, c.Y + 6), "?", HorizontalAlignment.Center, NodeSize, 24, ink);
-            DrawString(PfandTheme.Body, new Vector2(r.Position.X, r.End.Y - 4), $"ab {SkillDefs.GateOf(d)}", HorizontalAlignment.Center, NodeSize, 18, ink);
+            DrawString(PfandTheme.Pixel, new Vector2(r.Position.X, c.Y + 12), "?", HorizontalAlignment.Center, NodeSize, 24, ink);
             return;
         }
 
