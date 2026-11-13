@@ -52,6 +52,13 @@ public partial class AlbumPopup : Control
         scroll.AddChild(_sets);
         col.AddChild(scroll);
 
+        var legend = new HBoxContainer();
+        legend.AddThemeConstantOverride("separation", 16);
+        legend.AddChild(PfandTheme.Text("Rahmen:", 20, Palette.Muted));
+        for (int t = 0; t < CapData.TierNames.Length; t++)
+            legend.AddChild(PfandTheme.Text("■ " + CapData.TierNames[t], 20, TierColor(t)));
+        col.AddChild(legend);
+        legend.AddChild(PfandTheme.Text("· spätere Sets seltener", 20, Palette.Muted));
         col.AddChild(PfandTheme.Text("Jeder Fund ist auch 1 Kronkorken für den Skilltree – das Album behält ihn trotzdem.", 20, Palette.Muted));
 
         var close = new Button { Text = "SCHLIESSEN", CustomMinimumSize = new Vector2(0, 44) };
@@ -89,9 +96,20 @@ public partial class AlbumPopup : Control
         Visible = true;
     }
 
+    /// <summary>Rahmenfarbe je Seltenheit: häufig, selten, sehr selten, legendär.</summary>
+    static Color TierColor(int tier) => tier switch
+    {
+        1 => Color.FromHtml("#2f6fae"),
+        2 => Color.FromHtml("#7a4fb0"),
+        3 => Color.FromHtml("#c99a1e"),
+        _ => Palette.Ink,
+    };
+
     static Control Cell(int i, int n)
     {
-        var cell = PfandTheme.Panel(Color.FromHtml("#e4d6b6"), n > 0 ? Palette.Ink : Palette.Muted, 6);
+        int tier = CapData.Tier(i);
+        var frame = TierColor(tier);
+        var cell = PfandTheme.Panel(Color.FromHtml("#e4d6b6"), n > 0 ? frame : new Color(frame, 0.45f), 6);
         cell.CustomMinimumSize = new Vector2(118, 0);
         var v = new VBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
         v.AddThemeConstantOverride("separation", 4);
@@ -100,7 +118,7 @@ public partial class AlbumPopup : Control
         name.HorizontalAlignment = HorizontalAlignment.Center;
         name.ClipText = true;
         v.AddChild(name);
-        var count = PfandTheme.Text(n > 1 ? $"×{n}" : n == 1 ? "gefunden" : "fehlt", 20, Palette.Muted);
+        var count = PfandTheme.Text(CapData.TierNames[tier] + (n > 1 ? $" · ×{n}" : n == 1 ? "" : " · fehlt"), 20, tier > 0 ? frame : Palette.Muted);
         count.HorizontalAlignment = HorizontalAlignment.Center;
         v.AddChild(count);
         cell.AddChild(v);

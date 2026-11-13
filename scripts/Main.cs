@@ -25,6 +25,7 @@ namespace Pfand;
 ///   --kk=20            Kronkorken setzen
 ///   --feedtest         Tasche füllen und automatisch einwerfen
 ///   --event=konzert    Event sofort starten
+///   --flyer=pfandaktion  nach 1 s einen Aktions-Flyer in den Park legen
 ///   --time=0.7         Tageszeit setzen (0..1)
 ///   --speed=4          Spiel schneller laufen lassen
 ///   --screenshot=PFAD  nach --shotdelay Sekunden Bildschirmfoto speichern und beenden
@@ -45,6 +46,7 @@ public partial class Main : Control
     Label _albumCount, _skillCount, _statsCount;
     Button _tabUpgrades, _tabEvents, _albumButton, _skillButton;
     UpgradePanel _upgradePanel;
+    ParkView _park;
     EventPanel _eventPanel;
 
     public override void _Ready()
@@ -58,7 +60,7 @@ public partial class Main : Control
         // Ganz neues Spiel: Kalle erklärt erst einmal alles (Debug-Startwerte überspringen das)
         if (!loaded) gs.Tutorial = TutorialStep.Intro;
         bool debugStart = false;
-        foreach (var k in new[] { "notut", "money", "late", "imbiss", "upgrades", "allskills", "skills", "kk", "allcaps", "feedtest", "event", "open" })
+        foreach (var k in new[] { "notut", "money", "late", "imbiss", "upgrades", "allskills", "skills", "kk", "allcaps", "feedtest", "event", "flyer", "open" })
             if (_args.ContainsKey(k)) { gs.Tutorial = TutorialStep.Done; debugStart = true; }
         if (_args.TryGetValue("money", out var m) && double.TryParse(m, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var money)) gs.Money = money;
         if (_args.ContainsKey("late"))
@@ -123,6 +125,11 @@ public partial class Main : Control
             else if (open == "stats") _stats.CallDeferred(StatsPopup.MethodName.Open);
             else if (open == "events") ShowTab(true);
         }
+        if (_args.TryGetValue("flyer", out var flyerId) && EventDefs.Get(flyerId) is { Short: true } flyerDef)
+        {
+            gs.Skills[flyerDef.Skill] = 1;
+            GetTree().CreateTimer(1.0).Timeout += () => _park.Sim.SpawnFlyer(flyerId);
+        }
         if (_args.ContainsKey("captoast")) GetTree().CreateTimer(1.0).Timeout += () => gs.DebugCapFound(0);
         if (_args.ContainsKey("feedtest"))
         {
@@ -168,7 +175,7 @@ public partial class Main : Control
         var frame = PfandTheme.Panel(Palette.Border, null, 0);
         frame.AddThemeStyleboxOverride("panel", PfandTheme.Box(Palette.Grass, Palette.Border, 4, 4));
         frame.SizeFlagsVertical = SizeFlags.ExpandFill;
-        var park = new ParkView();
+        var park = _park = new ParkView();
         frame.AddChild(park);
         middle.AddChild(frame);
         body.AddChild(middle);

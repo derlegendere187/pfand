@@ -9,7 +9,7 @@ public record SkillBranch(string Name, Color Color);
 
 /// <summary>
 /// Ein Knoten im Skilltree. Er sitzt auf einem Rasterplatz (Pos), hängt an einem Elternknoten
-/// und kann mehrere Stufen haben. Jede Stufe kostet Kronkorken (Costs[stufe]).
+/// und kann mehrere Stufen haben. Stufe n kostet Base · Growth^n, mal einem Aufschlag je Abstand zur Wurzel.
 /// </summary>
 public class SkillDef
 {
@@ -17,12 +17,13 @@ public class SkillDef
     public SkillBranch Branch;
     public string Name;
     public Func<int, string> Effect;   // Wirkung bei Stufe n (n >= 1)
-    public int[] Costs;
+    public double Base, Growth = 1;
+    public int Max;
     public string Parent;              // null = hängt an der Wurzel
     public Vector2I Pos;
     public string[] Icon;              // 8×8 Pixel: '#' = Astfarbe, 'o' = hell, '.' = leer
 
-    public int MaxLevel => Costs.Length;
+    public int MaxLevel => Max;
 }
 
 public static class SkillDefs
@@ -32,20 +33,33 @@ public static class SkillDefs
     static Color H(string hex) => Color.FromHtml(hex);
 
     public static readonly SkillBranch Wert = new("PFANDWERT", H("#c9962e"));
-    public static readonly SkillBranch Selten = new("SELTENE FLASCHEN", H("#4f7fb0"));
+    public static readonly SkillBranch Sorten = new("FLASCHENSORTEN", H("#4f7fb0"));
+    public static readonly SkillBranch Glueck = new("GLÜCK", H("#3f9a8f"));
     public static readonly SkillBranch Events = new("EVENTS", H("#c4553f"));
     public static readonly SkillBranch Sammeln = new("SAMMELN", H("#4f8a5a"));
     public static readonly SkillBranch Gaeste = new("GÄSTE", H("#8a5aa8"));
     public static readonly SkillBranch Park = new("PARK", H("#8a5a34"));
     public static readonly SkillBranch Start = new("START", H("#4a3424"));
 
-    static string Pct(double v) => $"{Math.Round(v * 100)} %";
+    static string Pct(double v) => $"{Math.Round(v * 100)} %";
 
     /// <summary>Text für Knoten, die ein Upgrade freischalten: was es macht und wo man es kauft.</summary>
     static string Unlock(string upgradeId)
     {
         var u = UpgradeDefs.Get(upgradeId);
         return $"Schaltet das Upgrade {u.Name} frei: {u.Effect}. Kaufen kannst du es danach rechts bei den Upgrades.";
+    }
+
+    static string EventUnlock(string eventId)
+    {
+        var e = EventDefs.Get(eventId);
+        return $"Event {e.Name}: {e.Desc}. Starten kannst du es rechts bei EVENTS, es kostet Kronkorken.";
+    }
+
+    static string AktionUnlock(string eventId)
+    {
+        var e = EventDefs.Get(eventId);
+        return $"Ab und zu liegt ein Flyer im Park. Klickst du ihn direkt an, startet die Aktion {e.Name}: {e.Desc} ({GameState.Seconds(e.Duration)}).";
     }
 
     /// <summary>Wie viele Knoten zwischen Wurzel und d liegen (direkt an der Wurzel = 1).</summary>
@@ -56,184 +70,213 @@ public static class SkillDefs
         return n;
     }
 
-    /// <summary>Preis einer Stufe: je weiter weg von der Wurzel, desto teurer.</summary>
+    /// <summary>Preis einer Stufe: wächst mit jeder Stufe und je weiter weg von der Wurzel.</summary>
     public static int Cost(SkillDef d, int level)
-        => (int)Math.Ceiling(d.Costs[level] * (1 + Balance.SkillDepthCost * Math.Max(0, Depth(d) - 1)));
+        => (int)Math.Ceiling(d.Base * Math.Pow(d.Growth, level) * Math.Pow(Balance.SkillDepthCost, Math.Max(0, Depth(d) - 1)));
+
+    // --- Icons ---
+    static readonly string[] IBier = { "...##...", "...##...", "..####..", "..#oo#..", "..#oo#..", "..####..", "..####..", "..####.." };
+    static readonly string[] IGlas = { "...##...", "...##...", "..#oo#..", "..#oo#..", "..####..", "..####..", "..#oo#..", "..####.." };
+    static readonly string[] IPlastik = { "...oo...", "..####..", ".#oooo#.", ".######.", ".#oooo#.", ".######.", ".#oooo#.", ".######." };
+    static readonly string[] IDose = { "........", "..####..", ".#oooo#.", ".######.", ".#o##o#.", ".######.", ".#oooo#.", "..####.." };
+    static readonly string[] ICoin = { "..####..", ".######.", "##o##o##", "##oooo##", "##o##o##", "##oooo##", ".######.", "..####.." };
+    static readonly string[] IPlus = { "........", "...##...", "...##...", ".######.", ".######.", "...##...", "...##...", "........" };
+    static readonly string[] IClock = { "..####..", ".#oooo#.", "#oo#ooo#", "#oo#ooo#", "#oo###o#", "#oooooo#", ".#oooo#.", "..####.." };
+    static readonly string[] IStar = { "...##...", "...##...", "########", ".######.", "..####..", ".##..##.", "##....##", "........" };
+    static readonly string[] ICap = { "..####..", ".#oooo#.", "#o#oo#o#", "#oo##oo#", "#oo##oo#", "#o#oo#o#", ".#oooo#.", "..####.." };
+    static readonly string[] IFlyer = { ".######.", ".#oooo#.", ".#o##o#.", ".#oooo#.", ".#o##o#.", ".#oooo#.", ".######.", "........" };
+    static readonly string[] IPeople = { "........", ".##..##.", "#oo##oo#", ".##..##.", "####.###", "####.###", "####.###", "........" };
+    static readonly string[] ICollector = { "...##...", "..####..", "...##...", ".######.", "#.####.#", "..####.o", "..#..#oo", "..#..#oo" };
+    static readonly string[] IBag = { "..####..", ".#....#.", "########", "#oooooo#", "#o####o#", "#oooooo#", "#oooooo#", "########" };
+    static readonly string[] IEye = { "........", "..####..", ".#oooo#.", "#oo##oo#", "#oo##oo#", ".#oooo#.", "..####..", "........" };
+    static readonly string[] ITrophy = { "#.####.#", "#.####.#", ".######.", "..####..", "...##...", "...##...", "..####..", ".######." };
+    static readonly string[] ITable = { "........", "########", "........", "########", "#oooooo#", "########", ".#....#.", ".#....#." };
+    static readonly string[] IFridge = { "..####..", ".#oooo#.", ".#o##o#.", ".#oooo#.", ".######.", ".#oooo#.", ".#o##o#.", ".######." };
+
+    static SkillDef S(string id, SkillBranch b, string name, string parent, int x, int y, double cost, double growth, int max,
+        Func<int, string> effect, string[] icon)
+        => new() { Id = id, Branch = b, Name = name, Parent = parent, Pos = new(x, y), Base = cost, Growth = growth, Max = max, Effect = effect, Icon = icon };
+
+    /// <summary>Ausbau eines Events: länger und mehr wert.</summary>
+    static SkillDef EventPlus(string eventId, string parent, int x, int y, double cost)
+    {
+        var e = EventDefs.Get(eventId);
+        return S("evp_" + eventId, Events, e.Name + "+", parent, x, y, cost, 1.5, 5,
+            n => $"{e.Name} dauert {n * 10} % länger, Flaschen +{n * 5} % mehr wert", IStar);
+    }
 
     public static readonly List<SkillDef> All = new()
     {
-        new SkillDef { Id = Root, Branch = Start, Name = "PFANDSAMMLER", Costs = Array.Empty<int>(), Pos = new(0, 0),
+        new SkillDef { Id = Root, Branch = Start, Name = "PFANDSAMMLER", Max = 0, Pos = new(0, 0),
             Effect = _ => "Hier fängt alles an. Von hier wachsen die Äste.",
             Icon = new[] { "..####..", "..#oo#..", "...##...", "..####..", ".#oooo#.", ".#o##o#.", ".#oooo#.", "..####.." } },
 
         // ---- Pfandwert (rechts) ----
-        new SkillDef { Id = "wert", Branch = Wert, Name = "PFANDWERT", Costs = new[] { 1, 2, 4, 7, 12 }, Pos = new(1, 0),
-            Effect = n => $"Alle Flaschen +{n * 20} % wert",
-            Icon = new[] { "........", ".#....#.", "..#..#..", "...##...", "..####..", "...##...", "..####..", "...##..." } },
-        new SkillDef { Id = "abgabe", Branch = Wert, Name = "SCHNELLE ABGABE", Costs = new[] { 2, 4, 8 }, Parent = "wert", Pos = new(2, 0),
-            Effect = n => $"Automat zählt {Pct(n * 0.5)} schneller",
-            Icon = new[] { "........", "#...#...", "##..##..", "###.###.", "###.###.", "##..##..", "#...#...", "........" } },
-        new SkillDef { Id = "auto", Branch = Wert, Name = "AUTO-EINWURF", Costs = new[] { 3, 6 }, Parent = "abgabe", Pos = new(2, -1),
-            Effect = n => n >= 2 ? "Volle Tasche und Tasche nach 4 s Pause werden automatisch eingeworfen"
-                : "Eine volle Tasche wird automatisch eingeworfen",
-            Icon = new[] { "..####..", ".#oooo#.", ".#o##o#.", ".#oooo#.", ".######.", "...##...", ".######.", "..####.." } },
-        new SkillDef { Id = "wert_glas", Branch = Wert, Name = "GLASKENNER", Costs = new[] { 3, 6, 12 }, Parent = "wert", Pos = new(1, -1),
-            Effect = n => $"Bier- und Glasflaschen +{n * 50} % wert",
-            Icon = new[] { "...##...", "...##...", "..#oo#..", "..#oo#..", "..####..", "..####..", "..#oo#..", "..####.." } },
-        new SkillDef { Id = "wert_dose", Branch = Wert, Name = "DOSENPROFI", Costs = new[] { 3, 6, 12 }, Parent = "abgabe", Pos = new(2, 1),
-            Effect = n => $"Dosen und Plastik +{n * 25} % wert",
-            Icon = new[] { "........", "..####..", ".#oooo#.", ".######.", ".#o##o#.", ".######.", ".#oooo#.", "..####.." } },
-        new SkillDef { Id = "wert_koenig", Branch = Wert, Name = "PFANDKÖNIG", Costs = new[] { 30 }, Parent = "abgabe", Pos = new(3, 0),
-            Effect = _ => "Alle Flaschen doppelt so viel wert",
-            Icon = new[] { "........", "#..#..#.", "##.#.##.", "#######.", "#o#o#o#.", "#######.", "........", "........" } },
+        S("wert", Wert, "PFANDWERT", null, 1, 0, 1, 1.28, 20, n => $"Alle Flaschen +{n * 5} % wert",
+            new[] { "........", ".#....#.", "..#..#..", "...##...", "..####..", "...##...", "..####..", "...##..." }),
+        S("abgabe", Wert, "SCHNELLE ABGABE", "wert", 2, 0, 2, 1.25, 15, n => $"Automat zählt {n * 10} % schneller",
+            new[] { "........", "#...#...", "##..##..", "###.###.", "###.###.", "##..##..", "#...#...", "........" }),
+        S("kombo", Wert, "LANGER BON", "auto", 4, 0, 6, 1.6, 5,
+            n => $"Kombo-Bonus beim Einwerfen bis {Pct(Balance.KomboMax + n * Balance.KomboMaxPerLevel)} statt {Pct(Balance.KomboMax)}",
+            new[] { ".######.", ".#oooo#.", ".######.", ".#oooo#.", ".######.", ".#oooo#.", ".#o#o#o.", "........" }),
+        S("wert_koenig", Wert, "PFANDKÖNIG", "kombo", 5, 0, 150, 1, 1, _ => "Alle Flaschen doppelt so viel wert",
+            new[] { "........", "#..#..#.", "##.#.##.", "#######.", "#o#o#o#.", "#######.", "........", "........" }),
+        S("auto", Wert, "AUTO-EINWURF", "abgabe", 3, 0, 4, 1, 1, _ => "Eine volle Tasche wird automatisch eingeworfen",
+            new[] { "..####..", ".#oooo#.", ".#o##o#.", ".#oooo#.", ".######.", "...##...", ".######.", "..####.." }),
+        S("auto_pause", Wert, "AUTO-PAUSE", "auto", 3, -1, 6, 1, 1,
+            _ => "Auch eine halbvolle Tasche wird eingeworfen, wenn du 4 s lang nichts einsammelst", IClock),
 
-        // ---- Seltene Flaschen (oben) ----
-        new SkillDef { Id = "retro", Branch = Selten, Name = "RETRO-FLASCHEN", Costs = new[] { 2, 5, 10 }, Parent = "glueck", Pos = new(0, -2),
-            Effect = n => $"{n * 2} % der Flaschen sind Retro (€ 0,75)",
-            Icon = new[] { "...oo...", "...##...", "...##...", "..####..", ".#o##o#.", ".######.", ".#o##o#.", ".######." } },
-        new SkillDef { Id = "glueck", Branch = Selten, Name = "GLÜCKSDECKEL", Costs = new[] { 1, 3, 8 }, Pos = new(0, -1),
-            Effect = n => $"Chance auf Kronkorken +{n * 50} %",
-            Icon = new[] { "..####..", ".#oooo#.", "#o#oo#o#", "#oo##oo#", "#oo##oo#", "#o#oo#o#", ".#oooo#.", "..####.." } },
-        new SkillDef { Id = "gold", Branch = Selten, Name = "GOLDENE FLASCHE", Costs = new[] { 10, 25 }, Parent = "retro", Pos = new(0, -3),
-            Effect = n => $"Ganz selten ({(n * 0.4).ToString("0.0")} %) eine Flasche für € 5,00",
-            Icon = new[] { "...o....", "...##...", "..#oo#..", "..#oo#..", ".#oooo#.", ".#o##o#.", ".#oooo#.", ".######." } },
-        new SkillDef { Id = "albumjaeger", Branch = Selten, Name = "ALBUMJÄGER", Costs = new[] { 12 }, Parent = "retro", Pos = new(1, -2),
-            Effect = _ => "Kronkorken sind öfter Motive, die dir noch fehlen",
-            Icon = new[] { "########", "#oo#oo##", "#oo#oo##", "########", "#oo#..##", "#oo#..##", "########", "........" } },
+        // ---- Flaschensorten (oben): am Anfang gibt es nur Bier. Glasflaschen sind der allererste Knoten ----
+        S("bier_wert", Sorten, "BIERKENNER", null, 1, -1, 1, 1.3, 10, n => $"Bierflaschen +{n * 10} % wert", IBier),
+        S("bier_oft", Sorten, "MEHR BIER", "bier_wert", 2, -1, 2, 1.4, 5, n => $"Bier wird {n * 10} % öfter getrunken", IPlus),
+        S("s_glas", Sorten, "GLASFLASCHEN", null, 0, -1, 1, 1, 1,
+            _ => $"Leute trinken jetzt auch aus Glasflaschen ({GameState.Euro(BottleInfo.BaseValue(BottleType.Wasser))}, mit Kronkorken)", IGlas),
+        S("glas_wert", Sorten, "GLASKENNER", "s_glas", 1, -2, 2, 1.3, 10, n => $"Glasflaschen +{n * 10} % wert", ICoin),
+        S("glas_oft", Sorten, "MEHR GLAS", "glas_wert", 2, -2, 3, 1.4, 5, n => $"Glasflaschen {n * 15} % öfter", IPlus),
+        S("s_plastik", Sorten, "PLASTIKFLASCHEN", "s_glas", 0, -2, 8, 1, 1,
+            _ => $"Leute trinken jetzt auch aus Plastikflaschen ({GameState.Euro(BottleInfo.BaseValue(BottleType.Plastik))}, mit Deckel)", IPlastik),
+        S("plastik_wert", Sorten, "PLASTIKPROFI", "s_plastik", 1, -3, 2, 1.3, 10, n => $"Plastikflaschen +{n * 10} % wert", ICoin),
+        S("plastik_oft", Sorten, "MEHR PLASTIK", "plastik_wert", 2, -3, 3, 1.4, 5, n => $"Plastikflaschen {n * 15} % öfter", IPlus),
+        S("s_dose", Sorten, "DOSEN", "s_plastik", 0, -3, 10, 1, 1,
+            _ => $"Leute trinken jetzt auch aus Dosen ({GameState.Euro(BottleInfo.BaseValue(BottleType.Dose))}, aber ohne Kronkorken)", IDose),
+        S("dose_wert", Sorten, "DOSENPROFI", "s_dose", 1, -4, 2, 1.3, 10, n => $"Dosen +{n * 10} % wert", ICoin),
+        S("dose_oft", Sorten, "MEHR DOSEN", "dose_wert", 2, -4, 3, 1.4, 5, n => $"Dosen {n * 15} % öfter", IPlus),
+        S("retro", Sorten, "RETRO-FLASCHEN", "s_dose", 0, -4, 8, 1.4, 6,
+            n => $"{(n * Balance.RetroChancePerLevel * 100).ToString("0.0")} % der Flaschen sind Retro ({GameState.Euro(BottleInfo.BaseValue(BottleType.Retro))})",
+            new[] { "...oo...", "...##...", "...##...", "..####..", ".#o##o#.", ".######.", ".#o##o#.", ".######." }),
+        S("gold", Sorten, "GOLDENE FLASCHE", "retro", 0, -5, 40, 1.8, 3,
+            n => $"Ganz selten ({(n * Balance.GoldChancePerLevel * 100).ToString("0.0")} %) eine Flasche für {GameState.Euro(BottleInfo.BaseValue(BottleType.Gold))}",
+            new[] { "...o....", "...##...", "..#oo#..", "..#oo#..", ".#oooo#.", ".#o##o#.", ".#oooo#.", ".######." }),
 
-        // ---- Events (links) ----
-        new SkillDef { Id = "ev_geburtstag", Branch = Events, Name = "GEBURTSTAG", Costs = new[] { 8 }, Pos = new(-1, 0),
-            Effect = _ => "Event: Geburtstagsfeier",
-            Icon = new[] { "...o....", "...#....", "..####..", ".#oooo#.", ".######.", ".#o#o##.", ".######.", "........" } },
-        new SkillDef { Id = "ev_bierball", Branch = Events, Name = "BIERBALL", Costs = new[] { 10 }, Parent = "ev_geburtstag", Pos = new(-2, 0),
-            Effect = _ => "Event: Bierball-Turnier",
-            Icon = new[] { "........", "#......#", "#..##..#", "#..##..#", "#.####.#", "#.####.#", "#......#", "........" } },
-        new SkillDef { Id = "ev_konzert", Branch = Events, Name = "KONZERT", Costs = new[] { 15 }, Parent = "ev_bierball", Pos = new(-3, 0),
-            Effect = _ => "Event: Konzert im Park",
-            Icon = new[] { "....###.", "....#.#.", "....#.#.", "....#.#.", "..###.#.", ".####.#.", ".###.##.", "....###." } },
-        new SkillDef { Id = "ev_cooldown", Branch = Events, Name = "GUTE KONTAKTE", Costs = new[] { 6, 12, 20 }, Parent = "ev_bierball", Pos = new(-2, 1),
-            Effect = n => $"Event-Pausen -{n * 15} %",
-            Icon = new[] { "..####..", ".#oooo#.", "#oo#ooo#", "#oo#ooo#", "#oo###o#", "#oooooo#", ".#oooo#.", "..####.." } },
+        // ---- Glück (unten rechts): Kronkorken und Aktionen ----
+        S("glueck", Glueck, "GLÜCKSDECKEL", null, 1, 1, 2, 1.35, 10, n => $"Chance auf Kronkorken +{n * 10} %", ICap),
+        S("kenner", Glueck, "KENNERBLICK", "glueck", 2, 1, 4, 1.5, 5, n => $"Seltene Motive kommen {n * 15} % öfter",
+            new[] { "...##...", "..#oo#..", ".#oooo#.", "#oooooo#", ".#oooo#.", "..#oo#..", "...##...", "........" }),
+        S("albumjaeger", Glueck, "ALBUMJÄGER", "kenner", 3, 1, 8, 1.5, 6, n => $"{n * 10} % der Kronkorken sind Motive, die dir noch fehlen",
+            new[] { "########", "#oo#oo##", "#oo#oo##", "########", "#oo#..##", "#oo#..##", "########", "........" }),
+        S("ak_pfandaktion", Glueck, "PFANDAKTION", "glueck", 1, 2, 5, 1, 1, _ => AktionUnlock("pfandaktion"),
+            new[] { "........", ".######.", "#oo##oo#", "#o#o#oo#", "#oo#o#o#", "#oo##oo#", ".######.", "........" }),
+        S("flyer", Glueck, "FLYER", "ak_pfandaktion", 2, 2, 4, 1.3, 10, n => $"Flyer für Aktionen liegen {n * 10} % öfter im Park", IFlyer),
+        S("ak_happyhour", Glueck, "HAPPY HOUR", "ak_pfandaktion", 1, 3, 6, 1, 1, _ => AktionUnlock("happyhour"),
+            new[] { "#......#", ".#....#.", "..####..", "..#oo#..", "..#oo#..", "...##...", "...##...", "..####.." }),
+        S("ak_gluecksstraehne", Glueck, "GLÜCKSSTRÄHNE", "ak_happyhour", 1, 4, 8, 1, 1, _ => AktionUnlock("gluecksstraehne"),
+            new[] { "...##...", "..#oo#..", "########", ".#oooo#.", "..#oo#..", ".#o##o#.", "#o#..#o#", "........" }),
 
-        new SkillDef { Id = "ev_feiertag", Branch = Events, Name = "FEIERTAG", Costs = new[] { 15 }, Parent = "ev_geburtstag", Pos = new(-1, 1),
-            Effect = _ => "Event: Feiertag – einen ganzen Tag lang volle Wiese",
-            Icon = new[] { "#......#", "##....##", "#o#..#o#", "#oo##oo#", "########", "........", ".#.#.#..", "........" } },
-        new SkillDef { Id = "ev_maennertag", Branch = Events, Name = "MÄNNERTAG", Costs = new[] { 18 }, Parent = "ev_bierball", Pos = new(-3, 1),
-            Effect = _ => "Event: Männertag – Bollerwagen ziehen durch den Park",
-            Icon = new[] { "........", ".#o#o#..", ".#####..", "########", "#......#", "########", ".##..##.", ".##..##." } },
-        new SkillDef { Id = "ev_oktoberfest", Branch = Events, Name = "OKTOBERFEST", Costs = new[] { 25 }, Parent = "ev_konzert", Pos = new(-4, 0),
-            Effect = _ => "Event: Oktoberfest – der ganze Park wird zur Wiesn, Flaschen 50 % mehr wert",
-            Icon = new[] { "...##...", "..#oo#..", ".#o##o#.", "#o#oo#o#", "########", "#oooooo#", "#oo##oo#", "#oo##oo#" } },
-        new SkillDef { Id = "ev_sponsor", Branch = Events, Name = "SPONSOREN", Costs = new[] { 6, 12, 20 }, Parent = "ev_maennertag", Pos = new(-3, 2),
-            Effect = n => $"Events kosten {n * 15} % weniger",
-            Icon = new[] { "...##...", ".######.", "##.##...", ".#####..", "...##.#.", "...##.##", ".######.", "...##..." } },
+        // ---- Events (unten links): eine Reihe, darunter je ein Ausbau ----
+        S("ev_geburtstag", Events, "GEBURTSTAG", null, -1, 1, 3, 1, 1, _ => EventUnlock("geburtstag"),
+            new[] { "...o....", "...#....", "..####..", ".#oooo#.", ".######.", ".#o#o##.", ".######.", "........" }),
+        S("ev_bierball", Events, "BIERBALL", "ev_geburtstag", -2, 1, 5, 1, 1, _ => EventUnlock("bierball"),
+            new[] { "........", "#......#", "#..##..#", "#..##..#", "#.####.#", "#.####.#", "#......#", "........" }),
+        S("ev_konzert", Events, "KONZERT", "ev_bierball", -3, 1, 8, 1, 1, _ => EventUnlock("konzert"),
+            new[] { "....###.", "....#.#.", "....#.#.", "....#.#.", "..###.#.", ".####.#.", ".###.##.", "....###." }),
+        S("ev_maennertag", Events, "MÄNNERTAG", "ev_konzert", -4, 1, 12, 1, 1, _ => EventUnlock("maennertag"),
+            new[] { "........", ".#o#o#..", ".#####..", "########", "#......#", "########", ".##..##.", ".##..##." }),
+        S("ev_feiertag", Events, "FEIERTAG", "ev_maennertag", -5, 1, 18, 1, 1, _ => EventUnlock("feiertag"),
+            new[] { "#......#", "##....##", "#o#..#o#", "#oo##oo#", "########", "........", ".#.#.#..", "........" }),
+        S("ev_oktoberfest", Events, "OKTOBERFEST", "ev_feiertag", -6, 1, 70, 1, 1, _ => EventUnlock("oktoberfest"),
+            new[] { "...##...", "..#oo#..", ".#o##o#.", "#o#oo#o#", "########", "#oooooo#", "#oo##oo#", "#oo##oo#" }),
+        EventPlus("geburtstag", "ev_geburtstag", -1, 2, 2),
+        EventPlus("bierball", "ev_bierball", -2, 2, 2),
+        EventPlus("konzert", "ev_konzert", -3, 2, 3),
+        EventPlus("maennertag", "ev_maennertag", -4, 2, 3),
+        EventPlus("feiertag", "ev_feiertag", -5, 2, 4),
+        EventPlus("oktoberfest", "ev_oktoberfest", -6, 2, 6),
+        S("ev_cooldown", Events, "GUTE KONTAKTE", "evp_bierball", -2, 3, 4, 1.3, 10,
+            n => $"Pause zwischen Events {n * 6} % kürzer ({GameState.Seconds(Balance.EventPause * (1 - n * Balance.EventPauseCutPerLevel))} statt {GameState.Seconds(Balance.EventPause)})", IClock),
+        S("ev_sponsor", Events, "SPONSOREN", "evp_konzert", -3, 3, 5, 1.3, 10, n => $"Events kosten {n * 5} % weniger Kronkorken",
+            new[] { "...##...", ".######.", "##.##...", ".#####..", "...##.#.", "...##.##", ".######.", "...##..." }),
 
-        // Aktionen: kurze Boosts unter dem Feiertag
-        new SkillDef { Id = "ev_pfandaktion", Branch = Events, Name = "PFANDAKTION", Costs = new[] { 5 }, Parent = "ev_feiertag", Pos = new(-1, 2),
-            Effect = _ => "Aktion: 30 Sekunden lang sind alle Flaschen doppelt so viel wert",
-            Icon = new[] { "........", ".######.", "#oo##oo#", "#o#o#oo#", "#oo#o#o#", "#oo##oo#", ".######.", "........" } },
-        new SkillDef { Id = "ev_happyhour", Branch = Events, Name = "HAPPY HOUR", Costs = new[] { 5 }, Parent = "ev_pfandaktion", Pos = new(-2, 2),
-            Effect = _ => "Aktion: 30 Sekunden lang trinken alle doppelt so schnell",
-            Icon = new[] { "#......#", ".#....#.", "..####..", "..#oo#..", "..#oo#..", "...##...", "...##...", "..####.." } },
-        new SkillDef { Id = "ev_gluecksstraehne", Branch = Events, Name = "GLÜCKSSTRÄHNE", Costs = new[] { 6 }, Parent = "ev_pfandaktion", Pos = new(-1, 3),
-            Effect = _ => "Aktion: 30 Sekunden lang dreimal so viele Kronkorken",
-            Icon = new[] { "...##...", "..#oo#..", "########", ".#oooo#.", "..#oo#..", ".#o##o#.", "#o#..#o#", "........" } },
+        // ---- Gäste (links) ----
+        S("liegen", Gaeste, "SORGLOSE GÄSTE", null, -1, 0, 1, 1.3, 10,
+            n => $"Leute lassen {Pct(Balance.LeaveChanceBase + n * Balance.LeaveChancePerLevel)} ihrer Flaschen liegen",
+            new[] { "...##...", "..####..", "...##...", "..####..", "..####..", "........", "....##..", "...####." }),
+        S("durst", Gaeste, "DURSTIGE GÄSTE", "liegen", -2, 0, 2, 1.3, 10, n => $"Leute trinken {n * 3} % schneller",
+            new[] { "..o..o..", "...##...", "..#oo#..", "..####..", "..#oo#..", "..####..", "..#oo#..", "..####.." }),
+        S("stammgaeste", Gaeste, "STAMMGÄSTE", "durst", -3, 0, 3, 1.3, 10, n => $"+{n * 5} % Besucher", IPeople),
+        S("platz", Gaeste, "GROSSER PARK", "stammgaeste", -4, 0, 4, 1.3, 10, n => $"+{n} Plätze im Park",
+            new[] { "........", "########", "#oo#ooo#", "#oo#ooo#", "####o###", "#ooo#oo#", "########", "........" }),
+        S("revier", Gaeste, "RUHIGES REVIER", "platz", -5, 0, 5, 1.4, 5,
+            n => $"Andere Sammler kommen später: Flaschen bleiben {Balance.BottleLifetime + n * Balance.BottleLifetimePerLevel} statt {Balance.BottleLifetime} s liegen", IEye),
 
         // ---- Sammeln (unten) ----
-        new SkillDef { Id = "aoe", Branch = Sammeln, Name = "GREIFZANGE", Costs = new[] { 1, 3, 6, 12 }, Pos = new(0, 1),
-            Effect = n => $"Ein Klick sammelt alle Flaschen im Umkreis ({n} von 4)",
-            Icon = new[] { "..####..", ".#....#.", "#..##..#", "#.#oo#.#", "#.#oo#.#", "#..##..#", ".#....#.", "..####.." } },
-        new SkillDef { Id = "rucksack", Branch = Sammeln, Name = "WANDERRUCKSACK", Costs = new[] { 2, 5, 10 }, Parent = "aoe", Pos = new(0, 2),
-            Effect = n => $"Tasche+: Maximum +{n * 2}",
-            Icon = new[] { "..####..", ".#....#.", "########", "#oooooo#", "#o####o#", "#oooooo#", "#oooooo#", "########" } },
-        new SkillDef { Id = "lastenrad", Branch = Sammeln, Name = "LASTENRAD", Costs = new[] { 8 }, Parent = "rucksack", Pos = new(0, 3),
-            Effect = _ => "Ganze Bierkästen auf einmal mitnehmen und abgeben (sonst nur Flasche für Flasche), volle Kästen bringen € 1,50 Kastenpfand",
-            Icon = new[] { "........", "..####..", "..#oo#..", "#######.", "#....#..", ".##..##.", "#oo##oo#", ".##..##." } },
-
-        // ---- Gäste (unten rechts) ----
-        new SkillDef { Id = "liegen", Branch = Gaeste, Name = "SORGLOSE GÄSTE", Costs = new[] { 1, 2, 4, 7, 12 }, Pos = new(1, 1),
-            Effect = n => $"Leute lassen {Pct(Balance.LeaveChanceBase + n * Balance.LeaveChancePerLevel)} ihrer Flaschen liegen",
-            Icon = new[] { "...##...", "..####..", "...##...", "..####..", "..####..", "........", "....##..", "...####." } },
-        new SkillDef { Id = "durst", Branch = Gaeste, Name = "DURSTIGE GÄSTE", Costs = new[] { 3, 6, 12 }, Parent = "liegen", Pos = new(1, 2),
-            Effect = n => $"Leute trinken {n * 10} % schneller",
-            Icon = new[] { "..o..o..", "...##...", "..#oo#..", "..####..", "..#oo#..", "..####..", "..#oo#..", "..####.." } },
-        new SkillDef { Id = "stammgaeste", Branch = Gaeste, Name = "STAMMGÄSTE", Costs = new[] { 3, 7, 14 }, Parent = "liegen", Pos = new(2, 2),
-            Effect = n => $"+{n * 15} % Besucher, +{n * 2} Plätze im Park",
-            Icon = new[] { "........", ".##..##.", "#oo##oo#", ".##..##.", "####.###", "####.###", "####.###", "........" } },
+        S("aoe", Sammeln, "GREIFZANGE", null, 0, 1, 1, 1.25, 20, n => $"Sammelradius der Maus +{n * 15} %",
+            new[] { "..####..", ".#....#.", "#..##..#", "#.#oo#.#", "#.#oo#.#", "#..##..#", ".#....#.", "..####.." }),
+        S("u_tasche", Sammeln, "TASCHE+", "aoe", 0, 2, 2, 1, 1, _ => Unlock("tasche"), IBag),
+        S("rucksack", Sammeln, "WANDERRUCKSACK", "u_tasche", 0, 3, 3, 1.3, 10, n => $"TASCHE+ kann {n}× öfter gekauft werden",
+            new[] { "..####..", ".#....#.", "########", "#oooooo#", "#o####o#", "#oooooo#", "#oooooo#", "########" }),
+        S("lastenrad", Sammeln, "LASTENRAD", "rucksack", 0, 4, 10, 1, 1,
+            _ => $"Leere Kästen nimmst du mit: stehen gelassene Kästen und volle Grillkästen bringen nach dem Leeren {GameState.Euro(Balance.KastenPfand)} Kastenpfand",
+            new[] { "........", "..####..", "..#oo#..", "#######.", "#....#..", ".##..##.", "#oo##oo#", ".##..##." }),
 
         // ---- Park (oben links): Upgrades freischalten und Objekte ausbauen ----
         // Stamm nach oben: jedes Upgrade für den Park. Seitenäste nach links: Ausbau aller Objekte dieser Sorte.
-        new SkillDef { Id = "u_picknick", Branch = Park, Name = "PICKNICKDECKE", Costs = new[] { 1 }, Pos = new(-1, -1),
-            Effect = _ => Unlock("picknick"),
-            Icon = new[] { "........", "#o#o#o#o", "o#o#o#o#", "#o#o#o#o", "o#o#o#o#", "#o#o#o#o", "........", "........" } },
-        new SkillDef { Id = "u_gruppen", Branch = Park, Name = "FREUNDESKREIS", Costs = new[] { 3 }, Parent = "u_picknick", Pos = new(-2, -1),
-            Effect = _ => Unlock("gruppen"),
-            Icon = new[] { "........", ".##..##.", "#oo##oo#", ".##..##.", "####.###", "####.###", "####.###", "........" } },
-        new SkillDef { Id = "kastenrunde", Branch = Park, Name = "BIERKASTEN", Costs = new[] { 3, 6, 10 }, Parent = "u_gruppen", Pos = new(-3, -1),
-            Effect = n => $"Freundesgruppen bringen mit {Pct(Balance.GroupCrateChanceBase + n * Balance.GroupCrateChancePerLevel)} Chance einen Bierkasten mit",
-            Icon = new[] { "........", "########", "#o#o#o##", "########", "#o#o#o##", "########", "#o#o#o##", "########" } },
-        new SkillDef { Id = "u_muelleimer", Branch = Park, Name = "MÜLLEIMER", Costs = new[] { 2 }, Parent = "u_picknick", Pos = new(-1, -2),
-            Effect = _ => Unlock("muelleimer"),
-            Icon = new[] { "..####..", "########", ".#o#o#o.", ".#o#o#o.", ".#o#o#o.", ".#o#o#o.", ".######.", "........" } },
-        new SkillDef { Id = "eimer_gross", Branch = Park, Name = "GROSSE EIMER", Costs = new[] { 3 }, Parent = "u_muelleimer", Pos = new(-2, -2),
-            Effect = _ => "Alle Mülleimer fassen 25 statt 15 Flaschen",
-            Icon = new[] { "########", "########", "#o#o#o##", "#o#o#o##", "#o#o#o##", "#o#o#o##", "#o#o#o##", "########" } },
-        new SkillDef { Id = "eimer_ring", Branch = Park, Name = "PFANDRINGE", Costs = new[] { 6 }, Parent = "eimer_gross", Pos = new(-3, -2),
-            Effect = _ => "Pfandringe an allen Eimern: 40 Plätze, sie fangen mehr Flaschen auf",
-            Icon = new[] { "..####..", ".#oooo#.", "#o####o#", "#o#..#o#", "#o#..#o#", "#o####o#", ".#oooo#.", "..####.." } },
-        new SkillDef { Id = "u_bank", Branch = Park, Name = "BANK", Costs = new[] { 3 }, Parent = "u_muelleimer", Pos = new(-1, -3),
-            Effect = _ => Unlock("bank"),
-            Icon = new[] { "........", "########", "#oooooo#", "########", "........", "########", ".#....#.", ".#....#." } },
-        new SkillDef { Id = "bank_tisch", Branch = Park, Name = "TISCHE", Costs = new[] { 4 }, Parent = "u_bank", Pos = new(-2, -3),
-            Effect = _ => "Alle Bänke bekommen einen Tisch: Leute bleiben 50 % länger und trinken schneller",
-            Icon = new[] { "........", "########", "........", "########", "#oooooo#", "########", ".#....#.", ".#....#." } },
-        new SkillDef { Id = "bank_doppel", Branch = Park, Name = "SITZGRUPPEN", Costs = new[] { 8 }, Parent = "bank_tisch", Pos = new(-3, -3),
-            Effect = _ => "Eine zweite Bank gegenüber am Tisch: 4 statt 2 Plätze",
-            Icon = new[] { "########", "........", "########", "#oooooo#", "########", "........", "########", ".#....#." } },
-        new SkillDef { Id = "bau", Branch = Park, Name = "BAUGENEHMIGUNG", Costs = new[] { 4, 9, 18 }, Parent = "bank_doppel", Pos = new(-4, -3),
-            Effect = n => $"Mülleimer, Bänke und Laternen: Maximum +{n}",
-            Icon = new[] { "########", "#oooooo#", "#o####o#", "#oooooo#", "#o###oo#", "#oooooo#", "#ooo#o##", "########" } },
-        new SkillDef { Id = "u_sammler", Branch = Park, Name = "SAMMLER", Costs = new[] { 5 }, Parent = "u_bank", Pos = new(-1, -4),
-            Effect = _ => Unlock("sammler"),
-            Icon = new[] { "...##...", "..####..", "...##...", ".######.", "#.####.#", "..####.o", "..#..#oo", "..#..#oo" } },
-        new SkillDef { Id = "personal", Branch = Park, Name = "PERSONALCHEF", Costs = new[] { 5, 10, 20 }, Parent = "u_sammler", Pos = new(-2, -4),
-            Effect = n => $"Sammler: Maximum +{n * 2}",
-            Icon = new[] { "...##...", "..####..", "...##...", "..o##o..", ".######.", ".#o##o#.", "..#..#..", "..#..#.." } },
-        new SkillDef { Id = "flink", Branch = Park, Name = "FLINKE SAMMLER", Costs = new[] { 3, 6, 12 }, Parent = "personal", Pos = new(-3, -4),
-            Effect = n => $"Sammler +{n * 25} % schneller, tragen {n * 2} Flaschen mehr",
-            Icon = new[] { "...##...", "..####..", "...##...", ".######.", "#.####.#", "..#..#..", ".#....#.", "#......#" } },
-        new SkillDef { Id = "u_tischtennis", Branch = Park, Name = "TISCHTENNIS", Costs = new[] { 6 }, Parent = "u_sammler", Pos = new(-1, -5),
-            Effect = _ => Unlock("tischtennis"),
-            Icon = new[] { "########", "#ooo#oo#", "#ooo#oo#", "########", "#ooo#oo#", "#ooo#oo#", "########", ".#....#." } },
-        new SkillDef { Id = "tt_turnier", Branch = Park, Name = "TURNIERPLATTEN", Costs = new[] { 8 }, Parent = "u_tischtennis", Pos = new(-2, -5),
-            Effect = _ => "Alle Platten werden Turnierplatten: Spieler bleiben 50 % länger und trinken mehr",
-            Icon = new[] { "#..##..#", "########", "#ooo#oo#", "########", "#ooo#oo#", "########", ".#....#.", ".#....#." } },
-        new SkillDef { Id = "u_imbiss", Branch = Park, Name = "IMBISSBUDE", Costs = new[] { 10 }, Parent = "u_tischtennis", Pos = new(-1, -6),
-            Effect = _ => Unlock("imbiss"),
-            Icon = new[] { "#o#o#o#o", "########", "#......#", "#.####.#", "#.#oo#.#", "#......#", "########", "#......#" } },
-        new SkillDef { Id = "imbiss_theke", Branch = Park, Name = "GRÖSSERE THEKE", Costs = new[] { 10 }, Parent = "u_imbiss", Pos = new(-2, -6),
-            Effect = _ => "+4 Besucher, mehr Leute holen sich was am Imbiss",
-            Icon = new[] { "#o#o#o#o", "########", "#......#", "########", "#oooooo#", "########", "#......#", "#......#" } },
-        new SkillDef { Id = "imbiss_kuehl", Branch = Park, Name = "GETRÄNKEKÜHLSCHRANK", Costs = new[] { 15 }, Parent = "imbiss_theke", Pos = new(-3, -6),
-            Effect = _ => "Alle im Park trinken 15 % schneller",
-            Icon = new[] { "..####..", ".#oooo#.", ".#o##o#.", ".#oooo#.", ".######.", ".#oooo#.", ".#o##o#.", ".######." } },
-        new SkillDef { Id = "u_grill", Branch = Park, Name = "GRILLPLATZ", Costs = new[] { 15 }, Parent = "u_imbiss", Pos = new(-1, -7),
-            Effect = _ => Unlock("grill"),
-            Icon = new[] { "..o.o...", "...o.o..", "########", "#o#o#o##", ".######.", "...##...", "..#..#..", ".#....#." } },
-        new SkillDef { Id = "grill_rost", Branch = Park, Name = "GROSSER ROST", Costs = new[] { 15 }, Parent = "u_grill", Pos = new(-2, -7),
-            Effect = _ => "Grillrunden bleiben 50 % länger",
-            Icon = new[] { "........", "########", "#o#o#o##", "########", "#o#o#o##", "########", "..#..#..", ".#....#." } },
-        new SkillDef { Id = "grill_kuehl", Branch = Park, Name = "KÜHLBOX", Costs = new[] { 20 }, Parent = "grill_rost", Pos = new(-3, -7),
-            Effect = _ => "Grillrunden trinken 30 % schneller",
-            Icon = new[] { "........", ".######.", "#oooooo#", "########", "#oooooo#", "#oooooo#", "########", "........" } },
+        S("u_picknick", Park, "PICKNICKDECKE", null, -1, -1, 1, 1, 1, _ => Unlock("picknick"),
+            new[] { "........", "#o#o#o#o", "o#o#o#o#", "#o#o#o#o", "o#o#o#o#", "#o#o#o#o", "........", "........" }),
+        S("u_gruppen", Park, "FREUNDESKREIS", "u_picknick", -2, -1, 3, 1, 1, _ => Unlock("gruppen"), IPeople),
+        S("kastenrunde", Park, "BIERKASTEN", "u_gruppen", -3, -1, 3, 1.3, 10,
+            n => $"Freundesgruppen bringen mit {Pct(Balance.GroupCrateChanceBase + n * Balance.GroupCrateChancePerLevel)} Chance einen Bierkasten mit",
+            new[] { "........", "########", "#o#o#o##", "########", "#o#o#o##", "########", "#o#o#o##", "########" }),
+        S("u_muelleimer", Park, "MÜLLEIMER", "u_picknick", -1, -2, 2, 1, 1, _ => Unlock("muelleimer"),
+            new[] { "..####..", "########", ".#o#o#o.", ".#o#o#o.", ".#o#o#o.", ".#o#o#o.", ".######.", "........" }),
+        S("eimer_gross", Park, "GROSSE EIMER", "u_muelleimer", -2, -2, 2, 1.3, 8,
+            n => $"Alle Mülleimer fassen {Balance.BinCapacity + n * Balance.BinCapacityPerLevel} statt {Balance.BinCapacity} Flaschen",
+            new[] { "########", "########", "#o#o#o##", "#o#o#o##", "#o#o#o##", "#o#o#o##", "#o#o#o##", "########" }),
+        S("eimer_ring", Park, "PFANDRINGE", "eimer_gross", -3, -2, 3, 1.4, 5, n => $"Pfandringe an allen Eimern: pro Eimer landen {n * 3} % mehr Flaschen darin",
+            new[] { "..####..", ".#oooo#.", "#o####o#", "#o#..#o#", "#o#..#o#", "#o####o#", ".#oooo#.", "..####.." }),
+        S("u_bank", Park, "BANK", "u_muelleimer", -1, -3, 3, 1, 1, _ => Unlock("bank"),
+            new[] { "........", "########", "#oooooo#", "########", "........", "########", ".#....#.", ".#....#." }),
+        S("bank_tisch", Park, "TISCHE", "u_bank", -2, -3, 3, 1.4, 5, n => $"Alle Bänke bekommen einen Tisch: Leute bleiben dort {n * 10} % länger", ITable),
+        S("bank_doppel", Park, "SITZGRUPPEN", "bank_tisch", -3, -3, 8, 1, 1, _ => "Eine zweite Bank gegenüber am Tisch: 4 statt 2 Plätze",
+            new[] { "########", "........", "########", "#oooooo#", "########", "........", "########", ".#....#." }),
+        S("tischrunde", Park, "TISCHRUNDE", "bank_doppel", -4, -3, 4, 1.4, 5, n => $"Leute auf Bänken trinken {n * 3} % schneller", ITable),
+        S("bau", Park, "BAUGENEHMIGUNG", "tischrunde", -5, -3, 6, 1.6, 5, n => $"Mülleimer, Bänke und Laternen: Maximum +{n}",
+            new[] { "########", "#oooooo#", "#o####o#", "#oooooo#", "#o###oo#", "#oooooo#", "#ooo#o##", "########" }),
+        S("u_sammler", Park, "SAMMLER", "u_bank", -1, -4, 4, 1, 1, _ => Unlock("sammler"), ICollector),
+        S("personal", Park, "PERSONALCHEF", "u_sammler", -2, -4, 4, 1.4, 6, n => $"SAMMLER kann {n}× öfter gekauft werden",
+            new[] { "...##...", "..####..", "...##...", "..o##o..", ".######.", ".#o##o#.", "..#..#..", "..#..#.." }),
+        S("flink", Park, "FLINKE SAMMLER", "personal", -3, -4, 3, 1.3, 10, n => $"Sammler laufen {n * 8} % schneller",
+            new[] { "...##...", "..####..", "...##...", ".######.", "#.####.#", "..#..#..", ".#....#.", "#......#" }),
+        S("tragkraft", Park, "STARKE SAMMLER", "flink", -4, -4, 4, 1.4, 6, n => $"Sammler tragen {n} Flaschen mehr", IBag),
+        S("ehrlich", Park, "EHRLICHE SAMMLER", "tragkraft", -5, -4, 3, 1.3, 10,
+            n => $"Sammler geben dir Kronkorken ab: {n * 10} % so oft wie beim eigenen Einwerfen", ICap),
+        S("u_tischtennis", Park, "TISCHTENNIS", "u_sammler", -1, -5, 5, 1, 1, _ => Unlock("tischtennis"),
+            new[] { "########", "#ooo#oo#", "#ooo#oo#", "########", "#ooo#oo#", "#ooo#oo#", "########", ".#....#." }),
+        S("tt_turnier", Park, "TURNIERPLATTEN", "u_tischtennis", -2, -5, 3, 1.4, 5, n => $"Tischtennis-Spieler bleiben {n * 10} % länger",
+            new[] { "#..##..#", "########", "#ooo#oo#", "########", "#ooo#oo#", "########", ".#....#.", ".#....#." }),
+        S("tt_sieger", Park, "SIEGERBIER", "tt_turnier", -3, -5, 4, 1.4, 5, n => $"Tischtennis-Spieler trinken {n * 5} % schneller", ITrophy),
+        S("u_imbiss", Park, "IMBISSBUDE", "u_tischtennis", -1, -6, 8, 1, 1, _ => Unlock("imbiss"),
+            new[] { "#o#o#o#o", "########", "#......#", "#.####.#", "#.#oo#.#", "#......#", "########", "#......#" }),
+        S("imbiss_theke", Park, "GRÖSSERE THEKE", "u_imbiss", -2, -6, 3, 1.4, 6, n => $"Mit Imbiss passen {n} Leute mehr in den Park",
+            new[] { "#o#o#o#o", "########", "#......#", "########", "#oooooo#", "########", "#......#", "#......#" }),
+        S("imbiss_kuehl", Park, "GETRÄNKEKÜHLSCHRANK", "imbiss_theke", -3, -6, 4, 1.4, 5, n => $"Mit Imbiss trinken alle im Park {n * 3} % schneller", IFridge),
+        S("imbiss_schild", Park, "WERBESCHILD", "imbiss_kuehl", -4, -6, 4, 1.5, 4, n => $"{n * 5} % mehr Leute holen sich erst was am Imbiss",
+            new[] { "########", "#oooooo#", "#o#oo#o#", "#oooooo#", "########", "...##...", "...##...", "..####.." }),
+        S("u_grill", Park, "GRILLPLATZ", "u_imbiss", -1, -7, 12, 1, 1, _ => Unlock("grill"),
+            new[] { "..o.o...", "...o.o..", "########", "#o#o#o##", ".######.", "...##...", "..#..#..", ".#....#." }),
+        S("grill_rost", Park, "GROSSER ROST", "u_grill", -2, -7, 4, 1.4, 5, n => $"Grillrunden bleiben {n * 10} % länger",
+            new[] { "........", "########", "#o#o#o##", "########", "#o#o#o##", "########", "..#..#..", ".#....#." }),
+        S("grill_kuehl", Park, "KÜHLBOX", "grill_rost", -3, -7, 5, 1.4, 5, n => $"Grillrunden trinken {n * 6} % schneller",
+            new[] { "........", ".######.", "#oooooo#", "########", "#oooooo#", "#oooooo#", "########", "........" }),
     };
 
     public static SkillDef Get(string id) => All.Find(s => s.Id == id);
 
-    /// <summary>Kosten der Skills aus Version 2 (für die Erstattung beim Umstieg).</summary>
-    public static readonly Dictionary<string, int> OldCosts = new()
+    /// <summary>
+    /// Die Äste an der Wurzel wachsen nacheinander: ein Ast öffnet sich erst, wenn man insgesamt so viele
+    /// Kronkorken im Skilltree ausgegeben hat. Am Anfang gibt es nur die Glasflaschen.
+    /// </summary>
+    public static readonly Dictionary<string, int> Gates = new()
     {
-        ["wert1"] = 1, ["wert2"] = 3, ["wert3"] = 8, ["retro"] = 2, ["glueck"] = 4, ["gold"] = 6,
-        ["ev_geburtstag"] = 2, ["ev_bierball"] = 4, ["ev_konzert"] = 8, ["ev_cooldown"] = 5,
+        ["s_glas"] = 0,
+        ["u_picknick"] = 1,
+        ["wert"] = 4,
+        ["aoe"] = 8,
+        ["bier_wert"] = 14,
+        ["liegen"] = 20,
+        ["glueck"] = 30,
+        ["ev_geburtstag"] = 45,
     };
+
+    /// <summary>Ab wie vielen ausgegebenen Kronkorken der Knoten lernbar ist (nur Äste direkt an der Wurzel).</summary>
+    public static int GateOf(SkillDef d) => d.Parent == null && Gates.TryGetValue(d.Id, out var g) ? g : 0;
 }

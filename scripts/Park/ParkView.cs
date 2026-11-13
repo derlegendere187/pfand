@@ -64,7 +64,8 @@ public partial class ParkView : Control
         {
             _mouse = mm.Position;
             bool overBottle = Sim.BottlesAround(mm.Position, GameState.I.ClickRadius).Count > 0;
-            bool over = overBottle || KastenAt(mm.Position) != null || Sim.BinAt(mm.Position, ParkLayout.Bins(Size, GameState.I)) >= 0;
+            bool over = overBottle || OverKasten(mm.Position) || CrateAt(mm.Position) != null
+                || Sim.BinAt(mm.Position, ParkLayout.Bins(Size, GameState.I)) >= 0 || (Sim.Flyer?.Rect.HasPoint(mm.Position) ?? false);
             MouseDefaultCursorShape = over ? CursorShape.PointingHand : CursorShape.Arrow;
             // Mit gedrückter Maustaste drüberwischen sammelt auch
             if ((mm.ButtonMask & MouseButtonMask.Left) != 0) TryCollect(mm.Position, false);
@@ -74,6 +75,24 @@ public partial class ParkView : Control
     void TryCollect(Vector2 pos, bool isClick)
     {
         var gs = GameState.I;
+
+        // Flyer: nur ein echter Klick direkt drauf startet die Aktion (Wischen und Greifzange zählen nicht)
+        if (isClick && Sim.Flyer is { } flyer && flyer.Rect.Grow(2).HasPoint(pos))
+        {
+            var ev = EventDefs.Get(flyer.EventId);
+            Sim.Flyer = null;
+            gs.TryStartEvent(ev, free: true);
+            Float(pos, ev.Name + "!", Palette.MoneyText);
+            return;
+        }
+
+        // Solange der Automat zählt, passt nichts Neues in die Tasche
+        if (gs.Feeding)
+        {
+            if (isClick) Float(pos, "Automat zählt …", Palette.Muted);
+            return;
+        }
+
         var bins = ParkLayout.Bins(Size, gs);
         int bin = Sim.BinAt(pos, bins);
         if (bin >= 0 && (isClick || Sim.BinContents[bin].Count > 0))
@@ -82,12 +101,30 @@ public partial class ParkView : Control
             return;
         }
 
-        // Bierkasten (Grill oder Freundesgruppe): Flasche für Flasche, mit Lastenrad der ganze Kasten
-        if (KastenAt(pos) is { } kasten && (isClick || kasten.Count > 0))
+        // Grill-Bierkasten: Inhalt in die Tasche. Mit Lastenrad bringt ein voller Kasten danach Kastenpfand
+        if (OverKasten(pos) && (isClick || Sim.Kasten.Count > 0))
         {
-            if (gs.HasSkill("lastenrad")) DeliverKasten(kasten, pos);
-            else TakeOne(kasten, pos, isClick);
-            Sim.CleanupCrates();
+            bool full = Sim.Kasten.Count >= Balance.KastenCapacity;
+            EmptyInto(Sim.Kasten, pos, isClick);
+            if (full && Sim.Kasten.Count == 0 && gs.HasSkill("lastenrad")) KastenPfand(pos);
+            return;
+        }
+
+        // Kasten einer Freundesgruppe: erst leeren, wenn die Gruppe weg ist
+        if (CrateAt(pos) is { } crate)
+        {
+            if (crate.Owner != null)
+            {
+                if (isClick) Float(pos, "Gehört noch wem!", Palette.BadText);
+                return;
+            }
+            if (isClick || crate.Bottles.Count > 0) EmptyInto(crate.Bottles, pos, isClick);
+            if (crate.Bottles.Count == 0)
+            {
+                // Mit Lastenrad nimmt man den leeren Kasten mit
+                if (gs.HasSkill("lastenrad")) { Sim.Crates.Remove(crate); KastenPfand(pos + new Vector2(0, -20)); }
+                Sim.CleanupCrates();
+            }
             return;
         }
 
@@ -113,27 +150,14 @@ public partial class ParkView : Control
         }
     }
 
-    List<BottleType> KastenAt(Vector2 pos)
+    GroupCrate CrateAt(Vector2 pos)
     {
-        if (OverKasten(pos)) return Sim.Kasten;
         foreach (var c in Sim.Crates)
-            if (c.Visible && CrateRect(c).Grow(4).HasPoint(pos)) return c.Bottles;
+            if (c.Visible && CrateRect(c).Grow(4).HasPoint(pos)) return c;
         return null;
     }
 
     static Rect2 CrateRect(GroupCrate c) => new(c.Pos, new Vector2(26, 32));
-
-    /// <summary>Ohne Lastenrad nimmt man immer nur eine Flasche aus dem Kasten.</summary>
-    void TakeOne(List<BottleType> content, Vector2 pos, bool loud = true)
-    {
-        var gs = GameState.I;
-        if (content.Count == 0) { if (loud) Float(pos, "leer", Palette.Muted); return; }
-        if (!gs.TryAddToBag(content[content.Count - 1])) { if (loud) Float(pos, "Tasche voll!", Palette.BadText); return; }
-        content.RemoveAt(content.Count - 1);
-        gs.CollectedByHand++;
-        Float(pos, "+1", Palette.GoodText);
-        gs.Notify();
-    }
 
     bool OverKasten(Vector2 pos)
         => GameState.I.Level("grill") > 0 && ParkLayout.KastenRect(Size).Grow(4).HasPoint(pos);
@@ -144,6 +168,7 @@ public partial class ParkView : Control
         var gs = GameState.I;
         int taken = 0;
         while (content.Count > 0 && gs.TryAddToBag(content[0])) { content.RemoveAt(0); taken++; }
+        gs.CollectedByHand += taken;
         if (taken > 0) Float(pos, $"+{taken}", Palette.GoodText);
         else if (!loud) return;
         else if (content.Count > 0) Float(pos, "Tasche voll!", Palette.BadText);
@@ -151,24 +176,14 @@ public partial class ParkView : Control
         gs.Notify();
     }
 
-    /// <summary>Lastenrad: der ganze Kasten geht direkt zum Automaten, volle Kästen bringen Kastenpfand.</summary>
-    void DeliverKasten(List<BottleType> kasten, Vector2 pos)
+    /// <summary>Lastenrad: den leeren Kasten zurückbringen.</summary>
+    void KastenPfand(Vector2 pos)
     {
         var gs = GameState.I;
-        if (kasten.Count == 0) { Float(pos, "leer", Palette.Muted); return; }
-        bool full = kasten.Count >= Balance.KastenCapacity;
-        double sum = 0;
-        var rng = new Random();
-        foreach (var t in kasten) sum += gs.FeedDirect(t, rng).value;
-        kasten.Clear();
-        if (full)
-        {
-            gs.Money += Balance.KastenPfand;
-            gs.TotalEarned += Balance.KastenPfand;
-            sum += Balance.KastenPfand;
-            gs.KaestenAbgegeben++;
-        }
-        Float(pos, "+" + GameState.Euro(sum).Replace("€ ", "") + (full ? " KASTEN!" : ""), Palette.MoneyText);
+        gs.Money += Balance.KastenPfand;
+        gs.TotalEarned += Balance.KastenPfand;
+        gs.KaestenAbgegeben++;
+        Float(pos, "+" + GameState.Euro(Balance.KastenPfand).Replace("€ ", "") + " KASTEN!", Palette.MoneyText);
         gs.Notify();
     }
 
@@ -247,8 +262,13 @@ public partial class ParkView : Control
             Sprites.Bin(this, bins[i], fill, binLvl >= 1 ? 5 : 4);
         }
 
+        float life = (float)gs.BottleLifetime;
         foreach (var b in Sim.Bottles)
         {
+            // Kurz bevor jemand anderes sie mitnimmt, blinkt die Flasche (immer schneller)
+            float left = life - b.Age;
+            if (!gs.TutorialActive && left < Balance.BottleBlinkSeconds
+                && Mathf.Sin(_time * (8 + 14 * (1 - left / Balance.BottleBlinkSeconds))) < -0.2f) continue;
             float pop = Mathf.Min(1f, b.Age * 5f);
             Sprites.Bottle(this, b.Pos, b.Type, b.Rot, b.ColorIdx, (0.6f + 0.4f * pop) * 1.3f, true);
         }
@@ -315,6 +335,8 @@ public partial class ParkView : Control
             Sprites.Bottle(this, fp.Round(), BottleType.Bier, t * 12, 0, 0.9f);
         }
 
+        if (Sim.Flyer is { } fl) DrawFlyer(fl);
+
         // Laufende Events und Aktionen unten rechts
         StatusLines(gs, size);
 
@@ -371,6 +393,35 @@ public partial class ParkView : Control
             Hint("Klicke auf Flaschen, um sie einzusammeln.");
         else if (gs.BottlesFed == 0 && gs.Bag.Count >= 3)
             Hint("Wirf die Flaschen links im Automaten ein.");
+    }
+
+    /// <summary>Aktions-Flyer: ein Zettel mit Symbol, wippt im Wind und blinkt, bevor er wegweht.</summary>
+    void DrawFlyer(Flyer f)
+    {
+        if (f.Life < 2.5 && Mathf.Sin(_time * 18) < -0.3f) return;
+        var r = f.Rect;
+        r.Position += new Vector2(0, Mathf.Round(Mathf.Sin(_time * 3) * 2));
+        var ev = EventDefs.Get(f.EventId);
+        var accent = f.EventId switch
+        {
+            "happyhour" => Palette.BadText,
+            "gluecksstraehne" => Palette.GoodText,
+            _ => Palette.Gold,
+        };
+        // Leuchtender Rand, damit man ihn sieht
+        float glow = 0.5f + 0.5f * Mathf.Sin(_time * 6);
+        DrawRect(r.Grow(5), new Color(Palette.Gold, 0.35f + 0.35f * glow));
+        DrawRect(r.Grow(2), Palette.Ink);
+        DrawRect(r, Palette.Paper);
+        DrawRect(new Rect2(r.Position, r.Size.X, 6), accent);
+        string sign = f.EventId switch { "happyhour" => "2x", "gluecksstraehne" => "KK", _ => "€" };
+        DrawString(PfandTheme.Body, new Vector2(r.Position.X, r.End.Y - 4), sign, HorizontalAlignment.Center, r.Size.X, 20, Palette.Ink);
+        var label = ev?.Name ?? "";
+        var font = PfandTheme.Body;
+        float w = font.GetStringSize(label, HorizontalAlignment.Left, -1, 18).X;
+        var lp = new Vector2(r.GetCenter().X - w / 2, r.Position.Y - 8).Round();
+        DrawString(font, lp + new Vector2(1, 1), label, HorizontalAlignment.Left, -1, 18, Palette.Ink);
+        DrawString(font, lp, label, HorizontalAlignment.Left, -1, 18, Palette.PanelLight);
     }
 
     /// <summary>Pixelpfeil nach unten, Spitze bei tip.</summary>

@@ -1648,4 +1648,43 @@ public static class CapData
 
     public static string[] Sets => All.Select(m => m.Set).Distinct()
         .OrderBy(s => Array.IndexOf(SetOrder, s) is var i && i >= 0 ? i : int.MaxValue).ToArray();
+
+    // --- Seltenheit ---
+    public static readonly string[] TierNames = { "häufig", "selten", "sehr selten", "legendär" };
+
+    /// <summary>Spätere Sets sind insgesamt seltener als die ersten.</summary>
+    public static double SetWeight(string set) => set switch
+    {
+        "TIERE" or "PARK" or "PICKNICK" or "STADT" => 1.0,
+        "WELTRAUM" or "SPIELE" or "SPUK" => 0.6,
+        "ONE PIECE" or "KULTMARKEN" => 0.4,
+        "SONDEREDITION" => 0.25,
+        _ => 0.8,
+    };
+
+    /// <summary>Einzelne Motive mit fester Stufe statt nach Platz im Set.</summary>
+    static readonly Dictionary<string, int> TierOverride = new() { ["STROHHUT"] = 3, ["ACES HUT"] = 1 };
+
+    static int[] _tiers;
+
+    /// <summary>
+    /// Stufe im Set: die ersten 5 Motive häufig, dann 3 selten, 1 sehr selten, 1 legendär.
+    /// 0 = häufig … 3 = legendär.
+    /// </summary>
+    public static int Tier(int index)
+    {
+        if (_tiers == null)
+        {
+            var t = new int[Count];
+            var seen = new Dictionary<string, int>();
+            for (int i = 0; i < Count; i++)
+            {
+                int pos = seen.TryGetValue(All[i].Set, out var n) ? n : 0;
+                seen[All[i].Set] = pos + 1;
+                t[i] = TierOverride.TryGetValue(All[i].Name, out var o) ? o : pos < 5 ? 0 : pos < 8 ? 1 : pos < 9 ? 2 : 3;
+            }
+            _tiers = t;
+        }
+        return _tiers[index];
+    }
 }

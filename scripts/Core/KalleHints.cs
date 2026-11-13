@@ -14,10 +14,25 @@ public static class KalleHints
 {
     public static readonly List<KalleHint> All = new()
     {
+        new("flyer", gs => gs.FlyerVisible, new[]
+        {
+            "Guck mal, da liegt ein Flyer im Park! Der startet eine Aktion, und die kostet dich nichts.",
+            "Klick ihn direkt an, bevor er wegweht. Drüberwischen reicht nicht. Solche Flyer kommen nur ab und zu.",
+        }),
         new("tasche_voll", gs => gs.BagFull, new[]
         {
             "Deine Tasche ist voll! Mehr passt gerade nicht rein.",
-            "Wirf die Flaschen links im Automaten ein. Mit TASCHE+ bekommst du mehr Platz.",
+            "Wirf die Flaschen links im Automaten ein. Später kannst du im Skilltree eine größere Tasche freischalten.",
+        }),
+        new("flasche_weg", gs => gs.BottleTaken, new[]
+        {
+            "Da hat dir jemand eine Flasche vor der Nase weggeschnappt! Wenn Flaschen zu lange liegen, nehmen andere Sammler sie mit.",
+            "Kurz vorher blinken sie. In Mülleimern und Kästen bleiben sie dagegen liegen, bis du kommst.",
+        }),
+        new("kombo", gs => gs.KomboSeen, new[]
+        {
+            "Langer Bon! Ab der 10. Flasche auf einmal gibt dir der Automat einen Kombo-Bonus auf den ganzen Bon.",
+            "Je voller die Tasche beim Einwerfen, desto mehr Bonus. Eine große Tasche lohnt sich also.",
         }),
         new("laterne", gs => gs.Phase == DayPhase.Nacht, new[]
         {
@@ -26,8 +41,9 @@ public static class KalleHints
         }, gs => gs.Level("laterne") > 0),
         new("kronkorken", gs => gs.Kronkorken > 0 || gs.Caps.Count > 0, new[]
         {
-            "Oh, ein Kronkorken! Die stecken ab und zu in den Flaschen, die du einwirfst. Dosen haben keine.",
-            "Mit Kronkorken lernst du im SKILLTREE neue Sachen, unten rechts. Dort schaltest du auch Neues für den Park frei, zum Beispiel Picknickdecken und Mülleimer.",
+            "Oh, ein Kronkorken! Die stecken ab und zu in den Flaschen, die du selbst einwirfst. Dosen haben keine.",
+            "Mit Kronkorken lernst du im SKILLTREE neue Sachen, unten rechts. Fang mit den Glasflaschen an, dann trinken die Leute nicht nur Bier.",
+            "Je mehr Kronkorken du dort ausgibst, desto mehr Äste wachsen. Später schaltest du auch Neues für den Park frei, zum Beispiel Picknickdecken und Mülleimer.",
             "Erst im Skilltree freischalten, dann rechts bei den Upgrades kaufen. Und im ALBUM siehst du, welche Motive du schon gesammelt hast.",
         }),
         new("muelleimer", gs => gs.Level("muelleimer") > 0, new[]
@@ -43,7 +59,7 @@ public static class KalleHints
         new("events", gs => gs.AnyEventUnlocked, new[]
         {
             "Du hast dein erstes Event gelernt! Rechts gibt es jetzt neben UPGRADES auch EVENTS.",
-            "Ein Event kostet Geld und bringt für kurze Zeit viele Leute in den Park. Danach braucht es eine Pause, und jedes Mal wird es ein bisschen teurer.",
+            "Ein Event kostet Kronkorken und bringt für kurze Zeit viele Leute in den Park. Danach haben alle Events 5 Minuten Pause, und jedes Mal wird es ein bisschen teurer.",
         }),
         new("grill", gs => gs.Level("grill") > 0, new[]
         {
