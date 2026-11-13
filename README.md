@@ -123,6 +123,7 @@ Nach `--` anhängen, z. B. `... --path . -- --fresh --money=50`:
 | `--allskills` | alle Skills voll lernen |
 | `--skills=wert:2,aoe:1` | einzelne Skill-Stufen setzen |
 | `--kk=20` | Kronkorken setzen |
+| `--allcaps` | alle Kronkorken-Motive im Album als gefunden markieren |
 | `--captoast` | Kronkorken-Meldung nach 1 s einmal zeigen |
 | `--feedtest` | Tasche füllen und nach 1 s automatisch einwerfen |
 | `--event=konzert` | Event gratis sofort starten (`geburtstag`, `bierball`, `konzert`, `feiertag`, `maennertag`, `oktoberfest`, Aktionen: `pfandaktion`, `happyhour`, `gluecksstraehne`) |
