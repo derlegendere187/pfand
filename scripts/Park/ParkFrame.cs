@@ -1,4 +1,5 @@
 using Godot;
+using Pfand.UI;
 
 namespace Pfand.Park;
 
@@ -12,6 +13,7 @@ public partial class ParkFrame : Control
     public static readonly Vector2 World = new(870, 690);
 
     public readonly ParkView Park = new();
+    const float Border = 3;
 
     public override void _Ready()
     {
@@ -28,7 +30,9 @@ public partial class ParkFrame : Control
     void Fit()
     {
         if (Size.X < 1 || Size.Y < 1) return;
-        float s = Mathf.Min(Size.X / World.X, Size.Y / World.Y);
+        // Platz für den Rahmen lassen
+        var room = Size - new Vector2(2 * Border, 2 * Border);
+        float s = Mathf.Min(room.X / World.X, room.Y / World.Y);
         Park.Scale = new Vector2(s, s);
         Park.Position = ((Size - World * s) / 2).Floor();
         Park.Size = World;
@@ -37,7 +41,8 @@ public partial class ParkFrame : Control
 
     public override void _Draw()
     {
-        // Platzhalter für den Rand neben dem Park
-        DrawRect(new Rect2(Vector2.Zero, Size), Palette.TuftDark);
+        // Daneben bleibt der Holzhintergrund sichtbar, nur der Park bekommt einen Rahmen
+        var r = new Rect2(Park.Position, World * Park.Scale.X).Grow(Border);
+        DrawRect(r, Wood.Edge);
     }
 }

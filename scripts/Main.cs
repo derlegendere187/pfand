@@ -210,7 +210,7 @@ public partial class Main : Control
         var middle = Column(0);
         middle.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         var frame = new PanelContainer();
-        frame.AddThemeStyleboxOverride("panel", new PixelBox(Palette.Grass, Wood.Edge, null, null, 3));
+        frame.AddThemeStyleboxOverride("panel", new StyleBoxEmpty());
         frame.SizeFlagsVertical = SizeFlags.ExpandFill;
         var parkFrame = new Pfand.Park.ParkFrame();
         var park = _park = parkFrame.Park;
