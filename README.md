@@ -93,7 +93,7 @@ Danach in Godot einfach wieder ▶ drücken.
 ## Steuerung
 - Beim ersten Start erklärt Kalle, ein alter Pfandsammler, wie alles funktioniert. Danach taucht er immer wieder auf und erklärt Neues (Laterne um 22 Uhr, Mülleimer, Kronkorken und Skilltree, Events …)
 - Flaschen anklicken (oder mit gedrückter Maustaste drüberwischen) → in die Tasche. Drüberwischen leert auch Mülleimer und Kästen
-- Flaschen, die zu lange liegen (60 s), nehmen andere Leute mit. Kurz vorher blinken sie. In Mülleimern und Kästen bleiben sie liegen
+- Flaschen, die zu lange liegen (60 s), holt ein fremder Sammler ab. In Mülleimern und Kästen bleiben sie liegen
 - Mülleimer anklicken → alle Flaschen daraus einsammeln
 - „Einwerfen“ im Automaten → Geld. Solange der Automat zählt, kannst du nichts einsammeln
 - **Kombo:** Ab der 10. Flasche in einem Einwurf gibt es +1 % auf den ganzen Bon, höchstens +50 % (mit „Langer Bon“ mehr). Eine große Tasche lohnt sich also

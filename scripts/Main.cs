@@ -47,6 +47,7 @@ public partial class Main : Control
     Button _tabUpgrades, _tabEvents, _albumButton, _skillButton;
     UpgradePanel _upgradePanel;
     ParkView _park;
+    HeaderBar _header;
     EventPanel _eventPanel;
 
     public override void _Ready()
@@ -156,7 +157,7 @@ public partial class Main : Control
         root.AddThemeConstantOverride("separation", 14);
         margin.AddChild(root);
 
-        var header = new HeaderBar();
+        var header = _header = new HeaderBar();
         root.AddChild(header);
 
         var body = new HBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
@@ -229,8 +230,46 @@ public partial class Main : Control
         {
             Park = park, Automat = _automat, AutoAdvance = _args.ContainsKey("autotut"),
             Busy = () => _skills.Visible || _album.Visible || _stats.Visible,
+            FocusRect = FocusRect,
         };
         AddChild(tutorial);
+    }
+
+    /// <summary>Worauf Kalle gerade zeigt, in Bildschirmkoordinaten. null: nichts Bestimmtes.</summary>
+    Rect2? FocusRect(string key)
+    {
+        var gs = GameState.I;
+        var sim = _park.Sim;
+        var origin = _park.GetGlobalRect().Position;
+        var parkRect = _park.GetGlobalRect();
+        Rect2 Around(Vector2 p, float r) => new Rect2(origin + p - new Vector2(r, r), new Vector2(2 * r, 2 * r)).Intersection(parkRect.Grow(-8));
+        switch (key)
+        {
+            case "park": return _park.GetGlobalRect();
+            case "money": return _header.MoneyRect;
+            case "bag": return _automat.BagRect;
+            case "feed": return _automat.FeedRect;
+            case "bon": return _automat.BonRect;
+            case "upgrades": return _upgradePanel.GetGlobalRect();
+            case "laterne": return _upgradePanel.CardRect("laterne");
+            case "skills": return _skillButton.Visible ? _skillButton.GetGlobalRect() : null;
+            case "album": return _albumButton.Visible ? _albumButton.GetGlobalRect() : null;
+            case "events": return _tabEvents.Visible ? _tabEvents.GetGlobalRect() : null;
+            case "bottle": return sim.Bottles.Count > 0 ? Around(sim.Bottles[0].Pos, 24) : null;
+            case "flyer": return sim.Flyer is { } f ? new Rect2(origin + f.Rect.Position, f.Rect.Size).Grow(14) : null;
+            case "collector": return sim.Collectors.Count > 0 ? Around(sim.Collectors[0].Pos, 26) : null;
+            case "stranger":
+                foreach (var s in sim.Strangers) if (s.Carrying) return Around(s.Pos, 28);
+                return Around(gs.TakenAt, 28);
+            case "bin":
+                var bins = Pfand.Park.ParkLayout.Bins(_park.Size, gs);
+                return bins.Count > 0 ? Around(bins[0], 26) : null;
+            case "grill":
+                var g = Pfand.Park.ParkLayout.Grill(_park.Size);
+                var k = Pfand.Park.ParkLayout.KastenRect(_park.Size);
+                return new Rect2(origin + k.Position, k.Size).Merge(Around(g, 44));
+        }
+        return null;
     }
 
     Button TabButton(string text)

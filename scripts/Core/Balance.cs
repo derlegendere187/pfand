@@ -64,7 +64,6 @@ public static class Balance
     // Liegen gelassene Flaschen nehmen nach einer Weile andere Leute mit (Eimer und Kästen nicht)
     public const int BottleLifetime = 60;            // Sekunden
     public const int BottleLifetimePerLevel = 12;    // Skill "Ruhiges Revier"
-    public const float BottleBlinkSeconds = 10;      // so lange vorher blinkt die Flasche
 
     // Flaschensorten: am Anfang nur Bier, die anderen schaltet der Skilltree frei (Gewichte beim Auswürfeln)
     public const double WeightBier = 1.0;

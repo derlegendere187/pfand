@@ -67,6 +67,7 @@ public class GameState
     public bool Feeding;                                // der Automat zählt: solange kommt nichts Neues in die Tasche
     public bool FlyerVisible;                           // gerade liegt ein Aktions-Flyer im Park (für Kalle)
     public bool BottleTaken;                            // jemand anderes hat schon mal eine Flasche mitgenommen (für Kalle)
+    public Godot.Vector2 TakenAt;                             // wo das zum ersten Mal passiert ist (Kalle zeigt hin)
     public bool KomboSeen;                              // erster Bon mit Kombo-Bonus (für Kalle)
 
     // Statistik

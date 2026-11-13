@@ -9,6 +9,8 @@ public partial class HeaderBar : HBoxContainer
 {
     public ParkView Park;
     Label _money, _visitors, _rate, _clock;
+
+    public Rect2 MoneyRect => _money.GetParent<Control>().GetGlobalRect();
     double _acc;
 
     public override void _Ready()

@@ -83,6 +83,15 @@ public class Flyer
     public Rect2 Rect => new(Pos - Size / 2, Size);
 }
 
+/// <summary>Fremder Flaschensammler: holt Flaschen, die zu lange liegen, und geht wieder.</summary>
+public class Stranger
+{
+    public Vector2 Pos, Exit;
+    public GroundBottle Target;
+    public bool Leaving, Carrying;
+    public float WalkPhase;
+}
+
 public enum CollectorState { Sucht, ZurFlasche, ZumEimer, Abliefern, Wartet }
 
 public class Collector
@@ -107,6 +116,7 @@ public class VisitorSim
     public readonly List<GroundBottle> Bottles = new();
     public readonly List<List<BottleType>> BinContents = new();
     public readonly List<Collector> Collectors = new();
+    public readonly List<Stranger> Strangers = new();
     public readonly List<(Vector2 pos, string text, Color color)> PendingFloats = new();
     public readonly List<BottleType> Kasten = new();
     public readonly List<GroupCrate> Crates = new();
@@ -265,12 +275,7 @@ public class VisitorSim
 
         UpdateCollectors(dt, gs, bins);
         foreach (var b in Bottles) b.Age += (float)dt;
-        // Zu lange liegen gelassene Flaschen nimmt jemand anderes mit (Eimer und Kästen nicht)
-        if (!gs.TutorialActive)
-        {
-            double life = gs.BottleLifetime;
-            if (Bottles.RemoveAll(b => b.Age > life) > 0 && !gs.BottleTaken) { gs.BottleTaken = true; gs.Notify(); }
-        }
+        UpdateStrangers(dt, gs);
         UpdateFlyer(dt, gs, paths);
     }
 
@@ -972,6 +977,53 @@ public class VisitorSim
             Rot = Rf(-1.6f, 1.6f),
             ColorIdx = _rng.Next(4),
         });
+    }
+
+    // --- Fremde Sammler ---
+    /// <summary>Liegt eine Flasche zu lange, kommt jemand vom nächsten Rand und nimmt sie mit (Eimer und Kästen nicht).</summary>
+    void UpdateStrangers(double dt, GameState gs)
+    {
+        if (!gs.TutorialActive)
+        {
+            double life = gs.BottleLifetime;
+            foreach (var b in Bottles)
+            {
+                if (b.Claimed || b.Age < life) continue;
+                b.Claimed = true;
+                var edge = NearestEdge(b.Pos);
+                Strangers.Add(new Stranger { Pos = edge, Exit = edge, Target = b });
+            }
+        }
+
+        double step = Balance.WalkSpeed * 1.3 * dt;
+        foreach (var s in Strangers)
+        {
+            s.WalkPhase += (float)dt * 10;
+            if (!s.Leaving)
+            {
+                // Schon weg (der Spieler war schneller): umdrehen
+                if (!Bottles.Contains(s.Target)) { s.Leaving = true; continue; }
+                if (MoveTowards(ref s.Pos, s.Target.Pos, step))
+                {
+                    Bottles.Remove(s.Target);
+                    s.Carrying = true;
+                    s.Leaving = true;
+                    if (!gs.BottleTaken) { gs.BottleTaken = true; gs.TakenAt = s.Pos; gs.Notify(); }
+                }
+            }
+            else MoveTowards(ref s.Pos, s.Exit, step);
+        }
+        Strangers.RemoveAll(s => s.Leaving && s.Pos.DistanceTo(s.Exit) < 1);
+    }
+
+    Vector2 NearestEdge(Vector2 p)
+    {
+        float l = p.X, r = Size.X - p.X, t = p.Y, b = Size.Y - p.Y;
+        float m = Math.Min(Math.Min(l, r), Math.Min(t, b));
+        if (m == l) return new Vector2(-20, p.Y);
+        if (m == r) return new Vector2(Size.X + 20, p.Y);
+        if (m == t) return new Vector2(p.X, -20);
+        return new Vector2(p.X, Size.Y + 20);
     }
 
     // --- Sammler ---

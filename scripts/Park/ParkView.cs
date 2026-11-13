@@ -262,13 +262,8 @@ public partial class ParkView : Control
             Sprites.Bin(this, bins[i], fill, binLvl >= 1 ? 5 : 4);
         }
 
-        float life = (float)gs.BottleLifetime;
         foreach (var b in Sim.Bottles)
         {
-            // Kurz bevor jemand anderes sie mitnimmt, blinkt die Flasche (immer schneller)
-            float left = life - b.Age;
-            if (!gs.TutorialActive && left < Balance.BottleBlinkSeconds
-                && Mathf.Sin(_time * (8 + 14 * (1 - left / Balance.BottleBlinkSeconds))) < -0.2f) continue;
             float pop = Mathf.Min(1f, b.Age * 5f);
             Sprites.Bottle(this, b.Pos, b.Type, b.Rot, b.ColorIdx, (0.6f + 0.4f * pop) * 1.3f, true);
         }
@@ -340,6 +335,12 @@ public partial class ParkView : Control
         // Laufende Events und Aktionen unten rechts
         StatusLines(gs, size);
 
+
+        foreach (var s in Sim.Strangers)
+        {
+            var pos = s.Pos + new Vector2(0, Mathf.Round(Mathf.Sin(s.WalkPhase) * 1.5f));
+            Sprites.Stranger(this, pos.Round(), s.Carrying);
+        }
 
         foreach (var c in Sim.Collectors)
         {

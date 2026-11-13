@@ -13,6 +13,11 @@ public partial class AutomatPanel : PanelContainer
     BagGrid _bag;
     Button _feedButton;
     VBoxContainer _bonLines;
+    PanelContainer _bonPanel;
+
+    public Rect2 BagRect => _bag.GetGlobalRect().Merge(_bagLabel.GetGlobalRect());
+    public Rect2 FeedRect => _feedButton.GetGlobalRect();
+    public Rect2 BonRect => _bonPanel.GetGlobalRect();
     Label _bonTitle;
 
     bool _feeding;
@@ -62,7 +67,7 @@ public partial class AutomatPanel : PanelContainer
         col.AddChild(_feedButton);
 
         // Der Bon füllt den Rest der Spalte. Lange Bons scrollen, statt das Layout zu verschieben.
-        var bon = PfandTheme.Panel(Palette.Paper, null, 10);
+        var bon = _bonPanel = PfandTheme.Panel(Palette.Paper, null, 10);
         bon.SizeFlagsVertical = SizeFlags.ExpandFill;
         bon.CustomMinimumSize = new Vector2(0, 80);
         bon.ClipContents = true;

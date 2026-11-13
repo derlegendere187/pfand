@@ -46,6 +46,14 @@ public partial class UpgradePanel : PanelContainer
 
     public override void _ExitTree() => GameState.I.Changed -= Refresh;
 
+    /// <summary>Bildschirmfläche der Karte eines Upgrades (für Kalles Hervorhebung).</summary>
+    public Rect2? CardRect(string id)
+    {
+        foreach (var c in _cards)
+            if (c.Def.Id == id && c.Root.IsVisibleInTree()) return c.Root.GetGlobalRect();
+        return null;
+    }
+
     Card BuildCard(UpgradeDef def)
     {
         var c = new Card { Def = def, Root = new PanelContainer() };
