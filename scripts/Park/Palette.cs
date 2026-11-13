@@ -33,10 +33,14 @@ public static class Palette
     public static readonly Color Gold = H("#f2c75c");
 
     // Park
-    public static readonly Color Grass = H("#9cbf6e");
-    public static readonly Color TuftDark = H("#87ab5c");
-    public static readonly Color TuftLight = H("#b2d084");
-    public static readonly Color Path = H("#e6cf9f");
+    public static readonly Color Grass = H("#5a8a44");
+    public static readonly Color TuftDark = H("#4f7c3c");
+    public static readonly Color TuftLight = H("#68984c");
+    public static readonly Color GrassBright = H("#7aa858");
+    public static readonly Color Path = H("#b4966a");
+    public static readonly Color PathDark = H("#9c7e54");
+    public static readonly Color PathLight = H("#c6aa7c");
+    public static readonly Color PathPebble = H("#d6bc90");
     public static readonly Color PathEdge = H("#c9ad7a");
     public static readonly Color Wood = H("#b07a4a");
     public static readonly Color WoodDark = H("#7a5434");

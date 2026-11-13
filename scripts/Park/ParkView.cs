@@ -14,7 +14,8 @@ public partial class ParkView : Control
 
     class FloatText { public Vector2 Pos; public string Text; public Color Color; public float Life; }
     readonly List<FloatText> _floats = new();
-    readonly List<(Vector2 f, Color c, bool flower)> _decor = new();
+    ImageTexture _ground;
+    string _groundKey = "";
     float _time;
     Vector2 _mouse = new(-100, -100);
 
@@ -22,15 +23,12 @@ public partial class ParkView : Control
     {
         MouseFilter = MouseFilterEnum.Stop;
         ClipContents = true;
-        SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        SizeFlagsVertical = SizeFlags.ExpandFill;
-
-        var rng = new Random(7);
-        for (int i = 0; i < 200; i++)
-            _decor.Add((new Vector2((float)rng.NextDouble(), (float)rng.NextDouble()), rng.Next(2) == 0 ? Palette.TuftDark : Palette.TuftLight, false));
-        for (int i = 0; i < 40; i++)
-            _decor.Add((new Vector2((float)rng.NextDouble(), (float)rng.NextDouble()), Palette.Flowers[i % 4], true));
     }
+
+    /// <summary>Parkkoordinate in Bildschirmkoordinate (der Park ist skaliert).</summary>
+    public Vector2 ToScreen(Vector2 p) => GetGlobalTransform() * p;
+
+    public Rect2 ToScreen(Rect2 r) => new(ToScreen(r.Position), r.Size * GetGlobalTransform().Scale);
 
     public override void _Process(double delta)
     {
@@ -187,6 +185,16 @@ public partial class ParkView : Control
         gs.Notify();
     }
 
+    void EnsureGround(Vector2 size, List<Rect2> paths)
+    {
+        int w = (int)size.X, h = (int)size.Y;
+        if (w < 8 || h < 8) return;
+        string key = $"{w}x{h}:{paths.Count}";
+        if (key == _groundKey && _ground != null) return;
+        _groundKey = key;
+        _ground = GroundArt.Build(size, paths);
+    }
+
     void Float(Vector2 pos, string text, Color c)
         => _floats.Add(new FloatText { Pos = pos + new Vector2(0, -14), Text = text, Color = c, Life = 0.9f });
 
@@ -194,20 +202,9 @@ public partial class ParkView : Control
     {
         var gs = GameState.I;
         var size = Size;
-        DrawRect(new Rect2(Vector2.Zero, size), Palette.Grass);
-        foreach (var d in _decor)
-        {
-            var p = (d.f * size).Floor();
-            p = new Vector2(p.X - p.X % 4, p.Y - p.Y % 4);
-            DrawRect(d.flower ? new Rect2(p, 4, 4) : new Rect2(p, 8, 4), d.c);
-        }
-
-        foreach (var r in ParkLayout.Paths(size, gs))
-        {
-            DrawRect(r, Palette.PathEdge);
-            bool horizontal = r.Size.X > r.Size.Y;
-            DrawRect(horizontal ? r.Grow(0).GrowIndividual(0, -4, 0, -4) : r.GrowIndividual(-4, 0, -4, 0), Palette.Path);
-        }
+        var paths = ParkLayout.Paths(size, gs);
+        EnsureGround(size, paths);
+        if (_ground != null) DrawTexture(_ground, Vector2.Zero);
 
         bool wiesn = gs.ActiveEvent == "oktoberfest";
         if (wiesn) DrawWiesnGround(size);
@@ -221,9 +218,9 @@ public partial class ParkView : Control
             var ir = ParkLayout.ImbissRect(size);
             Sprites.Imbiss(this, ir);
             DrawString(PfandTheme.Pixel, new Vector2(ir.Position.X, ir.Position.Y + 32) + new Vector2(2, 2), "IMBISS",
-                HorizontalAlignment.Center, ir.Size.X, 16, Palette.PanelLight);
+                HorizontalAlignment.Center, ir.Size.X, 28, Palette.PanelLight);
             DrawString(PfandTheme.Pixel, new Vector2(ir.Position.X, ir.Position.Y + 32), "IMBISS",
-                HorizontalAlignment.Center, ir.Size.X, 16, Palette.Ink);
+                HorizontalAlignment.Center, ir.Size.X, 28, Palette.Ink);
         }
 
         var benchList = ParkLayout.Benches(size, gs);
@@ -434,6 +431,7 @@ public partial class ParkView : Control
         DrawRect(new Rect2(tip.X - 3 * p, tip.Y - 9 * p, 6 * p, 6 * p), Palette.Ink);
         for (int i = 0; i < 4; i++)
             DrawRect(new Rect2(tip.X - (5 - i) * p, tip.Y - (4 - i) * p, (10 - 2 * i) * p, p), Palette.Ink);
+        DrawRect(new Rect2(tip.X - p, tip.Y, 2 * p, p), Palette.Ink); // Spitze unten zu
         // Füllung
         DrawRect(new Rect2(tip.X - 2 * p, tip.Y - 8 * p, 4 * p, 5 * p), Palette.Gold);
         for (int i = 0; i < 3; i++)

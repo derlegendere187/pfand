@@ -18,7 +18,7 @@ public partial class AutomatPanel : PanelContainer
     public Rect2 BagRect => _bag.GetGlobalRect().Merge(_bagLabel.GetGlobalRect());
     public Rect2 FeedRect => _feedButton.GetGlobalRect();
     public Rect2 BonRect => _bonPanel.GetGlobalRect();
-    Label _bonTitle;
+    Label _bonTitle, _bonSub;
 
     bool _feeding;
     double _feedAcc, _feedTotal, _pulse, _bagIdle, _komboBonus;
@@ -30,19 +30,21 @@ public partial class AutomatPanel : PanelContainer
     public override void _Ready()
     {
         SizeFlagsVertical = SizeFlags.ExpandFill;
-        AddThemeStyleboxOverride("panel", PfandTheme.Box(Palette.Machine, Palette.Border, 4, 10));
+        AddThemeStyleboxOverride("panel", PfandTheme.WoodPanel(12));
 
         var col = new VBoxContainer();
         col.AddThemeConstantOverride("separation", 10);
         AddChild(col);
 
-        var sign = PfandTheme.Panel(Palette.Leergut, null, 8);
-        var signText = PfandTheme.Title("LEERGUT", 8, Palette.PanelLight);
+        var sign = new PanelContainer();
+        sign.AddThemeStyleboxOverride("panel", new PixelBox(Palette.Leergut, Wood.Edge, Palette.Leergut.Lightened(0.18f), Palette.Leergut.Darkened(0.25f), 4));
+        var signText = PfandTheme.Text("LEERGUT", 24, Palette.PanelLight);
         signText.HorizontalAlignment = HorizontalAlignment.Center;
         sign.AddChild(signText);
         col.AddChild(sign);
 
-        var display = PfandTheme.Panel(Palette.Display, Palette.Muted, 8);
+        var display = new PanelContainer();
+        display.AddThemeStyleboxOverride("panel", new PixelBox(Palette.Display, Wood.Edge, null, null, 8));
         var dcol = new VBoxContainer();
         dcol.AddThemeConstantOverride("separation", 0);
         _display = PfandTheme.Text(GameState.Euro(0), 34, Palette.DisplayText);
@@ -53,9 +55,9 @@ public partial class AutomatPanel : PanelContainer
         col.AddChild(display);
 
         var bagRow = new HBoxContainer();
-        bagRow.AddChild(PfandTheme.Text("Tasche", 22));
+        bagRow.AddChild(PfandTheme.Text("Tasche", 24, Wood.Ink));
         bagRow.AddChild(PfandTheme.Spacer());
-        _bagLabel = PfandTheme.Text("0/8", 22);
+        _bagLabel = PfandTheme.Text("0/8", 24, Wood.Ink);
         bagRow.AddChild(_bagLabel);
         col.AddChild(bagRow);
 
@@ -67,15 +69,20 @@ public partial class AutomatPanel : PanelContainer
         col.AddChild(_feedButton);
 
         // Der Bon füllt den Rest der Spalte. Lange Bons scrollen, statt das Layout zu verschieben.
-        var bon = _bonPanel = PfandTheme.Panel(Palette.Paper, null, 10);
+        var bon = _bonPanel = new PanelContainer();
+        bon.AddThemeStyleboxOverride("panel", new ReceiptBox());
         bon.SizeFlagsVertical = SizeFlags.ExpandFill;
         bon.CustomMinimumSize = new Vector2(0, 80);
         bon.ClipContents = true;
         var bcol = new VBoxContainer();
         bcol.AddThemeConstantOverride("separation", 2);
-        _bonTitle = PfandTheme.Title("PFANDBON", 8);
+        _bonTitle = PfandTheme.Text("PFANDBON", 28, Wood.Print);
         _bonTitle.HorizontalAlignment = HorizontalAlignment.Center;
         bcol.AddChild(_bonTitle);
+        _bonSub = PfandTheme.Text("", 18, Wood.PrintSoft);
+        _bonSub.HorizontalAlignment = HorizontalAlignment.Center;
+        bcol.AddChild(_bonSub);
+        bcol.AddChild(new DashLine());
         var scroll = new ScrollContainer
         {
             // ShowNever statt Disabled: sonst gibt der Scroller die Breite seines Inhalts an die Spalte weiter
@@ -87,6 +94,11 @@ public partial class AutomatPanel : PanelContainer
         _bonLines = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _bonLines.AddThemeConstantOverride("separation", 0);
         scroll.AddChild(_bonLines);
+        bcol.AddChild(new DashLine());
+        var thanks = PfandTheme.Text("DANKE FÜRS SAMMELN", 18, Wood.PrintSoft);
+        thanks.HorizontalAlignment = HorizontalAlignment.Center;
+        bcol.AddChild(thanks);
+        bcol.AddChild(new Barcode());
         bon.AddChild(bcol);
         col.AddChild(bon);
         ShowEmptyBon();
@@ -101,7 +113,7 @@ public partial class AutomatPanel : PanelContainer
     {
         var gs = GameState.I;
         _bagLabel.Text = $"{gs.Bag.Count}/{gs.BagCapacity}";
-        _bagLabel.AddThemeColorOverride("font_color", gs.BagFull ? Palette.BadText : Palette.Ink);
+        _bagLabel.AddThemeColorOverride("font_color", gs.BagFull ? Color.FromHtml("#f08a6a") : Wood.Ink);
         _feedButton.Disabled = _feeding || gs.Bag.Count == 0;
         _bag.QueueRedraw();
         _bag.UpdateMinSize();
@@ -178,7 +190,8 @@ public partial class AutomatPanel : PanelContainer
     void ShowEmptyBon()
     {
         ClearBon();
-        var empty = PfandTheme.Text("Noch nichts eingeworfen.", 20, Palette.Muted);
+        _bonSub.Text = "Leergut-Automat";
+        var empty = PfandTheme.Text("Noch nichts eingeworfen.", 20, Wood.PrintSoft);
         empty.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _bonLines.AddChild(empty);
     }
@@ -186,14 +199,15 @@ public partial class AutomatPanel : PanelContainer
     void ShowBon()
     {
         ClearBon();
+        _bonSub.Text = $"Leergut-Automat  {GameState.I.ClockText()}";
         foreach (var kv in _receipt)
-            AddBonLine($"{kv.Value.count}× {BottleInfo.Name(kv.Key)}", Format(kv.Value.sum), Palette.Ink);
+            AddBonLine($"{kv.Value.count}× {BottleInfo.Name(kv.Key)}", Format(kv.Value.sum), Wood.Print);
         if (_komboBonus > 0)
             AddBonLine($"KOMBO {_feedCount}× +{System.Math.Round(GameState.I.Kombo(_feedCount) * 100)} %", Format(_komboBonus), Palette.GoodText);
         else if (_feedCount < Balance.KomboStart)
-            AddBonLine($"Kombo ab {Balance.KomboStart} Flaschen", "", Palette.Muted);
-        _bonLines.AddChild(new HSeparator());
-        AddBonLine("SUMME", GameState.Euro(_feedTotal + _komboBonus), Palette.Ink, true);
+            AddBonLine($"Kombo ab {Balance.KomboStart} Flaschen", "", Wood.PrintSoft);
+        _bonLines.AddChild(new DashLine());
+        AddBonLine("SUMME", GameState.Euro(_feedTotal + _komboBonus), Wood.Print, true);
         // Gleiche Kronkorken in einer Zeile zusammenfassen
         var counted = new Dictionary<int, int>();
         foreach (var cap in _capsFound) counted[cap] = counted.TryGetValue(cap, out var k) ? k + 1 : 1;
@@ -229,10 +243,29 @@ public partial class AutomatPanel : PanelContainer
     static string Capitalize(string s) => s.Length == 0 ? s : s[0] + s.Substring(1).ToLowerInvariant();
 }
 
+/// <summary>Strichcode unten auf dem Bon (fest, sieht nur aus wie einer).</summary>
+public partial class Barcode : Control
+{
+    public Barcode() { CustomMinimumSize = new Vector2(0, 26); MouseFilter = MouseFilterEnum.Ignore; }
+
+    public override void _Draw()
+    {
+        int[] w = { 2, 1, 1, 3, 1, 2, 2, 1, 3, 1, 1, 2, 1, 1, 3, 2, 1, 2, 1, 3, 1, 1, 2, 1, 2, 3, 1, 1, 2, 1, 3, 1, 2, 1 };
+        float total = 0;
+        foreach (var k in w) total += k * 2;
+        float x = Mathf.Round((Size.X - total) / 2), h = Size.Y - 6;
+        for (int i = 0; i < w.Length; i++)
+        {
+            if (i % 2 == 0) DrawRect(new Rect2(x, 4, w[i] * 2, h), Wood.Print);
+            x += w[i] * 2;
+        }
+    }
+}
+
 /// <summary>Raster der Taschenplätze mit kleinen Flaschen.</summary>
 public partial class BagGrid : Control
 {
-    const int Cols = 6, Slot = 22, Gap = 4;
+    const int Cols = 6, Slot = 26, Gap = 4;
 
     public void UpdateMinSize()
     {
@@ -250,8 +283,9 @@ public partial class BagGrid : Control
         {
             var pos = new Vector2(offsetX + i % Cols * (Slot + Gap), i / Cols * (Slot + Gap));
             var r = new Rect2(pos, Slot, Slot);
-            DrawRect(r, Palette.Border);
-            DrawRect(r.Grow(-2), Palette.Panel);
+            DrawRect(r, Wood.SlotEdge);
+            DrawRect(r.Grow(-3), Wood.Slot);
+            DrawRect(new Rect2(r.Position.X + 3, r.End.Y - 6, r.Size.X - 6, 3), Wood.SlotLow);
             if (i < gs.Bag.Count)
                 Sprites.Bottle(this, r.GetCenter(), gs.Bag[i], 0, i, 0.7f);
         }

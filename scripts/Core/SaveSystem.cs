@@ -164,5 +164,13 @@ public static class SaveSystem
             if (!s.HasSkill(d.Id)) s.Skills[d.Id] = 1;
     }
 
+    public static bool Exists => FileAccess.FileExists(Path);
+
+    /// <summary>Spielstand löschen (Neues Spiel).</summary>
+    public static void Delete()
+    {
+        if (Exists) DirAccess.RemoveAbsolute(FullPath);
+    }
+
     public static string FullPath => ProjectSettings.GlobalizePath(Path);
 }
