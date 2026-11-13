@@ -67,7 +67,7 @@ public partial class AlbumPopup : Control
         foreach (var set in CapData.Sets)
         {
             int inSet = 0, foundInSet = 0;
-            var grid = new GridContainer { Columns = 6 };
+            var grid = new GridContainer { Columns = 5 };
             grid.AddThemeConstantOverride("h_separation", 10);
             grid.AddThemeConstantOverride("v_separation", 10);
             for (int i = 0; i < CapData.Count; i++)
