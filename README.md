@@ -93,14 +93,19 @@ Danach in Godot einfach wieder ▶ drücken.
 ## Steuerung
 - Beim ersten Start erklärt Kalle, ein alter Pfandsammler, wie alles funktioniert. Danach taucht er immer wieder auf und erklärt Neues (Laterne um 22 Uhr, Mülleimer, Kronkorken und Skilltree, Events …)
 - Flaschen anklicken (oder mit gedrückter Maustaste drüberwischen) → in die Tasche. Drüberwischen leert auch Mülleimer und Kästen
+- Flaschen, die zu lange liegen (60 s), holt ein fremder Sammler ab. In Mülleimern und Kästen bleiben sie liegen
 - Mülleimer anklicken → alle Flaschen daraus einsammeln
-- „Einwerfen“ im Automaten → Geld
+- „Einwerfen“ im Automaten → Geld. Solange der Automat zählt, kannst du nichts einsammeln
+- **Kombo:** Ab der 10. Flasche in einem Einwurf gibt es +1 % auf den ganzen Bon, höchstens +50 % (mit „Langer Bon“ mehr). Eine große Tasche lohnt sich also
 - Upgrades tauchen nach und nach auf: das nächste erst, wenn das vorherige oft genug gekauft ist (meist 2×)
-- **Kronkorken** stecken ab und zu in eingeworfenen Flaschen (Dosen haben keine). Sie landen im **Album** und sind die Währung für den **Skilltree**
+- Am Anfang trinken alle nur **Bier**. Glasflaschen, Plastikflaschen und Dosen schaltest du nacheinander im Skilltree frei, jeweils mit eigenen Knoten für Wert und Häufigkeit
+- **Kronkorken** stecken ab und zu in Flaschen, die du selbst einwirfst (Dosen haben keine). Sammler bringen erst mit „Ehrliche Sammler“ welche. Sie landen im **Album** und sind die Währung für den **Skilltree** und für Events
+- Kronkorken sind verschieden selten (häufig, selten, sehr selten, legendär), spätere Kollektionen insgesamt seltener
 - Im **PARK-Ast** des Skilltrees schaltest du neue Upgrades frei (Picknickdecke, Mülleimer, Bank, Sammler, Imbiss, Grill …) und baust alle Objekte einer Sorte auf einmal aus (Tische an Bänken, größere Eimer …). Danach kaufst du sie rechts mit Geld
-- **Events** erscheinen erst, wenn sie im Skilltree gelernt sind. Sie kosten Geld, haben einen Cooldown, werden mit jedem Mal etwas teurer (höchstens doppelt) und machen alle Flaschen mehr wert, solange sie laufen. **Aktionen** sind kurze Boosts (z. B. 30 s doppelter Pfandwert), die auch neben einem Event laufen
-- Skilltree: Fläche mit der Maus ziehen, Knoten anklicken, „Lernen“ oder Doppelklick
-- Bierkasten (am Grill oder von Freundesgruppen stehen gelassen) anklicken → eine Flasche in die Tasche (mit Lastenrad: ganzer Kasten direkt zum Automaten)
+- **Events** erscheinen erst, wenn sie im Skilltree gelernt sind. Sie kosten Kronkorken, werden mit jedem Mal etwas teurer (höchstens doppelt) und machen alle Flaschen mehr wert, solange sie laufen. Nach jedem Event haben alle Events 5 Minuten Pause. Jedes Event hat im Skilltree einen eigenen Ausbau (EVENT+)
+- **Aktionen** (Pfandaktion, Happy Hour, Glückssträhne) sind kurze Gratis-Boosts. Nach dem Freischalten liegt ab und zu ein Flyer im Park, den man direkt anklicken muss, bevor er wegweht
+- Skilltree: Maus über einen Knoten zeigt, was er bringt und kostet. Fläche mit der Maus ziehen, Knoten anklicken, „Lernen“ oder Doppelklick
+- Bierkasten (am Grill oder von Freundesgruppen stehen gelassen) anklicken → Inhalt in die Tasche, so viel passt. Kästen von Gruppen, die noch picknicken, gehen erst, wenn die Gruppe weg ist. Mit Lastenrad nimmst du leere Kästen mit und bekommst € 1,50 Kastenpfand
 - Je weiter ein Knoten im Skilltree von der Wurzel weg ist, desto teurer ist er
 - **Stats** unten rechts zeigt die Statistik
 
@@ -127,6 +132,7 @@ Nach `--` anhängen, z. B. `... --path . -- --fresh --money=50`:
 | `--captoast` | Kronkorken-Meldung nach 1 s einmal zeigen |
 | `--feedtest` | Tasche füllen und nach 1 s automatisch einwerfen |
 | `--event=konzert` | Event gratis sofort starten (`geburtstag`, `bierball`, `konzert`, `feiertag`, `maennertag`, `oktoberfest`, Aktionen: `pfandaktion`, `happyhour`, `gluecksstraehne`) |
+| `--flyer=happyhour` | nach 1 s einen Aktions-Flyer in den Park legen (`pfandaktion`, `happyhour`, `gluecksstraehne`) |
 | `--open=skills` | Skilltree, Album (`album`), Statistik (`stats`), Events-Tab (`events`) öffnen |
 | `--time=0.7` | Tageszeit setzen (0–1; ab 0.62 Abend, ab 0.82 Nacht) |
 | `--speed=4` | Spiel schneller laufen lassen |

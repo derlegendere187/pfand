@@ -73,6 +73,25 @@ public class GroundBottle
     public bool Claimed;           // ein Sammler ist schon unterwegs
 }
 
+/// <summary>Flyer für eine Aktion: liegt kurz im Park, ein direkter Klick startet die Aktion.</summary>
+public class Flyer
+{
+    public Vector2 Pos;
+    public string EventId;
+    public double Life;
+    public static readonly Vector2 Size = new(22, 26);
+    public Rect2 Rect => new(Pos - Size / 2, Size);
+}
+
+/// <summary>Fremder Flaschensammler: holt Flaschen, die zu lange liegen, und geht wieder.</summary>
+public class Stranger
+{
+    public Vector2 Pos, Exit;
+    public GroundBottle Target;
+    public bool Leaving, Carrying;
+    public float WalkPhase;
+}
+
 public enum CollectorState { Sucht, ZurFlasche, ZumEimer, Abliefern, Wartet }
 
 public class Collector
@@ -97,10 +116,12 @@ public class VisitorSim
     public readonly List<GroundBottle> Bottles = new();
     public readonly List<List<BottleType>> BinContents = new();
     public readonly List<Collector> Collectors = new();
+    public readonly List<Stranger> Strangers = new();
     public readonly List<(Vector2 pos, string text, Color color)> PendingFloats = new();
     public readonly List<BottleType> Kasten = new();
     public readonly List<GroupCrate> Crates = new();
     public BierballGame Bierball;
+    public Flyer Flyer;
     public Vector2 Size;
 
     readonly Random _rng = new();
@@ -148,7 +169,7 @@ public class VisitorSim
         };
         var activeEvent = gs.ActiveEvent == null ? null : EventDefs.Get(gs.ActiveEvent);
         int maxVisitors = Balance.MaxVisitorsBase + Balance.MaxVisitorsPerPath * paths.Count + Balance.MaxVisitorsPerBench * benches.Count
-            + (imbiss ? Balance.ImbissMaxVisitors + (gs.AusbauLevel("imbiss", 0) >= 1 ? 4 : 0) : 0) + tables.Count * 2
+            + (imbiss ? Balance.ImbissMaxVisitors + gs.ImbissExtraSlots : 0) + tables.Count * 2
             + (activeEvent?.Guests ?? 0) + (activeEvent?.ExtraVisitors ?? 0) + gs.ExtraVisitorSlots;
         double boost = 1 + Balance.SpawnBonusPerPath * paths.Count + Balance.SpawnBonusPerBin * bins.Count
             + (imbiss ? Balance.ImbissSpawnBonus : 0) + Balance.TableSpawnBonus * tables.Count + (activeEvent?.SpawnBoost ?? 0) + gs.VisitorBoost;
@@ -171,8 +192,7 @@ public class VisitorSim
             gs.PeakVisitors = Visitors.Count;
             if (gs.PeakVisitors % 5 == 0) gs.Notify();
         }
-        double drinkInterval = Balance.DrinkInterval * (imbiss ? Balance.ImbissDrinkFactor : 1) * gs.DrinkFactor
-            * (gs.AusbauLevel("imbiss", 0) >= 2 ? 0.85 : 1);
+        double drinkInterval = Balance.DrinkInterval * (imbiss ? Balance.ImbissDrinkFactor * gs.ImbissDrinkBonus : 1) * gs.DrinkFactor;
 
         // --- Besucher bewegen ---
         for (int i = Visitors.Count - 1; i >= 0; i--)
@@ -255,6 +275,41 @@ public class VisitorSim
 
         UpdateCollectors(dt, gs, bins);
         foreach (var b in Bottles) b.Age += (float)dt;
+        UpdateStrangers(dt, gs);
+        UpdateFlyer(dt, gs, paths);
+    }
+
+    /// <summary>Freigeschaltete Aktionen kommen per Flyer: selten, kurz, nur mit direktem Klick.</summary>
+    void UpdateFlyer(double dt, GameState gs, List<Rect2> paths)
+    {
+        if (Flyer != null)
+        {
+            if (!gs.ClockPaused) Flyer.Life -= dt;
+            if (Flyer.Life <= 0) Flyer = null;
+        }
+        else if (!gs.TutorialActive && !gs.ClockPaused)
+        {
+            var choices = new List<string>();
+            foreach (var e in EventDefs.All)
+                if (e.Short && gs.EventUnlocked(e) && !gs.BoostActive(e.Id)) choices.Add(e.Id);
+            if (choices.Count > 0 && _rng.NextDouble() < gs.FlyerRate * dt) SpawnFlyer(choices[_rng.Next(choices.Count)], paths);
+        }
+        bool visible = Flyer != null;
+        if (visible != gs.FlyerVisible) { gs.FlyerVisible = visible; gs.Notify(); }
+    }
+
+    public void SpawnFlyer(string eventId, List<Rect2> paths = null)
+    {
+        // Auf der Wiese, nicht am Rand, nicht auf Wegen
+        Vector2 pos = new(Size.X * 0.5f, Size.Y * 0.3f);
+        for (int tries = 0; tries < 20; tries++)
+        {
+            var p = new Vector2(Rf(60, Size.X - 60), Rf(60, Size.Y - 60));
+            bool ok = true;
+            if (paths != null) foreach (var r in paths) if (r.Grow(16).HasPoint(p)) { ok = false; break; }
+            if (ok) { pos = p; break; }
+        }
+        Flyer = new Flyer { Pos = pos.Round(), EventId = eventId, Life = Balance.FlyerLifetime };
     }
 
     bool ShouldLeave(Visitor v, GameState gs, int lamps, double dt)
@@ -272,19 +327,19 @@ public class VisitorSim
         var gs = GameState.I;
         if (v.EventId == "bierball") return double.MaxValue; // trinken nur nach Treffern
         if (v.EventId != null) return EventDefs.Get(v.EventId)?.GuestDrinkInterval ?? normal;
-        if (v.GrillSeat >= 0) return normal * Balance.GrillDrinkFactor * (gs.AusbauLevel("grill", 0) >= 2 ? 0.7 : 1);
-        if (v.TableSeat >= 0) return normal * Balance.TableDrinkFactor * (gs.AusbauLevel("tischtennis", v.TableSeat / 2) >= 1 ? 0.75 : 1);
-        if (v.Seat >= 0 && gs.AusbauLevel("bank", v.Seat / 4) >= 1) return normal * 0.85;
+        if (v.GrillSeat >= 0) return normal * Balance.GrillDrinkFactor * gs.GrillDrinkBonus;
+        if (v.TableSeat >= 0) return normal * Balance.TableDrinkFactor * gs.TableDrinkBonus;
+        if (v.Seat >= 0) return normal * gs.BankDrinkFactor;
         return normal;
     }
 
     /// <summary>Wie viel länger jemand bleibt (Grill, ausgebaute Bänke und Platten).</summary>
     static double StayFactor(Visitor v, GameState gs)
     {
-        if (v.GrillSeat >= 0) return Balance.GrillStayFactor * (gs.AusbauLevel("grill", 0) >= 1 ? 1.5 : 1);
-        if (v.Seat >= 0 && gs.AusbauLevel("bank", v.Seat / 4) >= 1) return 1.5;
-        if (v.TableSeat >= 0 && gs.AusbauLevel("tischtennis", v.TableSeat / 2) >= 1) return 1.5;
-        if (v.Seat >= 0 || v.TableSeat >= 0 || v.EventId != null || v.Wagon) return 1;
+        if (v.GrillSeat >= 0) return Balance.GrillStayFactor * gs.GrillStayBonus;
+        if (v.Seat >= 0) return gs.BankStayFactor;
+        if (v.TableSeat >= 0) return gs.TableStayFactor;
+        if (v.EventId != null || v.Wagon) return 1;
         return v.HasBlanket ? Balance.BlanketStayFactor : Balance.StandStayFactor;
     }
 
@@ -292,9 +347,9 @@ public class VisitorSim
     {
         if (v.EventId == "bierball" || v.EventId == "oktoberfest") return BottleType.Bier;
         if (gs.ActiveEvent == "oktoberfest" && _rng.NextDouble() < 0.8) return BottleType.Bier; // ganzer Park auf der Wiesn
-        if (v.EventId == "maennertag") return _rng.NextDouble() < 0.75 ? BottleType.Bier : BottleType.Dose;
-        if (v.EventId == "konzert" && _rng.NextDouble() < 0.6) return BottleType.Dose;
-        if (v.GrillSeat >= 0) return _rng.NextDouble() < 0.8 ? BottleType.Bier : BottleType.Dose;
+        if (v.EventId == "maennertag") return _rng.NextDouble() < 0.75 ? BottleType.Bier : gs.OrBier(BottleType.Dose);
+        if (v.EventId == "konzert" && _rng.NextDouble() < 0.6) return gs.OrBier(BottleType.Dose);
+        if (v.GrillSeat >= 0) return _rng.NextDouble() < 0.8 ? BottleType.Bier : gs.OrBier(BottleType.Dose);
         return RandomType(gs);
     }
 
@@ -635,7 +690,7 @@ public class VisitorSim
     {
         var v = NewVisitor(paths);
         v.WantsSnack = gs.Level("imbiss") > 0
-            && _rng.NextDouble() < Balance.ImbissVisitChance + (gs.AusbauLevel("imbiss", 0) >= 1 ? 0.2 : 0);
+            && _rng.NextDouble() < Balance.ImbissVisitChance + gs.ImbissVisitBonus;
         v.SnackSpot = ParkLayout.ImbissFront(Size) + new Vector2(Rf(-50, 50), Rf(0, 16));
 
         // Platz suchen: Tischtennis, Bank oder Decke auf der Wiese
@@ -872,11 +927,17 @@ public class VisitorSim
     {
         if (_rng.NextDouble() < gs.GoldChance) return BottleType.Gold;
         if (_rng.NextDouble() < gs.RetroChance) return BottleType.Retro;
-        double r = _rng.NextDouble();
-        if (r < 0.35) return BottleType.Bier;
-        if (r < 0.65) return BottleType.Dose;
-        if (r < 0.85) return BottleType.Plastik;
-        return BottleType.Wasser;
+        // Nur freigeschaltete Sorten, nach Gewicht (am Anfang also nur Bier)
+        var types = new[] { BottleType.Bier, BottleType.Wasser, BottleType.Plastik, BottleType.Dose };
+        double total = 0;
+        foreach (var t in types) total += gs.SpawnWeight(t);
+        double r = _rng.NextDouble() * total;
+        foreach (var t in types)
+        {
+            r -= gs.SpawnWeight(t);
+            if (r <= 0) return t;
+        }
+        return BottleType.Bier;
     }
 
     void DropBottle(Vector2 near, List<Vector2> bins, GameState gs, BottleType type)
@@ -886,9 +947,7 @@ public class VisitorSim
         // Mit Mülleimern landen manche Flaschen im Eimer (seltene nie – die sieht man gern liegen)
         if (bins.Count > 0 && type != BottleType.Gold && type != BottleType.Retro)
         {
-            int rings = 0;
-            for (int i = 0; i < bins.Count; i++) if (gs.AusbauLevel("muelleimer", i) >= 2) rings++;
-            double chance = Math.Min(Balance.BinChanceMax + 0.1, Balance.BinChancePerBin * bins.Count + 0.1 * rings);
+            double chance = Math.Min(Balance.BinChanceMax + 0.1, (Balance.BinChancePerBin + gs.BinRingChance) * bins.Count);
             if (_rng.NextDouble() < chance)
             {
                 int best = -1; float bestD = float.MaxValue;
@@ -918,6 +977,53 @@ public class VisitorSim
             Rot = Rf(-1.6f, 1.6f),
             ColorIdx = _rng.Next(4),
         });
+    }
+
+    // --- Fremde Sammler ---
+    /// <summary>Liegt eine Flasche zu lange, kommt jemand vom nächsten Rand und nimmt sie mit (Eimer und Kästen nicht).</summary>
+    void UpdateStrangers(double dt, GameState gs)
+    {
+        if (!gs.TutorialActive)
+        {
+            double life = gs.BottleLifetime;
+            foreach (var b in Bottles)
+            {
+                if (b.Claimed || b.Age < life) continue;
+                b.Claimed = true;
+                var edge = NearestEdge(b.Pos);
+                Strangers.Add(new Stranger { Pos = edge, Exit = edge, Target = b });
+            }
+        }
+
+        double step = Balance.WalkSpeed * 1.3 * dt;
+        foreach (var s in Strangers)
+        {
+            s.WalkPhase += (float)dt * 10;
+            if (!s.Leaving)
+            {
+                // Schon weg (der Spieler war schneller): umdrehen
+                if (!Bottles.Contains(s.Target)) { s.Leaving = true; continue; }
+                if (MoveTowards(ref s.Pos, s.Target.Pos, step))
+                {
+                    Bottles.Remove(s.Target);
+                    s.Carrying = true;
+                    s.Leaving = true;
+                    if (!gs.BottleTaken) { gs.BottleTaken = true; gs.TakenAt = s.Pos; gs.Notify(); }
+                }
+            }
+            else MoveTowards(ref s.Pos, s.Exit, step);
+        }
+        Strangers.RemoveAll(s => s.Leaving && s.Pos.DistanceTo(s.Exit) < 1);
+    }
+
+    Vector2 NearestEdge(Vector2 p)
+    {
+        float l = p.X, r = Size.X - p.X, t = p.Y, b = Size.Y - p.Y;
+        float m = Math.Min(Math.Min(l, r), Math.Min(t, b));
+        if (m == l) return new Vector2(-20, p.Y);
+        if (m == r) return new Vector2(Size.X + 20, p.Y);
+        if (m == t) return new Vector2(p.X, -20);
+        return new Vector2(p.X, Size.Y + 20);
     }
 
     // --- Sammler ---
@@ -979,7 +1085,7 @@ public class VisitorSim
                         int caps = 0;
                         foreach (var t in c.Carry)
                         {
-                            var (v, cap) = gs.FeedDirect(t, _rng);
+                            var (v, cap) = gs.FeedDirect(t, _rng, byCollector: true);
                             gs.CollectedByCollectors++;
                             sum += v;
                             if (cap >= 0) caps++;

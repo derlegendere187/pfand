@@ -228,6 +228,16 @@ public static class Sprites
         }
     }
 
+    /// <summary>Fremder Sammler: graue Kapuzenjacke, Plastiktüte in der Hand, wenn er was hat.</summary>
+    public static void Stranger(CanvasItem ci, Vector2 pos, bool carrying)
+    {
+        Person(ci, pos, Color.FromHtml("#6f7378"), Color.FromHtml("#4a4e54"));
+        if (!carrying) return;
+        var o = pos - new Vector2(12, 12);
+        R(ci, o, 3, 8, 5, 2, 3, Color.FromHtml("#e8e4da"));
+        R(ci, o, 3, 8, 5, 2, 1, Color.FromHtml("#b8b2a4"));
+    }
+
     /// <summary>Pfandkiste der Sammler am Rand.</summary>
     public static void Depot(CanvasItem ci, Vector2 pos)
     {

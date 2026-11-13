@@ -77,7 +77,7 @@ public partial class SkillPopup : Control
         foreach (var c in new Control[] { _name, _branch, _level, _nowTitle, _now, _nextTitle, _next })
             icol.AddChild(c);
         icol.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
-        var hint = PfandTheme.Text("Ziehen verschiebt den Baum. Doppelklick lernt. Jeder gelernte Knoten lässt neue Äste wachsen.", 20, Palette.Muted);
+        var hint = PfandTheme.Text("Ziehen: verschieben\nDoppelklick: lernen", 20, Palette.Muted);
         hint.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         icol.AddChild(hint);
         icol.AddChild(_buy);
@@ -119,8 +119,7 @@ public partial class SkillPopup : Control
             _branch.Text = d.Branch.Name;
             _level.Text = "";
             _nowTitle.Visible = _now.Visible = false;
-            _nextTitle.Visible = _next.Visible = true;
-            _next.Text = "Noch unbekannt. Lerne zuerst " + SkillDefs.Get(d.Parent).Name + ".";
+            _nextTitle.Visible = _next.Visible = false;
             _buy.Text = "UNBEKANNT";
             _buy.Disabled = true;
             return;
@@ -128,13 +127,14 @@ public partial class SkillPopup : Control
 
         _name.Text = d.Name;
         _name.AddThemeColorOverride("font_color", d.Branch.Color.Darkened(0.2f));
-        _branch.Text = isRoot ? "Wurzel" : "Ast: " + d.Branch.Name;
+        _branch.Text = isRoot || d.Branch.Name == d.Name ? "" : d.Branch.Name;
         _level.Text = isRoot ? "" : $"Stufe {lvl} / {d.MaxLevel}";
-        _nowTitle.Visible = _now.Visible = lvl > 0 || isRoot;
-        _now.Text = d.Effect(Math.Max(1, lvl));
+        // Überschriften nur, wenn es zwei Werte zu unterscheiden gibt
         bool maxed = gs.SkillMaxed(d);
-        _nextTitle.Visible = _next.Visible = !maxed && !isRoot;
-        if (!maxed && !isRoot) _next.Text = d.Effect(lvl + 1);
+        // Nur ein Effekt: der der nächsten Stufe, ausgebaut der aktuelle
+        _now.Visible = _nowTitle.Visible = _nextTitle.Visible = false;
+        _next.Visible = !isRoot;
+        if (!isRoot) _next.Text = d.Effect(maxed ? lvl : lvl + 1);
 
         if (isRoot) { _buy.Text = "START"; _buy.Disabled = true; }
         else if (maxed) { _buy.Text = "MAXIMUM"; _buy.Disabled = true; }
@@ -169,7 +169,7 @@ public partial class SkillCanvas : Control
 
     Vector2 _offset;
     bool _pressed, _dragging;
-    Vector2 _pressPos;
+    Vector2 _pressPos, _mouse;
     string _hover;
     float _time;
 
@@ -189,6 +189,8 @@ public partial class SkillCanvas : Control
         var gs = GameState.I;
         if (gs.HasSkill(d.Id)) return NodeState.Learned;
         if (gs.SkillAvailable(d)) return NodeState.Available;
+        // Der nächste Ast an der Wurzel zeigt sich schon mit Fragezeichen, damit man weiß, worauf man hinarbeitet
+        if (gs.NextGatedBranch == d) return NodeState.Teaser;
         // Was danach kommt, bleibt verborgen, bis der Elternknoten gelernt ist
         return NodeState.Hidden;
     }
@@ -237,11 +239,12 @@ public partial class SkillCanvas : Control
                 if (_dragging)
                 {
                     _offset += mm.Relative;
-                    _offset = _offset.Clamp(-Vector2.One * Spacing * 5, Vector2.One * Spacing * 5);
+                    _offset = _offset.Clamp(-Vector2.One * Spacing * 8, Vector2.One * Spacing * 8);
                 }
             }
             var h = NodeAt(mm.Position);
             _hover = h?.Id;
+            _mouse = mm.Position;
             MouseDefaultCursorShape = _dragging ? CursorShape.Drag : h != null ? CursorShape.PointingHand : CursorShape.Arrow;
         }
     }
@@ -291,6 +294,76 @@ public partial class SkillCanvas : Control
         {
             var state = StateOf(d);
             if (state != NodeState.Hidden) DrawNode(d, state, gs);
+        }
+
+        if (_hover != null && !_dragging && SkillDefs.Get(_hover) is { } hd) DrawTooltip(hd, gs);
+    }
+
+    public override void _Notification(int what)
+    {
+        if (what == NotificationMouseExit) _hover = null;
+    }
+
+    /// <summary>Beschreibung am Mauszeiger: was der Knoten macht, was die nächste Stufe bringt und was sie kostet.</summary>
+    void DrawTooltip(SkillDef d, GameState gs)
+    {
+        const float width = 300, pad = 10;
+        const int size = 22;
+        var font = PfandTheme.Body;
+        int lvl = gs.SkillLevel(d.Id);
+        bool root = d.Id == SkillDefs.Root;
+        bool maxed = gs.SkillMaxed(d);
+
+        var lines = new System.Collections.Generic.List<(string text, Color color)>();
+        string title = d.Name;
+        if (StateOf(d) == NodeState.Teaser)
+        {
+            // Noch geschlossener Ast: nur verraten, wann er wächst
+            title = "NEUER AST";
+        }
+        else if (root) return;
+        else
+        {
+            lines.Add(($"{d.Branch.Name} · Stufe {lvl}/{d.MaxLevel}", Palette.Muted));
+            lines.Add((d.Effect(maxed ? lvl : lvl + 1), Palette.Ink));
+
+            if (maxed) lines.Add(("Voll ausgebaut", Palette.GoodText));
+            else if (!gs.SkillAvailable(d)) lines.Add(("Erst " + SkillDefs.Get(d.Parent).Name + " lernen", Palette.BadText));
+            else
+            {
+                int cost = gs.NextSkillCost(d);
+                bool ok = gs.Kronkorken >= cost;
+                lines.Add(($"Kostet {cost} Kronkorken", ok ? Palette.GoodText : Palette.BadText));
+            }
+        }
+
+        float inner = width - 2 * pad;
+        float h = pad + 14 + 8;
+        var heights = new float[lines.Count];
+        for (int i = 0; i < lines.Count; i++)
+        {
+            heights[i] = font.GetMultilineStringSize(lines[i].text, HorizontalAlignment.Left, inner, size).Y;
+            h += heights[i] + 4;
+        }
+        h += pad - 4;
+
+        // Rechts unten neben dem Zeiger, am Rand umklappen
+        var pos = _mouse + new Vector2(18, 18);
+        if (pos.X + width > Size.X - 4) pos.X = _mouse.X - width - 12;
+        if (pos.Y + h > Size.Y - 4) pos.Y = Size.Y - h - 4;
+        pos = pos.Max(new Vector2(4, 4)).Round();
+
+        var r = new Rect2(pos, width, h);
+        DrawRect(r.Grow(4), Palette.Ink);
+        DrawRect(r, Palette.PanelLight);
+        DrawRect(new Rect2(pos, width, 4), d.Branch.Color);
+        float y = pos.Y + pad + 14;
+        DrawString(PfandTheme.Pixel, new Vector2(pos.X + pad, y), title, HorizontalAlignment.Left, inner, 8, d.Branch.Color.Darkened(0.3f));
+        y += 8;
+        for (int i = 0; i < lines.Count; i++)
+        {
+            DrawMultilineString(font, new Vector2(pos.X + pad, y + size * 0.8f), lines[i].text, HorizontalAlignment.Left, inner, size, -1, lines[i].color);
+            y += heights[i] + 4;
         }
     }
 
@@ -349,7 +422,17 @@ public partial class SkillCanvas : Control
         }
 
         // Stufen als kleine Kästchen unten im Knoten
-        if (d.MaxLevel > 1)
+        if (d.MaxLevel > 6)
+        {
+            // Viele Stufen: Balken statt Kästchen
+            int lvl = gs.SkillLevel(d.Id);
+            var bar = new Rect2(r.Position.X + 6, r.End.Y - 10, NodeSize - 12, 6);
+            DrawRect(bar, state == NodeState.Learned ? Palette.Ink : col.Darkened(0.2f));
+            var inner = bar.Grow(-1);
+            DrawRect(inner, fill);
+            if (lvl > 0) DrawRect(new Rect2(inner.Position, inner.Size.X * lvl / d.MaxLevel, inner.Size.Y), state == NodeState.Learned ? Palette.Gold : col);
+        }
+        else if (d.MaxLevel > 1)
         {
             int lvl = gs.SkillLevel(d.Id);
             float pip = 6, gap = 3;

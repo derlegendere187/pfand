@@ -13,11 +13,16 @@ public partial class AutomatPanel : PanelContainer
     BagGrid _bag;
     Button _feedButton;
     VBoxContainer _bonLines;
+    PanelContainer _bonPanel;
+
+    public Rect2 BagRect => _bag.GetGlobalRect().Merge(_bagLabel.GetGlobalRect());
+    public Rect2 FeedRect => _feedButton.GetGlobalRect();
+    public Rect2 BonRect => _bonPanel.GetGlobalRect();
     Label _bonTitle;
 
     bool _feeding;
-    double _feedAcc, _feedTotal, _pulse, _bagIdle;
-    int _lastBagCount;
+    double _feedAcc, _feedTotal, _pulse, _bagIdle, _komboBonus;
+    int _lastBagCount, _feedCount;
     readonly Dictionary<BottleType, (int count, double sum)> _receipt = new();
     readonly List<int> _capsFound = new();
     readonly Random _rng = new();
@@ -62,7 +67,7 @@ public partial class AutomatPanel : PanelContainer
         col.AddChild(_feedButton);
 
         // Der Bon füllt den Rest der Spalte. Lange Bons scrollen, statt das Layout zu verschieben.
-        var bon = PfandTheme.Panel(Palette.Paper, null, 10);
+        var bon = _bonPanel = PfandTheme.Panel(Palette.Paper, null, 10);
         bon.SizeFlagsVertical = SizeFlags.ExpandFill;
         bon.CustomMinimumSize = new Vector2(0, 80);
         bon.ClipContents = true;
@@ -106,8 +111,11 @@ public partial class AutomatPanel : PanelContainer
     {
         if (_feeding || GameState.I.Bag.Count == 0) return;
         _feeding = true;
+        GameState.I.Feeding = true;
         _feedAcc = 0;
         _feedTotal = 0;
+        _feedCount = 0;
+        _komboBonus = 0;
         _receipt.Clear();
         _capsFound.Clear();
         _status.Text = "ZÄHLT …";
@@ -130,30 +138,41 @@ public partial class AutomatPanel : PanelContainer
             _feedAcc -= gs.FeedInterval;
             var (type, value, cap) = gs.FeedOne(_rng);
             _feedTotal += value;
+            _feedCount++;
             var e = _receipt.TryGetValue(type, out var cur) ? cur : (0, 0.0);
             _receipt[type] = (e.Item1 + 1, e.Item2 + value);
             if (cap >= 0) _capsFound.Add(cap);
             changed = true;
         }
-        _display.Text = GameState.Euro(_feedTotal);
+        double kombo = gs.Kombo(_feedCount);
+        _display.Text = GameState.Euro(_feedTotal * (1 + kombo));
+        if (kombo > 0) _status.Text = $"ZÄHLT … KOMBO +{System.Math.Round(kombo * 100)} %";
         if (gs.Bag.Count == 0)
         {
             _feeding = false;
+            gs.Feeding = false;
             _status.Text = "BEREIT";
-            gs.BestBon = System.Math.Max(gs.BestBon, _feedTotal);
+            // Langer Bon: Kombo-Bonus auf alles, was in diesem Einwurf zusammenkam
+            _komboBonus = _feedTotal * kombo;
+            if (_komboBonus > 0)
+            {
+                gs.Money += _komboBonus;
+                gs.TotalEarned += _komboBonus;
+                gs.KomboSeen = true;
+            }
+            gs.BestBon = System.Math.Max(gs.BestBon, _feedTotal + _komboBonus);
             ShowBon();
         }
         if (changed || !_feeding) gs.Notify();
     }
 
-    /// <summary>Skill Auto-Einwurf: Stufe 1 bei voller Tasche, Stufe 2 auch nach 4 s ohne neue Flasche.</summary>
+    /// <summary>Auto-Einwurf bei voller Tasche, mit Auto-Pause auch nach 4 s ohne neue Flasche.</summary>
     void AutoFeed(GameState gs, double delta)
     {
-        int lvl = gs.SkillLevel("auto");
         if (gs.Bag.Count != _lastBagCount) { _lastBagCount = gs.Bag.Count; _bagIdle = 0; }
         else _bagIdle += delta;
-        if (_feeding || lvl == 0 || gs.Bag.Count == 0) return;
-        if (gs.BagFull || (lvl >= 2 && _bagIdle >= 4)) StartFeeding();
+        if (_feeding || !gs.HasSkill("auto") || gs.Bag.Count == 0) return;
+        if (gs.BagFull || (gs.HasSkill("auto_pause") && _bagIdle >= 4)) StartFeeding();
     }
 
     void ShowEmptyBon()
@@ -169,8 +188,12 @@ public partial class AutomatPanel : PanelContainer
         ClearBon();
         foreach (var kv in _receipt)
             AddBonLine($"{kv.Value.count}× {BottleInfo.Name(kv.Key)}", Format(kv.Value.sum), Palette.Ink);
+        if (_komboBonus > 0)
+            AddBonLine($"KOMBO {_feedCount}× +{System.Math.Round(GameState.I.Kombo(_feedCount) * 100)} %", Format(_komboBonus), Palette.GoodText);
+        else if (_feedCount < Balance.KomboStart)
+            AddBonLine($"Kombo ab {Balance.KomboStart} Flaschen", "", Palette.Muted);
         _bonLines.AddChild(new HSeparator());
-        AddBonLine("SUMME", GameState.Euro(_feedTotal), Palette.Ink, true);
+        AddBonLine("SUMME", GameState.Euro(_feedTotal + _komboBonus), Palette.Ink, true);
         // Gleiche Kronkorken in einer Zeile zusammenfassen
         var counted = new Dictionary<int, int>();
         foreach (var cap in _capsFound) counted[cap] = counted.TryGetValue(cap, out var k) ? k + 1 : 1;

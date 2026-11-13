@@ -25,6 +25,7 @@ namespace Pfand;
 ///   --kk=20            Kronkorken setzen
 ///   --feedtest         Tasche füllen und automatisch einwerfen
 ///   --event=konzert    Event sofort starten
+///   --flyer=pfandaktion  nach 1 s einen Aktions-Flyer in den Park legen
 ///   --time=0.7         Tageszeit setzen (0..1)
 ///   --speed=4          Spiel schneller laufen lassen
 ///   --screenshot=PFAD  nach --shotdelay Sekunden Bildschirmfoto speichern und beenden
@@ -45,6 +46,8 @@ public partial class Main : Control
     Label _albumCount, _skillCount, _statsCount;
     Button _tabUpgrades, _tabEvents, _albumButton, _skillButton;
     UpgradePanel _upgradePanel;
+    ParkView _park;
+    HeaderBar _header;
     EventPanel _eventPanel;
 
     public override void _Ready()
@@ -58,7 +61,7 @@ public partial class Main : Control
         // Ganz neues Spiel: Kalle erklärt erst einmal alles (Debug-Startwerte überspringen das)
         if (!loaded) gs.Tutorial = TutorialStep.Intro;
         bool debugStart = false;
-        foreach (var k in new[] { "notut", "money", "late", "imbiss", "upgrades", "allskills", "skills", "kk", "allcaps", "feedtest", "event", "open" })
+        foreach (var k in new[] { "notut", "money", "late", "imbiss", "upgrades", "allskills", "skills", "kk", "allcaps", "feedtest", "event", "flyer", "open" })
             if (_args.ContainsKey(k)) { gs.Tutorial = TutorialStep.Done; debugStart = true; }
         if (_args.TryGetValue("money", out var m) && double.TryParse(m, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var money)) gs.Money = money;
         if (_args.ContainsKey("late"))
@@ -123,6 +126,11 @@ public partial class Main : Control
             else if (open == "stats") _stats.CallDeferred(StatsPopup.MethodName.Open);
             else if (open == "events") ShowTab(true);
         }
+        if (_args.TryGetValue("flyer", out var flyerId) && EventDefs.Get(flyerId) is { Short: true } flyerDef)
+        {
+            gs.Skills[flyerDef.Skill] = 1;
+            GetTree().CreateTimer(1.0).Timeout += () => _park.Sim.SpawnFlyer(flyerId);
+        }
         if (_args.ContainsKey("captoast")) GetTree().CreateTimer(1.0).Timeout += () => gs.DebugCapFound(0);
         if (_args.ContainsKey("feedtest"))
         {
@@ -149,7 +157,7 @@ public partial class Main : Control
         root.AddThemeConstantOverride("separation", 14);
         margin.AddChild(root);
 
-        var header = new HeaderBar();
+        var header = _header = new HeaderBar();
         root.AddChild(header);
 
         var body = new HBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
@@ -168,7 +176,7 @@ public partial class Main : Control
         var frame = PfandTheme.Panel(Palette.Border, null, 0);
         frame.AddThemeStyleboxOverride("panel", PfandTheme.Box(Palette.Grass, Palette.Border, 4, 4));
         frame.SizeFlagsVertical = SizeFlags.ExpandFill;
-        var park = new ParkView();
+        var park = _park = new ParkView();
         frame.AddChild(park);
         middle.AddChild(frame);
         body.AddChild(middle);
@@ -222,8 +230,46 @@ public partial class Main : Control
         {
             Park = park, Automat = _automat, AutoAdvance = _args.ContainsKey("autotut"),
             Busy = () => _skills.Visible || _album.Visible || _stats.Visible,
+            FocusRect = FocusRect,
         };
         AddChild(tutorial);
+    }
+
+    /// <summary>Worauf Kalle gerade zeigt, in Bildschirmkoordinaten. null: nichts Bestimmtes.</summary>
+    Rect2? FocusRect(string key)
+    {
+        var gs = GameState.I;
+        var sim = _park.Sim;
+        var origin = _park.GetGlobalRect().Position;
+        var parkRect = _park.GetGlobalRect();
+        Rect2 Around(Vector2 p, float r) => new Rect2(origin + p - new Vector2(r, r), new Vector2(2 * r, 2 * r)).Intersection(parkRect.Grow(-8));
+        switch (key)
+        {
+            case "park": return _park.GetGlobalRect();
+            case "money": return _header.MoneyRect;
+            case "bag": return _automat.BagRect;
+            case "feed": return _automat.FeedRect;
+            case "bon": return _automat.BonRect;
+            case "upgrades": return _upgradePanel.GetGlobalRect();
+            case "laterne": return _upgradePanel.CardRect("laterne");
+            case "skills": return _skillButton.Visible ? _skillButton.GetGlobalRect() : null;
+            case "album": return _albumButton.Visible ? _albumButton.GetGlobalRect() : null;
+            case "events": return _tabEvents.Visible ? _tabEvents.GetGlobalRect() : null;
+            case "bottle": return sim.Bottles.Count > 0 ? Around(sim.Bottles[0].Pos, 24) : null;
+            case "flyer": return sim.Flyer is { } f ? new Rect2(origin + f.Rect.Position, f.Rect.Size).Grow(14) : null;
+            case "collector": return sim.Collectors.Count > 0 ? Around(sim.Collectors[0].Pos, 26) : null;
+            case "stranger":
+                foreach (var s in sim.Strangers) if (s.Carrying) return Around(s.Pos, 28);
+                return Around(gs.TakenAt, 28);
+            case "bin":
+                var bins = Pfand.Park.ParkLayout.Bins(_park.Size, gs);
+                return bins.Count > 0 ? Around(bins[0], 26) : null;
+            case "grill":
+                var g = Pfand.Park.ParkLayout.Grill(_park.Size);
+                var k = Pfand.Park.ParkLayout.KastenRect(_park.Size);
+                return new Rect2(origin + k.Position, k.Size).Merge(Around(g, 44));
+        }
+        return null;
     }
 
     Button TabButton(string text)

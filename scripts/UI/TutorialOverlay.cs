@@ -14,6 +14,7 @@ public partial class TutorialOverlay : Control
     public AutomatPanel Automat;
     public bool AutoAdvance;        // Debug: läuft von selbst durch
     public System.Func<bool> Busy;  // ein Fenster ist offen: Tipps warten
+    public System.Func<string, Rect2?> FocusRect;  // Bildschirmfläche zu einem Fokus-Namen (null: nichts hervorheben)
 
     static readonly string[] IntroPages =
     {
@@ -22,6 +23,8 @@ public partial class TutorialOverlay : Control
         "Die Leute kommen her, trinken was und lassen ihre leeren Flaschen oft einfach liegen. Für uns ist das bares Geld!",
         "Schau mal, da kommt die erste Person!",
     };
+    static readonly string[] IntroFocus = { null, "park", null, null };
+    static readonly string[] OutroFocus = { "money", "upgrades" };
     const string ClickText = "Schau mal, eine Flasche! Die bringt dir Geld. Klick sie an, dann landet sie in deiner Tasche.";
     const string FeedText = "Sehr gut! Links in deiner Tasche ist sie jetzt. Drück auf EINWERFEN, dann zahlt dir der Automat das Pfand aus.";
     static readonly string[] OutroPages =
@@ -30,7 +33,9 @@ public partial class TutorialOverlay : Control
         "Gleich kommen mehr Leute. Mit dem Geld kaufst du rechts Upgrades. Fang mit einem Weg an, dann kommen noch mehr.",
     };
 
-    ColorRect _dim;
+    Spotlight _dim;
+    string[] _focus;
+    bool _blocking;
     bool _hint;                     // Kalle gibt gerade einen Tipp (außerhalb der Einführung)
     Control _box;
     Label _text;
@@ -47,7 +52,7 @@ public partial class TutorialOverlay : Control
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         MouseFilter = MouseFilterEnum.Ignore;
 
-        _dim = new ColorRect { Color = new Color(Palette.Ink, 0.35f), MouseFilter = MouseFilterEnum.Stop };
+        _dim = new Spotlight { MouseFilter = MouseFilterEnum.Stop };
         _dim.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         AddChild(_dim);
 
@@ -108,7 +113,14 @@ public partial class TutorialOverlay : Control
             _hintPause -= delta;
             if (_hintPause <= 0) TryHint(gs);
         }
-        gs.ClockPaused = Visible && _dim.Visible;
+        gs.ClockPaused = Visible && _blocking;
+
+        // Hervorgehobene Stelle folgt ihrem Ziel (Flyer wippt, Sammler laufen)
+        if (Visible)
+        {
+            string key = _focus == null || _focus.Length == 0 ? null : _focus[System.Math.Min(_page, _focus.Length - 1)];
+            _dim.Target = key == null ? null : FocusRect?.Invoke(key);
+        }
 
         if (_wait > 0)
         {
@@ -151,6 +163,7 @@ public partial class TutorialOverlay : Control
             if (h.Skip?.Invoke(gs) ?? false) continue;
             _hint = true;
             _pages = h.Pages;
+            _focus = h.Focus;
             _page = 0;
             _wait = 0.6;
             return;
@@ -164,15 +177,18 @@ public partial class TutorialOverlay : Control
         _wait = 0;
         switch (step)
         {
-            case TutorialStep.Intro: _pages = IntroPages; _wait = 0.6; Hide(); break;
-            case TutorialStep.ClickBottle: _pages = new[] { ClickText }; _wait = 1.2; Hide(); break;
-            case TutorialStep.Feed: _pages = new[] { FeedText }; ShowPage(); break;
-            case TutorialStep.Outro: _pages = OutroPages; _wait = 1.0; Hide(); break;
-            default: _pages = null; Hide(); break;
+            case TutorialStep.Intro: _pages = IntroPages; _focus = IntroFocus; _wait = 0.6; Hide(); break;
+            case TutorialStep.ClickBottle: _pages = new[] { ClickText }; _focus = new[] { "bottle" }; _wait = 1.2; Hide(); break;
+            case TutorialStep.Feed: _pages = new[] { FeedText }; _focus = new[] { "feed" }; ShowPage(); break;
+            case TutorialStep.Outro: _pages = OutroPages; _focus = OutroFocus; _wait = 1.0; Hide(); break;
+            default: _pages = null; _focus = null; Hide(); break;
         }
     }
 
-    /// <summary>Seiten mit Knopf blenden das Spiel ab; bei Aufgaben (Flasche klicken, einwerfen) bleibt alles bedienbar.</summary>
+    /// <summary>
+    /// Alles außer der Stelle, um die es geht, wird abgedunkelt. Seiten mit Knopf halten das Spiel an;
+    /// bei Aufgaben (Flasche klicken, einwerfen) bleibt alles bedienbar.
+    /// </summary>
     void ShowPage()
     {
         if (_pages == null) return;
@@ -182,7 +198,8 @@ public partial class TutorialOverlay : Control
         _typed = 0;
         _text.VisibleCharacters = 0;
         _autoT = 0;
-        _dim.Visible = !task;
+        _blocking = !task;
+        _dim.MouseFilter = task ? MouseFilterEnum.Ignore : MouseFilterEnum.Stop;
         _next.Visible = !task;
         bool last = _page == _pages.Length - 1;
         _next.Text = !last ? "WEITER"
@@ -203,6 +220,49 @@ public partial class TutorialOverlay : Control
         if (_shownFor == TutorialStep.Intro) gs.Tutorial = TutorialStep.WatchGuest;
         else if (_shownFor == TutorialStep.Outro) gs.Tutorial = TutorialStep.Done;
         gs.Notify();
+    }
+}
+
+/// <summary>Dunkelt alles ab bis auf ein Rechteck (Target, in Bildschirmkoordinaten). Gleitet weich zum neuen Ziel.</summary>
+public partial class Spotlight : Control
+{
+    public Rect2? Target;
+    Rect2 _hole;
+    float _open;     // 0 = alles dunkel, 1 = Loch ganz offen
+    float _t;
+
+    public override void _Process(double delta)
+    {
+        _t += (float)delta;
+        float k = 1 - Mathf.Exp(-(float)delta * 12);
+        if (Target is { } t)
+        {
+            var goal = t.Grow(8);
+            _hole = _open < 0.05f ? goal : new Rect2(_hole.Position.Lerp(goal.Position, k), _hole.Size.Lerp(goal.Size, k));
+            _open = Mathf.Lerp(_open, 1, k);
+        }
+        else _open = Mathf.Lerp(_open, 0, k);
+        QueueRedraw();
+    }
+
+    public override void _Draw()
+    {
+        var dark = new Color(Palette.Ink, 0.4f);
+        var full = new Rect2(Vector2.Zero, Size);
+        if (_open < 0.02f) { DrawRect(full, dark); return; }
+
+        // Loch in lokale Koordinaten, beim Öffnen von der Mitte aus aufziehen
+        var h = _hole;
+        h.Position -= GetGlobalRect().Position;
+        var c = h.GetCenter();
+        h = new Rect2(c - h.Size * _open / 2, h.Size * _open).Intersection(full);
+        DrawRect(new Rect2(0, 0, Size.X, h.Position.Y), dark);
+        DrawRect(new Rect2(0, h.End.Y, Size.X, Size.Y - h.End.Y), dark);
+        DrawRect(new Rect2(0, h.Position.Y, h.Position.X, h.Size.Y), dark);
+        DrawRect(new Rect2(h.End.X, h.Position.Y, Size.X - h.End.X, h.Size.Y), dark);
+        // Leicht pulsierender Rahmen
+        float a = 0.6f + 0.3f * Mathf.Sin(_t * 4);
+        DrawRect(h.Grow(1), new Color(Palette.Gold, a * _open), false, 3);
     }
 }
 

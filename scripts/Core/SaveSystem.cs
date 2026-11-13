@@ -8,7 +8,7 @@ namespace Pfand.Core;
 
 public class SaveData
 {
-    public int Version { get; set; } = 5;
+    public int Version { get; set; } = 6;
     public double Money { get; set; }
     public double TotalEarned { get; set; }
     public long BottlesFed { get; set; }
@@ -21,7 +21,7 @@ public class SaveData
     public Dictionary<int, int> Caps { get; set; } = new();
     public List<string> Skills { get; set; } = new();            // nur Version 2
     public Dictionary<string, int> SkillLevels { get; set; } = new();
-    public Dictionary<string, double> Cooldowns { get; set; } = new();
+    public double EventPause { get; set; }
     public Dictionary<string, int> EventCount { get; set; } = new();
     public bool TutorialDone { get; set; }
     public bool LaterneHint { get; set; }                        // nur alte Spielstände
@@ -55,7 +55,7 @@ public static class SaveSystem
             Upgrades = new Dictionary<string, int>(s.Upgrades),
             Caps = new Dictionary<int, int>(s.Caps),
             SkillLevels = new Dictionary<string, int>(s.Skills),
-            Cooldowns = new Dictionary<string, double>(s.Cooldowns),
+            EventPause = s.EventPauseLeft,
             EventCount = new Dictionary<string, int>(s.EventCount),
             TutorialDone = !s.TutorialActive,
             SeenHints = s.SeenHints.ToList(),
@@ -94,7 +94,7 @@ public static class SaveSystem
             s.Bag = data.Bag.Where(b => Enum.IsDefined(typeof(BottleType), b)).Select(b => (BottleType)b).ToList();
             s.Upgrades = data.Upgrades ?? new();
             s.Caps = (data.Caps ?? new()).Where(kv => kv.Key >= 0 && kv.Key < CapData.Count).ToDictionary(kv => kv.Key, kv => kv.Value);
-            s.Cooldowns = data.Cooldowns ?? new();
+            s.EventPauseLeft = data.EventPause;
             s.EventCount = data.EventCount ?? new();
             // Alte Spielstände kennen die Einführung noch nicht: wer schon Flaschen eingeworfen hat, braucht sie nicht
             s.SeenHints = new HashSet<string>(data.SeenHints ?? new());
@@ -104,10 +104,8 @@ public static class SaveSystem
             s.Kronkorken = data.Version < 2 ? s.Caps.Values.Sum() : data.Kronkorken;
             if (data.Version < 3)
             {
-                // Neuer Skilltree: alte Skills zurücksetzen, Kronkorken dafür erstatten
+                // Uralter Skilltree: einfach neu anfangen
                 s.Skills = new();
-                foreach (var id in data.Skills ?? new())
-                    if (SkillDefs.OldCosts.TryGetValue(id, out var cost)) s.Kronkorken += cost;
             }
             else
             {
