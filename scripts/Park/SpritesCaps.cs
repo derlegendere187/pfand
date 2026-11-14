@@ -12,17 +12,37 @@ public static partial class Sprites
 {
     const int CapN = 24;
     static readonly Dictionary<CapData.Motif, Color?[]> CapCache = new();
+    static readonly Dictionary<CapData.Motif, Color?[]> CapGreyCache = new();
     static Color?[] _capUnknown;
+
+    /// <summary>Noch nicht gefunden: Motiv erkennbar, aber grau und blass.</summary>
+    static Color?[] Greyed(Color?[] src)
+    {
+        var res = new Color?[src.Length];
+        for (int i = 0; i < src.Length; i++)
+        {
+            if (src[i] is not Color c) continue;
+            float l = c.R * 0.3f + c.G * 0.59f + c.B * 0.11f;
+            float v = 0.52f + l * 0.32f;   // wenig Kontrast, hell
+            res[i] = new Color(v * 1.0f, v * 0.97f, v * 0.9f);
+        }
+        return res;
+    }
 
     /// <param name="p">Größe eines Feldes im alten 12er-Raster; gezeichnet wird in halber Größe auf 24×24.</param>
     public static void Cap(CanvasItem ci, Vector2 topLeft, float p, CapData.Motif m, bool found)
     {
         Color?[] img;
-        if (found)
+        if (m == null) img = _capUnknown ??= BuildCap(null);
+        else
         {
             if (!CapCache.TryGetValue(m, out img)) CapCache[m] = img = BuildCap(m);
+            if (!found)
+            {
+                if (!CapGreyCache.TryGetValue(m, out var grey)) CapGreyCache[m] = grey = Greyed(img);
+                img = grey;
+            }
         }
-        else img = _capUnknown ??= BuildCap(null);
 
         float q = p / 2;
         var o = topLeft.Round();
@@ -42,14 +62,14 @@ public static partial class Sprites
     {
         bool found = m != null;
         var img = new Color?[CapN * CapN];
-        var rim = found ? Hx("#c9ccd6") : Hx("#ddd0b2");
-        var rimHi = found ? Hx("#f0f2f8") : Hx("#efe4cc");
-        var rimLo = found ? Hx("#7c8296") : Hx("#b8a882");
+        var rim = found ? Hx(m.Rim ?? "#c9ccd6") : Hx("#ddd0b2");
+        var rimHi = found ? rim.Lerp(Colors.White, 0.6f) : Hx("#efe4cc");
+        var rimLo = found ? rim.Darkened(0.38f) : Hx("#b8a882");
         var outline = found ? Hx("#3a3c4a") : Hx("#9a8a6a");
         var face = found ? Hx(m.Face) : Hx("#e6dbc0");
 
         // Ganz bedruckte Motive reichen bis an die Zacken
-        bool fullPrint = false;
+        bool fullPrint = found && m.Hi != null;
         if (found) foreach (var px in m.Pixels) if (px.X == 1 && px.W == 10) { fullPrint = true; break; }
         float faceR = fullPrint ? 10.2f : 8.3f;
         const int teeth = 21;
@@ -79,7 +99,13 @@ public static partial class Sprites
             }
 
         // Motiv: 12er-Raster mit Fläche als Grund, per EPX verdoppelt
-        if (found)
+        if (found && m.Hi != null)
+        {
+            for (int y = 0; y < CapN; y++)
+                for (int x = 0; x < CapN; x++)
+                    if (m.Hi[y][x] != '.' && inside[y * CapN + x]) img[y * CapN + x] = Hx(CapData.InkOf(m.Hi[y][x]));
+        }
+        else if (found)
         {
             var g = new Color[12 * 12];
             for (int i = 0; i < g.Length; i++) g[i] = face;
@@ -136,8 +162,8 @@ public static partial class Sprites
                     if (qm[y][x] == 'x') img[(y + 7) * CapN + x + 8] = col;
         }
 
-        // Glanz oben links auf der Fläche
-        for (int k = 0; k < 4; k++)
+        // Glanz oben links auf der Fläche (handgezeichnete Motive haben ihren eigenen)
+        for (int k = 0; k < (found && m.Hi != null ? 0 : 4); k++)
         {
             int gx = 7 + k, gy = 6 - (k > 1 ? 1 : 0);
             int i = gy * CapN + gx;

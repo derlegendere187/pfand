@@ -114,11 +114,12 @@ public partial class AlbumPopup : Control
         var v = new VBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
         v.AddThemeConstantOverride("separation", 4);
         v.AddChild(new CapIcon { Index = i, Found = n > 0, CustomMinimumSize = new Vector2(72, 72), SizeFlagsHorizontal = SizeFlags.ShrinkCenter });
-        var name = PfandTheme.Title(n > 0 ? CapData.All[i].Name : "???", 8, n > 0 ? Palette.Ink : Palette.Muted);
+        var name = PfandTheme.Title(CapData.All[i].Name, 8, n > 0 ? Palette.Ink : Palette.Muted);
         name.HorizontalAlignment = HorizontalAlignment.Center;
         name.ClipText = true;
         v.AddChild(name);
-        var count = PfandTheme.Text(CapData.TierNames[tier] + (n > 1 ? $" · ×{n}" : n == 1 ? "" : " · fehlt"), 20, tier > 0 ? frame : Palette.Muted);
+        // Doppelte zählen; Seltenheit steht in der Rahmenfarbe
+        var count = PfandTheme.Text(n > 1 ? $"×{n}" : " ", 20, tier > 0 ? frame : Palette.Muted);
         count.HorizontalAlignment = HorizontalAlignment.Center;
         v.AddChild(count);
         cell.AddChild(v);
