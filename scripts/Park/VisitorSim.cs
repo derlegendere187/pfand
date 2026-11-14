@@ -13,6 +13,7 @@ public class Visitor
     public VisitorState State;
     public double StayTimer, DrinkTimer, SnackTimer;
     public Color Shirt, Hair, BlanketColor;
+    public int BlanketStyle;
     public bool HasBlanket;
     public Vector2 BlanketPos;
     public float BlanketOpen;      // 0 = zusammengerollt, 1 = ausgebreitet
@@ -680,6 +681,7 @@ public class VisitorSim
             Shirt = Palette.Shirts[_rng.Next(Palette.Shirts.Length)],
             Hair = Palette.Hair[_rng.Next(Palette.Hair.Length)],
             BlanketColor = Palette.Blankets[_rng.Next(Palette.Blankets.Length)],
+            BlanketStyle = _rng.Next(Sprites.BlanketStyles),
             Pos = EdgePoint(paths),
             Exit = EdgePoint(paths),
             State = VisitorState.Kommt,

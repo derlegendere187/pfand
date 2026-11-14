@@ -211,16 +211,14 @@ public partial class ParkView : Control
 
         foreach (var v in Sim.Visitors)
             if (v.HasBlanket && v.BlanketOpen > 0)
-                Sprites.BlanketOpening(this, v.BlanketPos, v.BlanketColor, v.BlanketOpen);
+                Sprites.BlanketOpening(this, v.BlanketPos, v.BlanketColor, v.BlanketStyle, v.BlanketOpen);
 
         if (gs.Level("imbiss") > 0)
         {
             var ir = ParkLayout.ImbissRect(size);
             Sprites.Imbiss(this, ir);
-            DrawString(PfandTheme.Pixel, new Vector2(ir.Position.X, ir.Position.Y + 32) + new Vector2(2, 2), "IMBISS",
-                HorizontalAlignment.Center, ir.Size.X, 28, Palette.PanelLight);
-            DrawString(PfandTheme.Pixel, new Vector2(ir.Position.X, ir.Position.Y + 32), "IMBISS",
-                HorizontalAlignment.Center, ir.Size.X, 28, Palette.Ink);
+            DrawString(PfandTheme.Pixel, new Vector2(ir.Position.X, ir.Position.Y + 26), "IMBISS",
+                HorizontalAlignment.Center, ir.Size.X, 28, Color.FromHtml("#b8432f"));
         }
 
         var benchList = ParkLayout.Benches(size, gs);
@@ -297,7 +295,7 @@ public partial class ParkView : Control
             }
             // Unterwegs trägt man die Decke zusammengerollt
             if (v.HasBlanket && v.BlanketOpen <= 0 && v.State != VisitorState.Sitzt)
-                Sprites.RolledBlanket(this, pos.Round() + new Vector2(14, 4), v.BlanketColor);
+                Sprites.RolledBlanket(this, pos.Round() + new Vector2(14, 4), v.BlanketColor, v.BlanketStyle);
         }
 
         // Tischtennisball fliegt hin und her, wenn beide Spieler da sind
@@ -451,6 +449,7 @@ public partial class ParkView : Control
     {
         foreach (var (p, sign) in WiesnBuden) Sprites.Bude(this, p * size, sign, _time);
         Sprites.Kettenkarussell(this, (new Vector2(0.38f, 0.78f) * size).Round(), _time);
+        Sprites.Maibaum(this, (new Vector2(0.60f, 0.36f) * size).Round(), _time);
         for (int t = 0; t < WiesnTables.Length; t++)
             Sprites.Biertisch(this, (WiesnTables[t] * size).Round(), _time, t);
     }
@@ -474,11 +473,14 @@ public partial class ParkView : Control
                 ? new Vector2(r.Position.X + t * r.Size.X, r.Position.Y + across * r.Size.Y)
                 : new Vector2(r.Position.X + across * r.Size.X, r.Position.Y + t * r.Size.Y);
             pos.Y += Mathf.Round(Mathf.Sin(_time * 9 + i) * 1.5f);
-            Sprites.Person(this, pos.Round(), Palette.Shirts[i % Palette.Shirts.Length], Palette.Hair[(i / 3) % Palette.Hair.Length]);
+            Sprites.Person(this, pos.Round(), Sprites.Tracht[i % Sprites.Tracht.Length], Palette.Hair[(i / 3) % Palette.Hair.Length]);
+            if (i % 4 == 1) Sprites.Hat(this, pos);
             if (i % 3 == 0) // Maßkrug in der Hand
             {
-                DrawRect(new Rect2(pos.Round() + new Vector2(10, 0), 5, 6), Palette.Gold);
-                DrawRect(new Rect2(pos.Round() + new Vector2(10, -1), 5, 2), Palette.PanelLight);
+                var m = pos.Round() + new Vector2(10, -2);
+                DrawRect(new Rect2(m - Vector2.One, 8, 10), Palette.Ink);
+                DrawRect(new Rect2(m, 6, 8), Color.FromHtml("#e8b040"));
+                DrawRect(new Rect2(m, 6, 2), Palette.PanelLight);
             }
         }
     }
