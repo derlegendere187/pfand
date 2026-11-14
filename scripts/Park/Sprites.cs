@@ -15,13 +15,35 @@ public static partial class Sprites
     /// <summary>Person von oben (8×8), zentriert auf pos.</summary>
     public static void Person(CanvasItem ci, Vector2 pos, Color shirt, Color hair, float p = 3)
     {
-        var o = pos - new Vector2(4 * p, 4 * p);
-        R(ci, o, p, 1, 7, 6, 1, new Color(0, 0, 0, 0.15f)); // Schatten
-        R(ci, o, p, 1, 3, 6, 4, shirt);
-        R(ci, o, p, 0, 4, 1, 2, Palette.Skin);
-        R(ci, o, p, 7, 4, 1, 2, Palette.Skin);
-        R(ci, o, p, 2, 0, 4, 5, hair);
-        R(ci, o, p, 3, 5, 2, 1, Palette.Skin);
+        // Feines Raster: 12×12 Kunstpixel in derselben Größe wie früher 8×8
+        float q = p / 1.5f;
+        var o = (pos - new Vector2(6 * q, 6 * q)).Round();
+        var ink = Palette.Ink;
+        var skin = Palette.Skin;
+        R(ci, o, q, 1.5f, 10.5f, 9, 1.5f, new Color(0, 0, 0, 0.18f)); // Schatten
+        // Arme
+        R(ci, o, q, -0.5f, 5.5f, 2, 4, ink);
+        R(ci, o, q, 10.5f, 5.5f, 2, 4, ink);
+        // Oberkörper
+        R(ci, o, q, 0.5f, 3.5f, 11, 7.5f, ink);
+        R(ci, o, q, 1, 4, 10, 6.5f, shirt);
+        R(ci, o, q, 1, 4, 1, 6.5f, shirt.Lightened(0.18f));
+        R(ci, o, q, 9.5f, 4, 1.5f, 6.5f, shirt.Darkened(0.18f));
+        R(ci, o, q, 1, 9.5f, 10, 1, shirt.Darkened(0.25f));
+        R(ci, o, q, 0, 6, 1, 3, skin);
+        R(ci, o, q, 11, 6, 1, 3, skin);
+        R(ci, o, q, 0, 8, 1, 1, skin.Darkened(0.12f));
+        R(ci, o, q, 11, 8, 1, 1, skin.Darkened(0.12f));
+        // Gesicht unter den Haaren
+        R(ci, o, q, 3.5f, 6, 5, 2, ink);
+        R(ci, o, q, 4, 6.5f, 4, 1, skin);
+        // Kopf mit Haaren
+        R(ci, o, q, 2.5f, -0.5f, 7, 7.5f, ink);
+        R(ci, o, q, 3, 0, 6, 6.5f, hair);
+        R(ci, o, q, 3, 0, 6, 1, hair.Lightened(0.2f));
+        R(ci, o, q, 4, 1, 2, 1, hair.Lightened(0.35f));
+        R(ci, o, q, 8, 1, 1, 5.5f, hair.Darkened(0.2f));
+        R(ci, o, q, 3, 5.5f, 6, 1, hair.Darkened(0.15f));
     }
 
     /// <summary>
@@ -153,12 +175,16 @@ public static partial class Sprites
     public static void Collector(CanvasItem ci, Vector2 pos, int carrying)
     {
         Person(ci, pos, Color.FromHtml("#e08a4a"), Color.FromHtml("#5a3a26"));
-        var o = pos - new Vector2(12, 12);
-        R(ci, o, 3, 2, 4, 4, 1, Color.FromHtml("#f2c75c")); // Reflexstreifen
+        const float q = 2;
+        var o = (pos - new Vector2(12, 12)).Round();
+        R(ci, o, q, 1, 8.5f, 10, 1, Color.FromHtml("#f2e070")); // Reflexstreifen
         if (carrying > 0)
         {
-            R(ci, o, 3, 7, 5, 3, 3, Color.FromHtml("#d9c7a3"));
-            R(ci, o, 3, 7, 5, 3, 1, Palette.MachineDark);
+            // Sack über der Schulter
+            R(ci, o, q, 9.5f, 6.5f, 5, 5, Palette.Ink);
+            R(ci, o, q, 10, 7, 4, 4, Color.FromHtml("#d9c7a3"));
+            R(ci, o, q, 10, 7, 4, 1, Color.FromHtml("#efe2c4"));
+            R(ci, o, q, 13, 7, 1, 4, Palette.MachineDark);
         }
     }
 
@@ -167,9 +193,12 @@ public static partial class Sprites
     {
         Person(ci, pos, Color.FromHtml("#6f7378"), Color.FromHtml("#4a4e54"));
         if (!carrying) return;
-        var o = pos - new Vector2(12, 12);
-        R(ci, o, 3, 8, 5, 2, 3, Color.FromHtml("#e8e4da"));
-        R(ci, o, 3, 8, 5, 2, 1, Color.FromHtml("#b8b2a4"));
+        const float q = 2;
+        var o = (pos - new Vector2(12, 12)).Round();
+        // Plastiktüte
+        R(ci, o, q, 10.5f, 6.5f, 4, 5, Palette.Ink);
+        R(ci, o, q, 11, 7, 3, 4, Color.FromHtml("#e8e4da"));
+        R(ci, o, q, 11, 7, 3, 1, Color.FromHtml("#b8b2a4"));
     }
 
     static readonly string[] LampArt =
