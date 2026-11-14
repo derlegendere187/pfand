@@ -84,8 +84,11 @@ public partial class ParkView : Control
             return;
         }
 
-        // Solange der Automat zählt, passt nichts Neues in die Tasche
-        if (gs.Feeding)
+        // Sackkarre: Kästen gehen auf einmal direkt in den Automaten, auch während er zählt
+        if (gs.HasSkill("sackkarre") && TryCrateDirect(pos, isClick)) return;
+
+        // Solange der Automat zählt, passt nichts Neues in die Tasche (außer mit "Zweite Hand")
+        if (!gs.CanCollectWhileFeeding)
         {
             if (isClick) Float(pos, "Automat zählt …", Palette.Muted);
             return;
@@ -146,6 +149,44 @@ public partial class ParkView : Control
         {
             Float(hits[0].Pos, "Tasche voll!", Palette.BadText);
         }
+    }
+
+    readonly Random _feedRng = new();
+
+    /// <summary>Kasten unter der Maus komplett einwerfen, ohne Umweg über die Tasche. true = es war ein Kasten.</summary>
+    bool TryCrateDirect(Vector2 pos, bool isClick)
+    {
+        var gs = GameState.I;
+        List<BottleType> content = null;
+        GroupCrate crate = null;
+        if (OverKasten(pos)) content = Sim.Kasten;
+        else if (CrateAt(pos) is { } c)
+        {
+            if (c.Owner != null) return false;   // gehört noch wem: normale Meldung
+            crate = c;
+            content = c.Bottles;
+        }
+        if (content == null) return false;
+        if (content.Count == 0)
+        {
+            if (isClick) Float(pos, "leer", Palette.Muted);
+            return true;
+        }
+        bool fullGrill = crate == null && content.Count >= Balance.KastenCapacity;
+        double sum = 0;
+        int n = content.Count;
+        foreach (var t in content) sum += gs.FeedDirect(t, _feedRng).value;
+        content.Clear();
+        gs.CollectedByHand += n;
+        Float(pos, $"+{GameState.Euro(sum).Replace("€ ", "")} ({n})", Palette.MoneyText);
+        if (gs.HasSkill("lastenrad"))
+        {
+            if (crate != null) { Sim.Crates.Remove(crate); KastenPfand(pos + new Vector2(0, -20)); }
+            else if (fullGrill) KastenPfand(pos + new Vector2(0, -20));
+        }
+        Sim.CleanupCrates();
+        gs.Notify();
+        return true;
     }
 
     GroupCrate CrateAt(Vector2 pos)
