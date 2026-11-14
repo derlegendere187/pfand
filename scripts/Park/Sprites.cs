@@ -249,26 +249,4 @@ public static partial class Sprites
         R(ci, o, p, 4, 0, 4, 12, c); R(ci, o, p, 2, 1, 8, 10, c); R(ci, o, p, 1, 2, 10, 8, c); R(ci, o, p, 0, 4, 12, 4, c);
         R(ci, o, p, 4, 2, 4, 8, c); R(ci, o, p, 3, 3, 6, 6, c); R(ci, o, p, 2, 4, 8, 4, c);
     }
-
-    /// <summary>Deckel mit Motiv (12×12-Raster). found=false zeichnet eine Silhouette mit Fragezeichen.</summary>
-    public static void Cap(CanvasItem ci, Vector2 topLeft, float p, CapData.Motif m, bool found)
-    {
-        var o = topLeft;
-        var ring = found ? Color.FromHtml("#c9ccd6") : Color.FromHtml("#d8ccb0");
-        var dark = found ? Color.FromHtml("#8a8fa3") : Color.FromHtml("#d8ccb0");
-        var face = found ? Color.FromHtml(m.Face) : Color.FromHtml("#d8ccb0");
-        R(ci, o, p, 4, 0, 4, 1, ring); R(ci, o, p, 2, 1, 8, 1, ring); R(ci, o, p, 1, 2, 10, 2, ring);
-        R(ci, o, p, 0, 4, 12, 4, ring); R(ci, o, p, 1, 8, 10, 2, ring); R(ci, o, p, 2, 10, 8, 1, ring); R(ci, o, p, 4, 11, 4, 1, ring);
-        R(ci, o, p, 0, 5, 1, 2, dark); R(ci, o, p, 11, 5, 1, 2, dark); R(ci, o, p, 5, 0, 2, 1, dark); R(ci, o, p, 5, 11, 2, 1, dark);
-        R(ci, o, p, 3, 2, 6, 1, face); R(ci, o, p, 2, 3, 8, 6, face); R(ci, o, p, 3, 9, 6, 1, face);
-        if (found)
-        {
-            foreach (var px in m.Pixels) R(ci, o, p, px.X, px.Y, px.W, px.H, Color.FromHtml(px.Col));
-        }
-        else
-        {
-            var q = Palette.Muted;
-            R(ci, o, p, 4, 3, 4, 1, q); R(ci, o, p, 7, 4, 1, 2, q); R(ci, o, p, 5, 6, 2, 1, q); R(ci, o, p, 5, 8, 2, 1, q);
-        }
-    }
 }

@@ -113,7 +113,7 @@ public partial class AlbumPopup : Control
         cell.CustomMinimumSize = new Vector2(118, 0);
         var v = new VBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
         v.AddThemeConstantOverride("separation", 4);
-        v.AddChild(new CapIcon { Index = i, Found = n > 0, CustomMinimumSize = new Vector2(60, 60), SizeFlagsHorizontal = SizeFlags.ShrinkCenter });
+        v.AddChild(new CapIcon { Index = i, Found = n > 0, CustomMinimumSize = new Vector2(72, 72), SizeFlagsHorizontal = SizeFlags.ShrinkCenter });
         var name = PfandTheme.Title(n > 0 ? CapData.All[i].Name : "???", 8, n > 0 ? Palette.Ink : Palette.Muted);
         name.HorizontalAlignment = HorizontalAlignment.Center;
         name.ClipText = true;
@@ -139,5 +139,5 @@ public partial class CapIcon : Control
     public bool Found;
 
     public override void _Draw()
-        => Sprites.Cap(this, Vector2.Zero, Mathf.Floor(Size.X / 12f), CapData.All[Index], Found);
+        => Sprites.Cap(this, Vector2.Zero, Mathf.Floor(Size.X / 24f) * 2, CapData.All[Index], Found);
 }
