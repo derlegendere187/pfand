@@ -12,7 +12,24 @@ public static class CapData
 {
     public record struct Px(int X, int Y, int W, int H, string Col);
 
-    public record Motif(string Set, string Name, string Face, Px[] Pixels);
+    /// <param name="Hi">Optional: von Hand gezeichnet auf dem feinen 24×24-Raster ('.' = Deckel bleibt).</param>
+    /// <param name="Rim">Optional: Farbe des Blechs (z. B. Gold statt Silber).</param>
+    public record Motif(string Set, string Name, string Face, Px[] Pixels, string[] Hi = null, string Rim = null);
+
+    /// <summary>Farbe eines Zeichens aus der Motiv-Palette.</summary>
+    public static string InkOf(char c) => Ink.TryGetValue(c, out var col) ? col : null;
+
+    /// <summary>Motiv in voller Auflösung (24×24), ganz bedruckt bis an die Zacken.</summary>
+    static Motif HiArt(string set, string name, string face, string rim, params string[] rows)
+    {
+        if (rows.Length != 24) throw new ArgumentException($"Kronkorken {name}: 24 Zeilen nötig");
+        foreach (var r in rows)
+        {
+            if (r.Length != 24) throw new ArgumentException($"Kronkorken {name}: Zeile mit {r.Length} statt 24 Zeichen");
+            foreach (var c in r) if (c != '.' && !Ink.ContainsKey(c)) throw new ArgumentException($"Kronkorken {name}: unbekannte Farbe '{c}'");
+        }
+        return new Motif(set, name, face, Array.Empty<Px>(), rows, rim);
+    }
 
     /// <summary>Farben für <see cref="Art"/>: ein Zeichen pro Farbe, '.' ist durchsichtig.</summary>
     static readonly Dictionary<char, string> Ink = new()
@@ -23,6 +40,7 @@ public static class CapData
         ['d'] = "#2f6b32", ['n'] = "#7a5434", ['m'] = "#b5651d", ['t'] = "#d9b38c", ['s'] = "#9aa0b4",
         ['S'] = "#5c6278", ['i'] = "#c9ccd6", ['e'] = "#5a4a3a", ['x'] = "#2a1d14", ['v'] = "#8a6fb0",
         ['V'] = "#5b3f86",
+        ['A'] = "#c9a24a", ['a'] = "#ead07e", ['Q'] = "#22306e", ['E'] = "#d8452e", ['C'] = "#efdcaa", ['c'] = "#c9ab6c",
     };
 
     /// <summary>
@@ -1536,17 +1554,31 @@ public static class CapData
             "rwwrrrrwwr",
             "rrrrrrrrrr",
             ".rrrrrrrr."),
-        Art("KULTMARKEN", "SPEZI", "#0b0c18",
-            ".KwKwKwKK.",
-            "wKKrrrrKKw",
-            "KKrrnnrrKK",
-            "wKrnnttrKw",
-            "KrrnttKtrK",
-            "wKrnwwttrw",
-            "KKrrwwrrKK",
-            "wKKrrrrKKw",
-            "KKwKwKwKKK",
-            ".KKwKwKKK."),
+        HiArt("KULTMARKEN", "SPEZI", "#c9a24a", "#c9a24a",
+            "........................",
+            "........................",
+            "........................",
+            "........................",
+            "........QQQWQWQQ........",
+            ".......QWWQQQQQQQ.......",
+            "......WQQWWQQWWQWQ......",
+            ".....QQWWQcCCQEWWWQ.....",
+            "....QQQWQcQCCCQEWQQQ....",
+            "....QQWEQccCQCQEEWQQ....",
+            "....QQWEQcCCCCCQEWQQ....",
+            "....QQEEEQCCCCQEEEQQ....",
+            "....QQEEAQcCcCQEEEQQ....",
+            "....QQWAAAQcCcQEEWQQ....",
+            "....QQWaAAAQcQEEEWQQ....",
+            "....QQQWAAAAQAAAWQQQ....",
+            ".....QQWWAAAAAAWWQQ.....",
+            "......QWQWWAAWWQQQ......",
+            ".......QQQQQQQWWQ.......",
+            "........QQWQWQQQ........",
+            "........................",
+            "........................",
+            "........................",
+            "........................"),
         Art("KULTMARKEN", "CLUB-MATE", "#23254a",
             "..........",
             "...wwBB...",

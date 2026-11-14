@@ -13,6 +13,7 @@ public class Visitor
     public VisitorState State;
     public double StayTimer, DrinkTimer, SnackTimer;
     public Color Shirt, Hair, BlanketColor;
+    public int BlanketStyle;
     public bool HasBlanket;
     public Vector2 BlanketPos;
     public float BlanketOpen;      // 0 = zusammengerollt, 1 = ausgebreitet
@@ -155,6 +156,22 @@ public class VisitorSim
         while (BinContents.Count < bins.Count) BinContents.Add(new List<BottleType>());
 
         if (!_seeded) Seed(gs, paths, benches, tables);
+
+        // Oktoberfest baut auf: wer seine Decke dort liegen hat, wo jetzt Buden stehen, packt ein
+        if (gs.ActiveEvent == "oktoberfest")
+        {
+            var wiesn = ParkLayout.WiesnObjects(Size);
+            foreach (var v in Visitors)
+            {
+                if (!v.HasBlanket || v.Leader != null) continue;
+                var br = BlanketRect(v.BlanketPos);
+                bool hit = false;
+                foreach (var o in wiesn) if (o.rect.Intersects(br)) { hit = true; break; }
+                if (!hit) continue;
+                if (v.State == VisitorState.Sitzt) v.StayTimer = 0;
+                else if (v.State == VisitorState.Kommt) v.HasBlanket = false;
+            }
+        }
 
         UpdateEventGuests(gs);
         if (gs.Tutorial == TutorialStep.WatchGuest && !_tutGuestSpawned) SpawnTutorialGuest(paths);
@@ -357,21 +374,14 @@ public class VisitorSim
     Vector2? CrateSpot(Vector2 blanket, List<Rect2> paths, List<Vector2> benches, List<Vector2> tables, GameState gs)
     {
         var size = new Vector2(26, 32);
-        var bins = ParkLayout.Bins(Size, gs);
-        var offsets = new[] { new Vector2(34, -16), new Vector2(-60, -16), new Vector2(-13, 24), new Vector2(-13, -58), new Vector2(40, 14), new Vector2(-66, 14) };
+        var occupied = Occupied(gs);
+        occupied.RemoveAll(o => o.name == "Decke" && o.rect == BlanketRect(blanket));
+        var offsets = new[] { new Vector2(38, -16), new Vector2(-62, -16), new Vector2(-13, 28), new Vector2(-13, -58), new Vector2(38, 10), new Vector2(-62, 10) };
         foreach (var off in offsets)
         {
             var r = new Rect2(blanket + off, size);
             if (r.Position.X < 4 || r.Position.Y < 4 || r.End.X > Size.X - 4 || r.End.Y > Size.Y - 4) continue;
-            var c = r.GetCenter();
-            bool ok = true;
-            foreach (var p in paths) if (p.Grow(4).Intersects(r)) { ok = false; break; }
-            if (ok) foreach (var b in bins) if (b.DistanceTo(c) < 36) { ok = false; break; }
-            if (ok) foreach (var b in benches) if (b.DistanceTo(c) < 48) { ok = false; break; }
-            if (ok) foreach (var t in tables) if (t.DistanceTo(c) < 56) { ok = false; break; }
-            if (ok) foreach (var k in Crates) if (new Rect2(k.Pos, size).Grow(6).Intersects(r)) { ok = false; break; }
-            if (ok && gs.Level("imbiss") > 0 && ParkLayout.ImbissRect(Size).Grow(8).Intersects(r)) ok = false;
-            if (ok && gs.Level("grill") > 0 && ParkLayout.Grill(Size).DistanceTo(c) < 70) ok = false;
+            bool ok = ParkLayout.IsFree(r, Size, paths, occupied, 4) && !BlanketRect(blanket).Intersects(r);
             if (ok) return r.Position;
         }
         return null;
@@ -680,6 +690,7 @@ public class VisitorSim
             Shirt = Palette.Shirts[_rng.Next(Palette.Shirts.Length)],
             Hair = Palette.Hair[_rng.Next(Palette.Hair.Length)],
             BlanketColor = Palette.Blankets[_rng.Next(Palette.Blankets.Length)],
+            BlanketStyle = _rng.Next(Sprites.BlanketStyles),
             Pos = EdgePoint(paths),
             Exit = EdgePoint(paths),
             State = VisitorState.Kommt,
@@ -713,7 +724,9 @@ public class VisitorSim
             int picknick = gs.Level("picknick");
             v.HasBlanket = picknick > 0
                 && _rng.NextDouble() < Balance.BlanketChanceBase + Balance.BlanketChancePerLevel * (picknick - 1);
-            var spot = FreeGrassSpot(paths, benches, tables);
+            var blanketSpot = v.HasBlanket ? FreeBlanketSpot(paths, gs) : null;
+            if (blanketSpot == null) v.HasBlanket = false;   // kein Platz frei: dann eben ohne Decke
+            var spot = blanketSpot ?? FreeGrassSpot(paths, gs);
             if (v.HasBlanket)
             {
                 v.BlanketPos = spot;
@@ -871,26 +884,43 @@ public class VisitorSim
         return n >= 2;
     }
 
-    Vector2 FreeGrassSpot(List<Rect2> paths, List<Vector2> benches, List<Vector2> tables)
+    /// <summary>Belegte Flächen für Decken und Kästen: Objekte, beim Oktoberfest auch Buden & Co., liegende Decken, Kästen.</summary>
+    List<(string name, Rect2 rect)> Occupied(GameState gs, Visitor except = null)
     {
-        Vector2 best = new(Size.X / 2, Size.Y / 4);
-        var gs = GameState.I;
-        for (int tries = 0; tries < 24; tries++)
+        var objs = ParkLayout.Objects(Size, gs);
+        if (gs.ActiveEvent == "oktoberfest") objs.AddRange(ParkLayout.WiesnObjects(Size));
+        foreach (var v in Visitors)
+            if (v != except && v.HasBlanket) objs.Add(("Decke", BlanketRect(v.BlanketPos)));
+        foreach (var k in Crates) objs.Add(("Kasten", new Rect2(k.Pos, new Vector2(26, 32))));
+        return objs;
+    }
+
+    /// <summary>Fläche einer ausgebreiteten Decke samt Fransen und Schatten.</summary>
+    public static Rect2 BlanketRect(Vector2 c) => new(c - new Vector2(33, 23), new Vector2(68, 48));
+
+    /// <summary>Freie Wiese für eine Decke: nicht auf Wegen, Objekten, anderen Decken. null, wenn nichts frei ist.</summary>
+    Vector2? FreeBlanketSpot(List<Rect2> paths, GameState gs)
+    {
+        var occupied = Occupied(gs);
+        for (int tries = 0; tries < 60; tries++)
         {
-            var p = new Vector2(Rf(50, Size.X - 50), Rf(50, Size.Y - 50));
-            bool ok = true;
-            foreach (var r in paths) if (r.Grow(30).HasPoint(p)) { ok = false; break; }
-            if (ok) foreach (var b in benches) if (b.DistanceTo(p) < 60) { ok = false; break; }
-            if (ok) foreach (var t in tables) if (t.DistanceTo(p) < 80) { ok = false; break; }
-            if (ok && gs.Level("imbiss") > 0 && ParkLayout.ImbissRect(Size).Grow(50).HasPoint(p)) ok = false;
-            if (ok && EventCenter.DistanceTo(p) < 130) ok = false;
-            if (ok && ParkLayout.Depot(Size).DistanceTo(p) < 60) ok = false;
-            if (ok && gs.Level("grill") > 0 && ParkLayout.Grill(Size).DistanceTo(p) < 100) ok = false;
-            if (ok) foreach (var v in Visitors) if (v.HasBlanket && v.BlanketPos.DistanceTo(p) < 70) { ok = false; break; }
-            if (ok) return p;
-            best = p;
+            var p = new Vector2(Mathf.Round(Rf(40, Size.X - 40)), Mathf.Round(Rf(30, Size.Y - 30)));
+            if (ParkLayout.IsFree(BlanketRect(p), Size, paths, occupied, 6)) return p;
         }
-        return best;
+        return null;
+    }
+
+    /// <summary>Irgendein Platz auf der Wiese zum Herumstehen (nicht auf Objekten).</summary>
+    Vector2 FreeGrassSpot(List<Rect2> paths, GameState gs)
+    {
+        var occupied = Occupied(gs);
+        Vector2 p = new(Size.X / 2, Size.Y / 4);
+        for (int tries = 0; tries < 30; tries++)
+        {
+            p = new Vector2(Rf(40, Size.X - 40), Rf(40, Size.Y - 40));
+            if (ParkLayout.IsFree(new Rect2(p - new Vector2(12, 14), new Vector2(24, 28)), Size, paths, occupied, 4)) return p;
+        }
+        return p;
     }
 
     Vector2 EdgePoint(List<Rect2> paths)

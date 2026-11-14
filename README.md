@@ -91,6 +91,9 @@ Danach in Godot einfach wieder ▶ drücken.
   Liegt Godot nicht im `PATH`, den vollen Pfad zur `.exe` angeben. Mit winget installiert, liegt sie unter `%LOCALAPPDATA%\Microsoft\WinGet\Packages\GodotEngine.GodotEngine.Mono_…\`.
 
 ## Steuerung
+- Das Spiel startet im Vollbild mit einem Startbildschirm: Weiterspielen, Neues Spiel, Optionen, Spiel verlassen
+- Optionen: Vollbild oder Fenster, Fenstergröße (alle gängigen Auflösungen, die auf den Bildschirm passen), VSync. Jedes Seitenverhältnis geht (4:3, 16:10, 16:9, 21:9, 32:9 …), das Spielfeld wird einfach breiter oder höher
+- Esc im Spiel: Pause mit Weiterspielen, Optionen, Speichern und Beenden
 - Beim ersten Start erklärt Kalle, ein alter Pfandsammler, wie alles funktioniert. Danach taucht er immer wieder auf und erklärt Neues (Laterne um 22 Uhr, Mülleimer, Kronkorken und Skilltree, Events …)
 - Flaschen anklicken (oder mit gedrückter Maustaste drüberwischen) → in die Tasche. Drüberwischen leert auch Mülleimer und Kästen
 - Flaschen, die zu lange liegen (60 s), holt ein fremder Sammler ab. In Mülleimern und Kästen bleiben sie liegen
@@ -104,7 +107,7 @@ Danach in Godot einfach wieder ▶ drücken.
 - Im **PARK-Ast** des Skilltrees schaltest du neue Upgrades frei (Picknickdecke, Mülleimer, Bank, Sammler, Imbiss, Grill …) und baust alle Objekte einer Sorte auf einmal aus (Tische an Bänken, größere Eimer …). Danach kaufst du sie rechts mit Geld
 - **Events** erscheinen erst, wenn sie im Skilltree gelernt sind. Sie kosten Kronkorken, werden mit jedem Mal etwas teurer (höchstens doppelt) und machen alle Flaschen mehr wert, solange sie laufen. Nach jedem Event haben alle Events 5 Minuten Pause. Jedes Event hat im Skilltree einen eigenen Ausbau (EVENT+)
 - **Aktionen** (Pfandaktion, Happy Hour, Glückssträhne) sind kurze Gratis-Boosts. Nach dem Freischalten liegt ab und zu ein Flyer im Park, den man direkt anklicken muss, bevor er wegweht
-- Skilltree: Maus über einen Knoten zeigt, was er bringt und kostet. Fläche mit der Maus ziehen, Knoten anklicken, „Lernen“ oder Doppelklick
+- Skilltree: Maus über einen Knoten zeigt, was er bringt und kostet. Klick lernt, Ziehen verschiebt die Fläche. Gesperrte Äste tragen ein Schloss
 - Bierkasten (am Grill oder von Freundesgruppen stehen gelassen) anklicken → Inhalt in die Tasche, so viel passt. Kästen von Gruppen, die noch picknicken, gehen erst, wenn die Gruppe weg ist. Mit Lastenrad nimmst du leere Kästen mit und bekommst € 1,50 Kastenpfand
 - Je weiter ein Knoten im Skilltree von der Wurzel weg ist, desto teurer ist er
 - **Stats** unten rechts zeigt die Statistik
@@ -137,13 +140,16 @@ Nach `--` anhängen, z. B. `... --path . -- --fresh --money=50`:
 | `--time=0.7` | Tageszeit setzen (0–1; ab 0.62 Abend, ab 0.82 Nacht) |
 | `--speed=4` | Spiel schneller laufen lassen |
 | `--screenshot=PFAD --shotdelay=3` | Bildschirmfoto speichern und beenden |
+| `--window=1920x1080` | im Fenster mit dieser Größe starten (Seitenverhältnisse prüfen) |
+| `--title` | Startbildschirm zeigen (mit Debug-Parametern geht es sonst direkt ins Spiel) |
+| `--layoutcheck` | prüft, ob feste Plätze (Eimer, Bänke, Laternen …) sich überschneiden oder auf Wegen liegen, und beendet; mit `--wiesn` inklusive Oktoberfest |
 
 ## Aufbau
 - `scripts/Core` – Spielstand, Zahlen (`Balance.cs`), Upgrades, Deckel, Speichern
 - `scripts/Park` – Spielfeld, Besucher-Simulation, Pixel-Grafiken
 - `scripts/UI` – Kopfzeile, Automat, Upgrades, Album, Theme
 
-Der Spielstand liegt unter `%APPDATA%\Godot\app_userdata\Pfand\save.json`.
+Der Spielstand liegt unter `%APPDATA%\Godot\app_userdata\Pfand\save.json`, die Anzeige-Einstellungen daneben in `settings.cfg`.
 
 ## Schriftarten
-Press Start 2P und VT323, beide unter der SIL Open Font License (siehe `assets/fonts/OFL-*.txt`).
+VT323 (Press Start 2P liegt noch bei, wird aber nicht mehr benutzt), beide unter der SIL Open Font License (siehe `assets/fonts/OFL-*.txt`).

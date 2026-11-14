@@ -30,6 +30,9 @@ namespace Pfand;
 ///   --speed=4          Spiel schneller laufen lassen
 ///   --screenshot=PFAD  nach --shotdelay Sekunden Bildschirmfoto speichern und beenden
 ///   --shotdelay=3
+///   --window=1920x1080 im Fenster mit dieser Größe starten (Seitenverhältnisse prüfen)
+///   --layoutcheck      Überschneidungen fester Plätze ausgeben (mit --wiesn auch Oktoberfest) und beenden
+///   --title            Startbildschirm zeigen (sonst springen Debug-Parameter direkt ins Spiel)
 /// </summary>
 public partial class Main : Control
 {
@@ -50,14 +53,51 @@ public partial class Main : Control
     HeaderBar _header;
     EventPanel _eventPanel;
 
+    bool _started;
+    PauseMenu _pause;
+
     public override void _Ready()
     {
         GetTree().AutoAcceptQuit = false;
         _args = ParseArgs();
-        var gs = GameState.I;
+        Theme = PfandTheme.Build();
+        // Debug: Fenstergröße erzwingen, um andere Seitenverhältnisse zu prüfen
+        if (_args.TryGetValue("window", out var win) && win.Split('x') is { Length: 2 } wh && int.TryParse(wh[0], out var ww) && int.TryParse(wh[1], out var hh))
+        {
+            DisplayServer.WindowSetMode(DisplayServer.WindowMode.Windowed);
+            DisplayServer.WindowSetSize(new Vector2I(ww, hh));
+        }
+        // Knöpfe nehmen keinen Tastatur-Fokus: sonst löst die Leertaste den zuletzt geklickten Knopf erneut aus
+        GetTree().NodeAdded += n => { if (n is BaseButton b) b.FocusMode = FocusModeEnum.None; };
 
+        // Mit Debug-Parametern geht es direkt ins Spiel (im Fenster, wie Godot es öffnet)
+        if (_args.Count > 0 && !_args.ContainsKey("title"))
+        {
+            StartGame(true);
+            return;
+        }
+        Settings.Load();
+        if (_args.Count == 0) Settings.Apply();
+        if (_args.TryGetValue("screenshot", out var shotT)) { _shotPath = shotT; _shotDelay = 2; _startMs = Time.GetTicksMsec(); }
+        var bg = new ColorRect { Color = Wood.Bg };
+        bg.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        AddChild(bg);
+        var title = new TitleScreen();
+        title.Start += cont =>
+        {
+            title.QueueFree();
+            bg.QueueFree();
+            StartGame(cont);
+        };
+        AddChild(title);
+    }
+
+    /// <summary>Spiel aufbauen. cont = Spielstand laden, sonst neu mit Einführung.</summary>
+    void StartGame(bool cont)
+    {
+        var gs = GameState.I;
         _noSave = _args.ContainsKey("fresh");
-        bool loaded = !_noSave && SaveSystem.Load(gs);
+        bool loaded = cont && !_noSave && SaveSystem.Load(gs);
         // Ganz neues Spiel: Kalle erklärt erst einmal alles (Debug-Startwerte überspringen das)
         if (!loaded) gs.Tutorial = TutorialStep.Intro;
         bool debugStart = false;
@@ -94,6 +134,14 @@ public partial class Main : Control
             {
                 var kv = pair.Split(':');
                 if (kv.Length == 2 && int.TryParse(kv[1], out var lvl)) gs.Upgrades[kv[0]] = lvl;
+        if (_args.ContainsKey("layoutcheck"))
+        {
+            // Prüfmodus: Überschneidungen fester Plätze ausgeben und beenden
+            foreach (var line in Pfand.Park.ParkLayout.Check(Pfand.Park.ParkFrame.World, gs, _args.ContainsKey("wiesn")))
+                GD.Print("LAYOUT ", line);
+            GD.Print("LAYOUT fertig");
+            GetTree().Quit();
+        }
             }
         if (_args.ContainsKey("imbiss")) gs.Upgrades["imbiss"] = 1;
         if (_args.TryGetValue("time", out var t) && double.TryParse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var time)) gs.TimeOfDay = time;
@@ -112,11 +160,8 @@ public partial class Main : Control
         if (debugStart) KalleHints.MarkCurrent(gs);
         if (_args.TryGetValue("hint", out var hintId)) gs.SeenHints.Remove(hintId);
 
-        // Knöpfe nehmen keinen Tastatur-Fokus: sonst löst die Leertaste den zuletzt geklickten Knopf erneut aus
-        GetTree().NodeAdded += n => { if (n is BaseButton b) b.FocusMode = FocusModeEnum.None; };
-
-        Theme = PfandTheme.Build();
         BuildUi();
+        _started = true;
         gs.Changed += RefreshAlbumButton;
         gs.Notify();
         if (_args.TryGetValue("open", out var open))
@@ -143,47 +188,48 @@ public partial class Main : Control
 
     void BuildUi()
     {
-        var bg = new ColorRect { Color = Palette.Bg };
+        var bg = new ColorRect { Color = Wood.Bg };
         bg.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         AddChild(bg);
 
         var margin = new MarginContainer();
         margin.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         foreach (var side in new[] { "left", "right", "top", "bottom" })
-            margin.AddThemeConstantOverride("margin_" + side, 20);
+            margin.AddThemeConstantOverride("margin_" + side, 16);
         AddChild(margin);
 
         var root = new VBoxContainer();
-        root.AddThemeConstantOverride("separation", 14);
+        root.AddThemeConstantOverride("separation", 12);
         margin.AddChild(root);
 
         var header = _header = new HeaderBar();
         root.AddChild(header);
 
         var body = new HBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
-        body.AddThemeConstantOverride("separation", 20);
+        body.AddThemeConstantOverride("separation", 12);
         root.AddChild(body);
 
         // Links: Automat
-        var left = Column("AUTOMAT", 200);
+        var left = Column(214);
         _automat = new AutomatPanel();
         left.AddChild(_automat);
         body.AddChild(left);
 
         // Mitte: Spielfeld
-        var middle = Column("SPIELFELD · STADTPARK", 0);
+        var middle = Column(0);
         middle.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        var frame = PfandTheme.Panel(Palette.Border, null, 0);
-        frame.AddThemeStyleboxOverride("panel", PfandTheme.Box(Palette.Grass, Palette.Border, 4, 4));
+        var frame = new PanelContainer();
+        frame.AddThemeStyleboxOverride("panel", new StyleBoxEmpty());
         frame.SizeFlagsVertical = SizeFlags.ExpandFill;
-        var park = _park = new ParkView();
-        frame.AddChild(park);
+        var parkFrame = new Pfand.Park.ParkFrame();
+        var park = _park = parkFrame.Park;
+        frame.AddChild(parkFrame);
         middle.AddChild(frame);
         body.AddChild(middle);
         header.Park = park;
 
         // Rechts: Tabs Upgrades/Events, darunter Album + Skilltree
-        var right = new VBoxContainer { CustomMinimumSize = new Vector2(270, 0) };
+        var right = new VBoxContainer { CustomMinimumSize = new Vector2(276, 0) };
         right.AddThemeConstantOverride("separation", 8);
         var tabs = new HBoxContainer();
         tabs.AddThemeConstantOverride("separation", 6);
@@ -224,7 +270,7 @@ public partial class Main : Control
         statsButton.Pressed += _stats.Open;
 
         // Kronkorken-Meldung steigt im Park neben dem Automaten auf
-        AddChild(new CapToast { Anchor = () => park.GetGlobalRect().Position + new Vector2(14, 80) });
+        AddChild(new CapToast { Anchor = () => park.ToScreen(new Vector2(14, 80)) });
 
         var tutorial = new TutorialOverlay
         {
@@ -233,6 +279,9 @@ public partial class Main : Control
             FocusRect = FocusRect,
         };
         AddChild(tutorial);
+
+        _pause = new PauseMenu { Busy = () => _skills.Visible || _album.Visible || _stats.Visible, SaveGame = Save };
+        AddChild(_pause);
     }
 
     /// <summary>Worauf Kalle gerade zeigt, in Bildschirmkoordinaten. null: nichts Bestimmtes.</summary>
@@ -240,9 +289,8 @@ public partial class Main : Control
     {
         var gs = GameState.I;
         var sim = _park.Sim;
-        var origin = _park.GetGlobalRect().Position;
         var parkRect = _park.GetGlobalRect();
-        Rect2 Around(Vector2 p, float r) => new Rect2(origin + p - new Vector2(r, r), new Vector2(2 * r, 2 * r)).Intersection(parkRect.Grow(-8));
+        Rect2 Around(Vector2 p, float r) => _park.ToScreen(new Rect2(p - new Vector2(r, r), new Vector2(2 * r, 2 * r))).Intersection(parkRect.Grow(-8));
         switch (key)
         {
             case "park": return _park.GetGlobalRect();
@@ -256,7 +304,7 @@ public partial class Main : Control
             case "album": return _albumButton.Visible ? _albumButton.GetGlobalRect() : null;
             case "events": return _tabEvents.Visible ? _tabEvents.GetGlobalRect() : null;
             case "bottle": return sim.Bottles.Count > 0 ? Around(sim.Bottles[0].Pos, 24) : null;
-            case "flyer": return sim.Flyer is { } f ? new Rect2(origin + f.Rect.Position, f.Rect.Size).Grow(14) : null;
+            case "flyer": return sim.Flyer is { } f ? _park.ToScreen(f.Rect.Grow(14)) : null;
             case "collector": return sim.Collectors.Count > 0 ? Around(sim.Collectors[0].Pos, 26) : null;
             case "stranger":
                 foreach (var s in sim.Strangers) if (s.Carrying) return Around(s.Pos, 28);
@@ -267,7 +315,7 @@ public partial class Main : Control
             case "grill":
                 var g = Pfand.Park.ParkLayout.Grill(_park.Size);
                 var k = Pfand.Park.ParkLayout.KastenRect(_park.Size);
-                return new Rect2(origin + k.Position, k.Size).Merge(Around(g, 44));
+                return _park.ToScreen(k).Merge(Around(g, 44));
         }
         return null;
     }
@@ -275,12 +323,16 @@ public partial class Main : Control
     Button TabButton(string text)
     {
         var b = new Button { Text = text, ToggleMode = true, CustomMinimumSize = new Vector2(0, 40), SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        b.AddThemeFontOverride("font", PfandTheme.Pixel);
-        b.AddThemeFontSizeOverride("font_size", 8);
-        b.AddThemeStyleboxOverride("normal", PfandTheme.Box(Palette.PanelShade, Palette.Border, 4, 6));
-        b.AddThemeStyleboxOverride("hover", PfandTheme.Box(Palette.Panel, Palette.Border, 4, 6));
-        b.AddThemeStyleboxOverride("pressed", PfandTheme.Box(Palette.PanelLight, Palette.Border, 4, 6));
-        b.AddThemeStyleboxOverride("hover_pressed", PfandTheme.Box(Palette.PanelLight, Palette.Border, 4, 6));
+        b.AddThemeFontSizeOverride("font_size", 26);
+        // Reiter: aktiver Reiter ist helles Holz, inaktive dunkler
+        b.AddThemeStyleboxOverride("normal", PfandTheme.ButtonBox(Wood.Slot, Wood.Plank2, Wood.SlotEdge));
+        b.AddThemeStyleboxOverride("hover", PfandTheme.ButtonBox(Wood.Plank2, Wood.GrainLight, Wood.GrainDark));
+        b.AddThemeStyleboxOverride("pressed", PfandTheme.ButtonBox(Wood.Plank, Wood.GrainLight, Wood.GrainDark));
+        b.AddThemeStyleboxOverride("hover_pressed", PfandTheme.ButtonBox(Wood.Plank, Wood.GrainLight, Wood.GrainDark));
+        b.AddThemeColorOverride("font_color", Wood.Muted);
+        b.AddThemeColorOverride("font_hover_color", Wood.Ink);
+        b.AddThemeColorOverride("font_pressed_color", Wood.Ink);
+        b.AddThemeColorOverride("font_hover_pressed_color", Wood.Ink);
         return b;
     }
 
@@ -294,16 +346,16 @@ public partial class Main : Control
 
     Button BrownButton(string title, out Label count)
     {
-        var button = new Button { CustomMinimumSize = new Vector2(0, 64), SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        button.AddThemeStyleboxOverride("normal", PfandTheme.Box(Palette.AlbumCover, Palette.Border, 4, 6));
-        button.AddThemeStyleboxOverride("hover", PfandTheme.Box(Color.FromHtml("#7d4b33"), Palette.Border, 4, 6));
-        button.AddThemeStyleboxOverride("pressed", PfandTheme.Box(Color.FromHtml("#4a2a1c"), Palette.Border, 4, 6));
+        var button = new Button { CustomMinimumSize = new Vector2(0, 62), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        button.AddThemeStyleboxOverride("normal", PfandTheme.WoodPanel(6, false));
+        button.AddThemeStyleboxOverride("hover", PfandTheme.ButtonBox(Wood.GrainLight, Wood.Nail, Wood.GrainDark));
+        button.AddThemeStyleboxOverride("pressed", PfandTheme.ButtonBox(Wood.Plank2, Wood.GrainDark, Wood.Plank2));
         var col = new VBoxContainer { Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore };
         col.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         col.AddThemeConstantOverride("separation", 2);
-        var t = PfandTheme.Title(title, 8, Palette.AlbumPage);
+        var t = PfandTheme.Text(title, 24, Wood.Ink);
         t.HorizontalAlignment = HorizontalAlignment.Center;
-        count = PfandTheme.Text("", 24, Palette.AlbumPage);
+        count = PfandTheme.Text("", 22, Wood.Accent);
         count.HorizontalAlignment = HorizontalAlignment.Center;
         col.AddChild(t);
         col.AddChild(count);
@@ -311,13 +363,10 @@ public partial class Main : Control
         return button;
     }
 
-    VBoxContainer Column(string title, float width)
+    VBoxContainer Column(float width)
     {
         var col = new VBoxContainer { CustomMinimumSize = new Vector2(width, 0) };
         col.AddThemeConstantOverride("separation", 8);
-        var l = PfandTheme.Title(title, 8, Palette.Muted);
-        l.HorizontalAlignment = HorizontalAlignment.Center;
-        col.AddChild(l);
         return col;
     }
 
@@ -335,6 +384,13 @@ public partial class Main : Control
 
     public override void _Process(double delta)
     {
+        if (_shotPath != null && (Time.GetTicksMsec() - _startMs) / 1000.0 >= _shotDelay)
+        {
+            var path = _shotPath;
+            _shotPath = null;
+            TakeScreenshot(path);
+        }
+        if (!_started) return;
         GameState.I.PlayTime += delta;
         _statsCount.Text = $"{(int)(GameState.I.PlayTime / 60)} min";
         _saveAcc += delta;
@@ -344,12 +400,6 @@ public partial class Main : Control
             Save();
         }
 
-        if (_shotPath != null && (Time.GetTicksMsec() - _startMs) / 1000.0 >= _shotDelay)
-        {
-            var path = _shotPath;
-            _shotPath = null;
-            TakeScreenshot(path);
-        }
     }
 
     async void TakeScreenshot(string path)
@@ -363,7 +413,7 @@ public partial class Main : Control
 
     void Save()
     {
-        if (!_noSave) SaveSystem.Save(GameState.I);
+        if (_started && !_noSave) SaveSystem.Save(GameState.I);
     }
 
     // --- Nur zum Testen: Zeitraffer per Zifferntaste (gibt es im fertigen Spiel nicht) ---

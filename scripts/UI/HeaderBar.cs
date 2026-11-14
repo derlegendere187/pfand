@@ -4,35 +4,42 @@ using Pfand.Park;
 
 namespace Pfand.UI;
 
-/// <summary>Kopfzeile: Spielname links, Kennzahlen rechts.</summary>
-public partial class HeaderBar : HBoxContainer
+/// <summary>Kopfzeile: ein Holzbrett mit Spielname links und den Kennzahlen rechts.</summary>
+public partial class HeaderBar : PanelContainer
 {
     public ParkView Park;
-    Label _money, _visitors, _rate, _clock;
+    Label _money, _visitors, _rate, _clock, _event;
+    HBoxContainer _row;
 
     public Rect2 MoneyRect => _money.GetParent<Control>().GetGlobalRect();
     double _acc;
 
     public override void _Ready()
     {
-        CustomMinimumSize = new Vector2(0, 52);
-        AddThemeConstantOverride("separation", 12);
+        AddThemeStyleboxOverride("panel", PfandTheme.WoodPanel(10));
+        _row = new HBoxContainer();
+        _row.AddThemeConstantOverride("separation", 22);
+        AddChild(_row);
 
-        var logo = PfandTheme.Panel(Palette.Panel, null, 10);
-        var logoRow = new HBoxContainer();
-        logoRow.AddThemeConstantOverride("separation", 12);
-        logoRow.AddChild(new BottleIcon { CustomMinimumSize = new Vector2(14, 32) });
-        var name = PfandTheme.Title("PFAND", 24);
+        var logo = new HBoxContainer();
+        logo.AddThemeConstantOverride("separation", 10);
+        logo.AddChild(new BottleIcon { CustomMinimumSize = new Vector2(14, 32) });
+        var name = PfandTheme.Text("Pfand", 40, Wood.Ink);
         name.VerticalAlignment = VerticalAlignment.Center;
-        logoRow.AddChild(name);
-        logo.AddChild(logoRow);
-        AddChild(logo);
+        logo.AddChild(name);
+        _row.AddChild(logo);
 
-        AddChild(PfandTheme.Spacer());
-        _money = Stat("GELD", Palette.MoneyText);
-        _visitors = Stat("BESUCHER", Palette.Ink);
-        _rate = Stat("FLASCHEN/MIN", Palette.GoodText);
-        _clock = Stat("UHRZEIT", Palette.Ink);
+        // Laufendes Event und Aktionen, z. B. „OKTOBERFEST 2:12 · Flaschen ×1,75 wert“
+        _event = PfandTheme.Text("", 26, Wood.Accent);
+        _event.VerticalAlignment = VerticalAlignment.Center;
+        _event.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _event.ClipText = true;
+        _event.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+        _row.AddChild(_event);
+        _money = Stat("Geld", Wood.Accent);
+        _visitors = Stat("Besucher", Wood.Ink);
+        _rate = Stat("Flaschen/min", Wood.Ink);
+        _clock = Stat("", Wood.Ink);
         GameState.I.Changed += Refresh;
         Refresh();
     }
@@ -41,17 +48,18 @@ public partial class HeaderBar : HBoxContainer
 
     Label Stat(string caption, Color valueColor)
     {
-        var box = PfandTheme.Panel(Palette.Panel, null, 6);
-        var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 10);
-        var cap = PfandTheme.Text(caption, 22, Palette.Muted);
-        cap.VerticalAlignment = VerticalAlignment.Center;
-        var val = PfandTheme.Text("", 28, valueColor);
+        var box = new HBoxContainer();
+        box.AddThemeConstantOverride("separation", 8);
+        if (caption != "")
+        {
+            var cap = PfandTheme.Text(caption, 22, Wood.Muted);
+            cap.VerticalAlignment = VerticalAlignment.Center;
+            box.AddChild(cap);
+        }
+        var val = PfandTheme.Text("", 30, valueColor);
         val.VerticalAlignment = VerticalAlignment.Center;
-        row.AddChild(cap);
-        row.AddChild(val);
-        box.AddChild(row);
-        AddChild(box);
+        box.AddChild(val);
+        _row.AddChild(box);
         return val;
     }
 
@@ -71,6 +79,19 @@ public partial class HeaderBar : HBoxContainer
         _rate.Text = Park == null ? "0" : Park.Sim.BottlesPerMinute.ToString();
         string phase = gs.Phase switch { DayPhase.Tag => "Tag", DayPhase.Abend => "Abend", _ => "Nacht" };
         _clock.Text = $"{gs.ClockText()} {phase}";
+        _event.Text = EventText(gs);
+    }
+
+    static string EventText(GameState gs)
+    {
+        var parts = new System.Collections.Generic.List<string>();
+        if (gs.ActiveEvent != null && EventDefs.Get(gs.ActiveEvent) is { } ev)
+            parts.Add($"{ev.Name} {GameState.Seconds(gs.EventTimeLeft)}");
+        foreach (var kv in gs.ActiveBoosts)
+            if (EventDefs.Get(kv.Key) is { } b) parts.Add($"{b.Name} {GameState.Seconds(kv.Value)}");
+        double bonus = gs.EventValueBonus;
+        if (bonus > 1.001) parts.Add($"Flaschen ×{bonus.ToString("0.##").Replace('.', ',')} wert");
+        return string.Join("  ·  ", parts);
     }
 }
 
