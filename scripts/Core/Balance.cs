@@ -59,7 +59,7 @@ public static class Balance
     public const double BinChanceMax = 0.8;
     public const int BinCapacity = 15;
     public const int BinCapacityPerLevel = 3;        // Skill "Große Eimer"
-    public const double BinRingChancePerLevel = 0.03; // Skill "Pfandringe": pro Eimer
+    public const double BinRingChancePerLevel = 0.03; // Skill "Pfandtonne": pro Eimer
 
     // Liegen gelassene Flaschen nehmen nach einer Weile andere Leute mit (Eimer und Kästen nicht)
     public const int BottleLifetime = 60;            // Sekunden

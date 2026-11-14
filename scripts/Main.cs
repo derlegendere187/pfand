@@ -31,6 +31,7 @@ namespace Pfand;
 ///   --screenshot=PFAD  nach --shotdelay Sekunden Bildschirmfoto speichern und beenden
 ///   --shotdelay=3
 ///   --window=1920x1080 im Fenster mit dieser Größe starten (Seitenverhältnisse prüfen)
+///   --layoutcheck      Überschneidungen fester Plätze ausgeben (mit --wiesn auch Oktoberfest) und beenden
 ///   --title            Startbildschirm zeigen (sonst springen Debug-Parameter direkt ins Spiel)
 /// </summary>
 public partial class Main : Control
@@ -133,6 +134,14 @@ public partial class Main : Control
             {
                 var kv = pair.Split(':');
                 if (kv.Length == 2 && int.TryParse(kv[1], out var lvl)) gs.Upgrades[kv[0]] = lvl;
+        if (_args.ContainsKey("layoutcheck"))
+        {
+            // Prüfmodus: Überschneidungen fester Plätze ausgeben und beenden
+            foreach (var line in Pfand.Park.ParkLayout.Check(Pfand.Park.ParkFrame.World, gs, _args.ContainsKey("wiesn")))
+                GD.Print("LAYOUT ", line);
+            GD.Print("LAYOUT fertig");
+            GetTree().Quit();
+        }
             }
         if (_args.ContainsKey("imbiss")) gs.Upgrades["imbiss"] = 1;
         if (_args.TryGetValue("time", out var t) && double.TryParse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var time)) gs.TimeOfDay = time;

@@ -253,8 +253,7 @@ public partial class ParkView : Control
         {
             float fill = i < Sim.BinContents.Count ? Sim.BinContents[i].Count / (float)gs.BinCapacity(i) : 0;
             int binLvl = gs.AusbauLevel("muelleimer", i);
-            if (binLvl >= 2) Sprites.Pfandring(this, bins[i]);
-            Sprites.Bin(this, bins[i], fill, binLvl >= 1 ? 5 : 4);
+            Sprites.Bin(this, bins[i], fill, binLvl >= 1 ? 5 : 4, binLvl >= 2);
         }
 
         foreach (var b in Sim.Bottles)
@@ -328,7 +327,6 @@ public partial class ParkView : Control
         if (Sim.Flyer is { } fl) DrawFlyer(fl);
 
         // Laufende Events und Aktionen unten rechts
-        StatusLines(gs, size);
 
 
         foreach (var s in Sim.Strangers)
@@ -353,6 +351,8 @@ public partial class ParkView : Control
             if (dark > 0.05f) Sprites.Glow(this, l, Mathf.Clamp(dark * 2.5f, 0, 1));
             Sprites.Lamp(this, l);
         }
+
+        if (wiesn) DrawSoeder(gs, size);
 
         // Eimer-Füllstand als Zahl
         var font = PfandTheme.Body;
@@ -437,21 +437,83 @@ public partial class ParkView : Control
     }
 
     // --- Oktoberfest: der ganze Park ist voll ---
-    static readonly Vector2[] WiesnTables = { new(0.22f, 0.64f), new(0.64f, 0.74f), new(0.92f, 0.40f), new(0.30f, 0.92f), new(0.27f, 0.09f) };
-    static readonly (Vector2 pos, string sign)[] WiesnBuden =
-    {
-        (new(0.07f, 0.08f), "brezel"), (new(0.93f, 0.08f), "herz"), (new(0.93f, 0.62f), "brezel"),
-        (new(0.05f, 0.36f), "herz"), (new(0.56f, 0.64f), "brezel"), (new(0.07f, 0.94f), "herz"),
-    };
-
     /// <summary>Bierbänke voller Leute, Buden und ein Kettenkarussell.</summary>
     void DrawWiesnGround(Vector2 size)
     {
-        foreach (var (p, sign) in WiesnBuden) Sprites.Bude(this, p * size, sign, _time);
-        Sprites.Kettenkarussell(this, (new Vector2(0.38f, 0.78f) * size).Round(), _time);
-        Sprites.Maibaum(this, (new Vector2(0.60f, 0.36f) * size).Round(), _time);
-        for (int t = 0; t < WiesnTables.Length; t++)
-            Sprites.Biertisch(this, (WiesnTables[t] * size).Round(), _time, t);
+        foreach (var (p, sign) in ParkLayout.WiesnBuden) Sprites.Bude(this, ParkLayout.At(p, size), sign, _time);
+        Sprites.Kettenkarussell(this, ParkLayout.At(ParkLayout.KarussellAt, size), _time);
+        Sprites.Maibaum(this, ParkLayout.At(ParkLayout.MaibaumAt, size), _time);
+        for (int t = 0; t < ParkLayout.WiesnTables.Length; t++)
+            Sprites.Biertisch(this, ParkLayout.At(ParkLayout.WiesnTables[t], size), _time, t);
+    }
+
+    // --- Oktoberfest: Markus Söder schlendert über den Hauptweg und redet ---
+    static readonly string[] SoederLines =
+    {
+        "Servus mitanand, i bin da Markus!",
+        "Bayern is einfach des schönste Land.",
+        "Erst amoi a Brezn.",
+        "O'zapft is!",
+        "A Maß geht immer.",
+        "Des is Heimat, Leit!",
+        "Pfand sammeln? Vorbildlich!",
+        "Schaut's euch des Zelt o. Sauber!",
+        "Mia san mia.",
+        "Foto? Freilich, kommt's her!",
+    };
+
+    const float SoederWalk = 4f, SoederPause = 3.5f, SoederSpeed = 30f;
+
+    /// <summary>Söder läuft ein Stück, bleibt stehen und sagt was. Hin und her auf dem Hauptweg.</summary>
+    void DrawSoeder(GameState gs, Vector2 size)
+    {
+        var paths = ParkLayout.Paths(size, gs);
+        Rect2 track = paths.Count > 0 && paths[0].Size.X > paths[0].Size.Y ? paths[0] : new Rect2(0, size.Y * 0.45f, size.X, 32);
+        float y = track.GetCenter().Y + 2;
+        float x0 = 40, len = size.X - 80;
+
+        float cycle = SoederWalk + SoederPause;
+        int k = (int)(_time / cycle);
+        float inCycle = _time % cycle;
+        bool walking = inCycle < SoederWalk;
+        float s = (k * SoederWalk + Mathf.Min(inCycle, SoederWalk)) * SoederSpeed % (2 * len);
+        float x = s < len ? x0 + s : x0 + 2 * len - s;
+        var pos = new Vector2(x, y + (walking ? Mathf.Round(Mathf.Sin(_time * 9) * 1.5f) : 0)).Round();
+
+        // Figur: Trachtenjanker, dunkle Haare, Maßkrug in der Hand
+        Sprites.Person(this, pos, Color.FromHtml("#4a5a3a"), Color.FromHtml("#2a2420"));
+        DrawRect(new Rect2(pos + new Vector2(-6, -1), 12, 2), Color.FromHtml("#e8e4dc")); // Hemdkragen
+        var m = pos + new Vector2(11, -2);
+        DrawRect(new Rect2(m - Vector2.One, 8, 10), Palette.Ink);
+        DrawRect(new Rect2(m, 6, 8), Color.FromHtml("#e8b040"));
+        DrawRect(new Rect2(m, 6, 2), Palette.PanelLight);
+
+        // Sprechblase, solange er steht (und kurz danach)
+        if (walking && inCycle > 0.8f) return;
+        string line = SoederLines[k % SoederLines.Length];
+        SpeechBubble(pos + new Vector2(0, -18), line, size);
+    }
+
+    /// <summary>Pixel-Sprechblase mit Spitze nach unten zu anchor, bleibt im Park.</summary>
+    void SpeechBubble(Vector2 anchor, string text, Vector2 size)
+    {
+        var font = PfandTheme.Body;
+        const int fs = 20;
+        const float maxW = 190, pad = 7;
+        var ts = font.GetMultilineStringSize(text, HorizontalAlignment.Left, maxW, fs);
+        var box = new Rect2(anchor.X - ts.X / 2 - pad, anchor.Y - 10 - ts.Y - 2 * pad, ts.X + 2 * pad, ts.Y + 2 * pad);
+        box.Position = new Vector2(Mathf.Clamp(box.Position.X, 4, size.X - box.Size.X - 4), Mathf.Max(4, box.Position.Y)).Round();
+        DrawRect(new Rect2(box.Position + new Vector2(3, 3), box.Size), new Color(0, 0, 0, 0.25f));
+        DrawRect(box.Grow(2), Palette.Ink);
+        DrawRect(box, Palette.PanelLight);
+        // Spitze
+        float tx = Mathf.Clamp(anchor.X, box.Position.X + 8, box.End.X - 14);
+        DrawRect(new Rect2(tx - 2, box.End.Y, 10, 2), Palette.Ink);
+        DrawRect(new Rect2(tx, box.End.Y, 6, 2), Palette.PanelLight);
+        DrawRect(new Rect2(tx, box.End.Y + 2, 6, 2), Palette.Ink);
+        DrawRect(new Rect2(tx + 2, box.End.Y + 2, 2, 2), Palette.PanelLight);
+        DrawRect(new Rect2(tx + 2, box.End.Y + 4, 2, 2), Palette.Ink);
+        DrawMultilineString(font, box.Position + new Vector2(pad, pad + fs * 0.75f), text, HorizontalAlignment.Left, maxW, fs, -1, Palette.Ink);
     }
 
     /// <summary>Festbesucher drängen sich auf allen Wegen, viele mit Maßkrug.</summary>
@@ -490,27 +552,6 @@ public partial class ParkView : Control
         uint x = (uint)i * 2654435761u;
         x ^= x >> 13; x *= 0x5bd1e995; x ^= x >> 15;
         return (x & 0xffff) / 65535f;
-    }
-
-    void StatusLines(GameState gs, Vector2 size)
-    {
-        var lines = new List<string>();
-        if (gs.ActiveEvent != null && EventDefs.Get(gs.ActiveEvent) is { } ev)
-            lines.Add($"{ev.Name} · {GameState.Seconds(gs.EventTimeLeft)}");
-        foreach (var kv in gs.ActiveBoosts)
-            if (EventDefs.Get(kv.Key) is { } b) lines.Add($"{b.Name} · {GameState.Seconds(kv.Value)}");
-        double bonus = gs.EventValueBonus;
-        if (bonus > 1.001) lines.Add($"Flaschen ×{bonus.ToString("0.##").Replace('.', ',')} wert");
-        var font = PfandTheme.Body;
-        float y = size.Y - 14 - (lines.Count - 1) * 22; // unten rechts, da verdeckt es keine Event-Bühne
-        foreach (var l in lines)
-        {
-            var w = font.GetStringSize(l, HorizontalAlignment.Left, -1, 22).X;
-            var p = new Vector2(size.X - w - 12, y);
-            DrawString(font, p + new Vector2(1, 1), l, HorizontalAlignment.Left, -1, 22, Palette.Ink);
-            DrawString(font, p, l, HorizontalAlignment.Left, -1, 22, Palette.PanelLight);
-            y += 22;
-        }
     }
 
     void Hint(string text)

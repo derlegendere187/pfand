@@ -273,7 +273,7 @@ public class GameState
     public bool UpgradeUnlocked(UpgradeDef d) => (d.Skill == null || HasSkill(d.Skill)) && d.Unlocked(this);
 
     // --- Ausbau: gilt über den Skilltree für alle Objekte einer Sorte ---
-    /// <summary>Wie ein Objekt aussieht (Tisch an der Bank, Pfandring am Eimer …). Die Wirkung steht oben bei den Skill-Wirkungen.</summary>
+    /// <summary>Wie ein Objekt aussieht (Tisch an der Bank, Pfandtonne am Eimer …). Die Wirkung steht oben bei den Skill-Wirkungen.</summary>
     public int AusbauLevel(string kind, int index = 0) => kind switch
     {
         "bank" => HasSkill("bank_doppel") ? 2 : HasSkill("bank_tisch") ? 1 : 0,

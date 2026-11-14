@@ -8,7 +8,7 @@ namespace Pfand.Park;
 /// Feste Plätze für gekaufte Park-Objekte, als Anteile der Spielfeldgröße.
 /// Das n-te gekaufte Objekt landet auf dem n-ten Platz.
 /// </summary>
-public static class ParkLayout
+public static partial class ParkLayout
 {
     public const float PathWidth = 40;
 
@@ -24,12 +24,15 @@ public static class ParkLayout
     };
 
     // Die letzten drei Plätze jeder Liste gibt es erst mit dem Skill "Baugenehmigung"
-    static readonly Vector2[] BinSlots = { new(0.43f, 0.40f), new(0.53f, 0.55f), new(0.74f, 0.40f), new(0.25f, 0.55f),
-        new(0.51f, 0.12f), new(0.15f, 0.27f), new(0.84f, 0.73f) };
-    static readonly Vector2[] BenchSlots = { new(0.25f, 0.40f), new(0.65f, 0.40f), new(0.33f, 0.555f), new(0.64f, 0.58f), new(0.25f, 0.11f),
-        new(0.37f, 0.27f), new(0.62f, 0.89f), new(0.11f, 0.555f) };
-    static readonly Vector2[] LampSlots = { new(0.37f, 0.40f), new(0.57f, 0.555f), new(0.87f, 0.40f),
-        new(0.41f, 0.11f), new(0.84f, 0.87f), new(0.15f, 0.40f) };
+    static readonly Vector2[] BinSlots = { Px(345, 268), Px(468, 380), Px(644, 276), Px(232, 380),
+        Px(470, 83), Px(130, 186), Px(740, 504) };
+    static readonly Vector2[] BenchSlots = { Px(218, 276), Px(490, 276), Px(310, 383), Px(615, 590), Px(218, 76),
+        Px(322, 162), Px(539, 614), Px(96, 383) };
+    static readonly Vector2[] LampSlots = { Px(300, 280), Px(520, 376), Px(757, 276),
+        Px(357, 76), Px(712, 600), Px(130, 276) };
+
+    /// <summary>Platz in Spielpixeln (Park ist fest 870×690) als Anteil.</summary>
+    static Vector2 Px(float x, float y) => new(x / 870f, y / 690f);
 
     public static List<Rect2> Paths(Vector2 size, GameState gs)
     {
@@ -60,7 +63,7 @@ public static class ParkLayout
         return new Vector2(r.GetCenter().X, r.End.Y + 14);
     }
 
-    static readonly Vector2[] TableSlots = { new(0.33f, 0.76f), new(0.89f, 0.65f) };
+    static readonly Vector2[] TableSlots = { Px(287, 524), Px(774, 440) };
 
     /// <summary>Tischtennisplatten (Mittelpunkte). Platte ist 32×56 groß, Spieler stehen oben und unten.</summary>
     public static List<Vector2> Tables(Vector2 size, GameState gs) => Points(TableSlots, size, gs.Level("tischtennis"));
@@ -83,7 +86,7 @@ public static class ParkLayout
     public const float BenchOppositeY = 40;
 
     // Richtung, in die Tisch und zweite Bank zeigen (weg vom Weg): -1 = nach oben, +1 = nach unten
-    static readonly int[] BenchDirs = { -1, -1, 1, -1, -1, 1, 1, 1 };
+    static readonly int[] BenchDirs = { -1, -1, 1, 1, -1, 1, 1, 1 };
 
     /// <summary>Versatz von Tisch (half = true) bzw. zweiter Bank zur Bank Nummer i.</summary>
     public static Vector2 BenchOpposite(int i, bool half = false)

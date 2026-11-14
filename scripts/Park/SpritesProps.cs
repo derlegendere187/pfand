@@ -77,67 +77,117 @@ public static partial class Sprites
 
     static readonly string[] BinArt =
     {
-        "...ooooooo...",
-        ".ooRRRRRRRoo.",
-        "oRRiiiiiiiRRo",
-        "oRiiiiiiiiiRo",
-        "oRRiiiiiiiRRo",
-        ".ooRRRRRRRoo.",
-        ".oBhBBBBBBdo.",
-        ".oBhBBBBBBdo.",
-        ".oSSSSSSSSSo.",
-        ".oBhBBwwBBdo.",
-        ".oBhBBwwBBdo.",
-        ".oBhBBBBBBdo.",
-        ".oBhBBBBBBdo.",
-        "..ooooooooo..",
+        "ooooooooooooo",
+        "oKKKKKKKKKKKo",
+        "oKiiiiiiiiiKo",
+        "oKiiiiiiiiiKo",
+        "oKKKKKKKKKKKo",
+        "ooooooooooooo",
+        "oHHLHHLHHLHHo",
+        "oSSSSSSSSSSSo",
+        "oHHLHHLHHLHHo",
+        "oHHLHHLHHLHHo",
+        "oHHLHHLHHLHHo",
+        "oSSSSSSSSSSSo",
+        "oDDLDDLDDLDDo",
+        "ooooooooooooo",
     };
 
-    /// <summary>Runder Parkeimer, leicht von vorn (13×14 feine Pixel), zentriert. fill = 0..1, p = 4 normal, 5 groß.</summary>
-    public static void Bin(CanvasItem ci, Vector2 pos, float fill, float p = 4)
+    /// <summary>
+    /// Eckiger Mülleimer aus Holzlatten, leicht von vorn (13×14 feine Pixel), zentriert.
+    /// fill = 0..1, p = 4 normal, 5 groß. doppelt: zwei Tonnen unter einem Deckel, rechts für Pfand.
+    /// </summary>
+    public static void Bin(CanvasItem ci, Vector2 pos, float fill, float p = 4, bool doppelt = false)
     {
         float q = p / 2;
+        if (doppelt) { DoubleBin(ci, pos, fill, q); return; }
         var o = (pos - new Vector2(6.5f * q, 7 * q)).Round();
-        R(ci, o, q, 2, 12, 12, 2, Shade);
+        R(ci, o, q, 1, 12, 13, 2, Shade);
         Map(ci, o, q, BinArt, ch => ch switch
         {
             'o' => Out,
-            'R' => Hx("#7aa87e"),
-            'i' => Hx("#1c2620"),
-            'B' => Hx("#4a7a52"),
-            'h' => Hx("#6a9a70"),
-            'd' => Hx("#33573b"),
-            'S' => Hx("#2a4430"),
-            'w' => Hx("#e8e0c8"),
+            'i' => Hx("#1e1e22"),
+            'K' => WoodHi,
+            'H' => WoodMid,
+            'L' => WoodGap,
+            'D' => WoodLo,
+            'S' => Hx("#4a4a54"),
             _ => null,
         });
-        // Inhalt in der Öffnung
-        if (fill > 0) { R(ci, o, q, 3, 3, 3, 1, Hx("#8a5a2e")); R(ci, o, q, 3, 3, 1, 1, Hx("#c8553d")); }
+        var brown = Hx("#8a5a2e");
+        if (fill > 0) { R(ci, o, q, 3, 3, 3, 1, brown); R(ci, o, q, 3, 3, 1, 1, Hx("#c8553d")); }
         if (fill > 0.34f) { R(ci, o, q, 6, 2, 2, 2, Palette.Cans[1]); R(ci, o, q, 6, 2, 2, 1, Hx("#d6ccb8")); }
         if (fill > 0.67f) { R(ci, o, q, 8, 3, 2, 1, Hx("#4f8a4a")); R(ci, o, q, 4, 4, 3, 1, Hx("#a9d4ee")); }
         if (fill >= 1f)
         {
-            // Flasche ragt heraus
-            R(ci, o, q, 8, -1, 1, 3, Hx("#8a5a2e"));
+            R(ci, o, q, 8, -1, 1, 3, brown);
             R(ci, o, q, 8, -2, 1, 1, Hx("#c8553d"));
         }
     }
 
-    /// <summary>Pfandring: Metallring um den Eimer mit Haltern, in denen Flaschen stehen.</summary>
-    public static void Pfandring(CanvasItem ci, Vector2 pos)
+    static readonly string[] DoubleBinArt = Build2();
+
+    static string[] Build2()
     {
-        ci.DrawArc(pos, 21, 0, Mathf.Tau, 32, Out, 6);
-        ci.DrawArc(pos, 21, 0, Mathf.Tau, 32, Hx("#9a9a92"), 3);
-        ci.DrawArc(pos, 21, Mathf.Pi * 1.1f, Mathf.Pi * 1.9f, 12, Hx("#d0d0c8"), 1);
-        for (int i = 0; i < 6; i++)
+        string[] door =
         {
-            float a = i / 6f * Mathf.Tau + 0.3f;
-            var bp = (pos + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * 21).Round();
-            var body = i % 3 == 0 ? Hx("#8a5a2e") : i % 3 == 1 ? Hx("#4f8a4a") : Hx("#a9d4ee");
-            ci.DrawRect(new Rect2(bp - new Vector2(4, 4), 8, 8), Out);
-            ci.DrawRect(new Rect2(bp - new Vector2(3, 3), 6, 6), body);
-            ci.DrawRect(new Rect2(bp - new Vector2(3, 3), 6, 2), body.Lightened(0.25f));
-            ci.DrawRect(new Rect2(bp - new Vector2(1, 1), 2, 2), Hx("#c8553d"));
+            "SSSSSSSSSSS",
+            "KHoooooooHD",
+            "KHoiiiiioHD",
+            "KHoooooooHD",
+            "KHHHHHHHHHD",
+            "KHHwwwwwHHD",
+            "KHHwwwwwHHD",
+            "KHHwwwwwHHD",
+            "SSSSSSSSSSS",
+            "DDDDDDDDDDD",
+        };
+        var rows = new System.Collections.Generic.List<string>
+        {
+            ".ooooooooooooooooooooooo.",
+            "oTTTTTTTTTTTTTTTTTTTTTTTo",
+            "oKKKKKKKKKKKKKKKKKKKKKKKo",
+            "ooooooooooooooooooooooooo",
+        };
+        foreach (var d in door) rows.Add("o" + d + "o" + d + "o");
+        rows.Add("ooooooooooooooooooooooooo");
+        return rows.ToArray();
+    }
+
+    /// <summary>Doppeltonne aus Holz (25×15 feine Pixel), zentriert: links Restmüll, rechts Pfand.</summary>
+    static void DoubleBin(CanvasItem ci, Vector2 pos, float fill, float q)
+    {
+        var o = (pos - new Vector2(12.5f * q, 7.5f * q)).Round();
+        R(ci, o, q, 1, 13, 25, 3, Shade);
+        Map(ci, o, q, DoubleBinArt, ch => ch switch
+        {
+            'o' => Out,
+            'i' => Hx("#1e1e22"),
+            'T' => WoodHi.Lightened(0.15f),
+            'K' => WoodHi,
+            'H' => WoodMid,
+            'D' => WoodLo,
+            'S' => Hx("#4a4a54"),
+            'w' => Cream,
+            _ => null,
+        });
+        // Schilder: Müllsack links, Flasche rechts
+        float l = 1, r = 13;
+        R(ci, o, q, l + 4, 10, 3, 2, Hx("#4a4a54"));
+        R(ci, o, q, l + 5, 9, 1, 1, Hx("#4a4a54"));
+        R(ci, o, q, r + 5, 9, 1, 1, Palette.Leergut);
+        R(ci, o, q, r + 4.5f, 10, 2, 2, Palette.Leergut);
+        // Inhalt in den Einwurfschlitzen
+        var brown = Hx("#8a5a2e");
+        if (fill > 0.2f) R(ci, o, q, l + 3, 6, 2, 1, Hx("#e8e0c8"));
+        if (fill > 0) R(ci, o, q, r + 3, 6, 2, 1, brown);
+        if (fill > 0.34f) R(ci, o, q, r + 5, 6, 1, 1, Hx("#4f8a4a"));
+        if (fill > 0.67f) R(ci, o, q, r + 6, 6, 2, 1, Hx("#a9d4ee"));
+        if (fill >= 1f)
+        {
+            // Flasche schaut oben aus dem Pfandschlitz
+            R(ci, o, q, r + 5, 4, 1, 2, brown);
+            R(ci, o, q, r + 5, 3, 1, 1, Hx("#c8553d"));
         }
     }
 

@@ -8,7 +8,7 @@ namespace Pfand.UI;
 public partial class HeaderBar : PanelContainer
 {
     public ParkView Park;
-    Label _money, _visitors, _rate, _clock;
+    Label _money, _visitors, _rate, _clock, _event;
     HBoxContainer _row;
 
     public Rect2 MoneyRect => _money.GetParent<Control>().GetGlobalRect();
@@ -29,7 +29,13 @@ public partial class HeaderBar : PanelContainer
         logo.AddChild(name);
         _row.AddChild(logo);
 
-        _row.AddChild(PfandTheme.Spacer());
+        // Laufendes Event und Aktionen, z. B. „OKTOBERFEST 2:12 · Flaschen ×1,75 wert“
+        _event = PfandTheme.Text("", 26, Wood.Accent);
+        _event.VerticalAlignment = VerticalAlignment.Center;
+        _event.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _event.ClipText = true;
+        _event.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+        _row.AddChild(_event);
         _money = Stat("Geld", Wood.Accent);
         _visitors = Stat("Besucher", Wood.Ink);
         _rate = Stat("Flaschen/min", Wood.Ink);
@@ -73,6 +79,19 @@ public partial class HeaderBar : PanelContainer
         _rate.Text = Park == null ? "0" : Park.Sim.BottlesPerMinute.ToString();
         string phase = gs.Phase switch { DayPhase.Tag => "Tag", DayPhase.Abend => "Abend", _ => "Nacht" };
         _clock.Text = $"{gs.ClockText()} {phase}";
+        _event.Text = EventText(gs);
+    }
+
+    static string EventText(GameState gs)
+    {
+        var parts = new System.Collections.Generic.List<string>();
+        if (gs.ActiveEvent != null && EventDefs.Get(gs.ActiveEvent) is { } ev)
+            parts.Add($"{ev.Name} {GameState.Seconds(gs.EventTimeLeft)}");
+        foreach (var kv in gs.ActiveBoosts)
+            if (EventDefs.Get(kv.Key) is { } b) parts.Add($"{b.Name} {GameState.Seconds(kv.Value)}");
+        double bonus = gs.EventValueBonus;
+        if (bonus > 1.001) parts.Add($"Flaschen ×{bonus.ToString("0.##").Replace('.', ',')} wert");
+        return string.Join("  ·  ", parts);
     }
 }
 

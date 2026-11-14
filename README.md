@@ -142,6 +142,7 @@ Nach `--` anhängen, z. B. `... --path . -- --fresh --money=50`:
 | `--screenshot=PFAD --shotdelay=3` | Bildschirmfoto speichern und beenden |
 | `--window=1920x1080` | im Fenster mit dieser Größe starten (Seitenverhältnisse prüfen) |
 | `--title` | Startbildschirm zeigen (mit Debug-Parametern geht es sonst direkt ins Spiel) |
+| `--layoutcheck` | prüft, ob feste Plätze (Eimer, Bänke, Laternen …) sich überschneiden oder auf Wegen liegen, und beendet; mit `--wiesn` inklusive Oktoberfest |
 
 ## Aufbau
 - `scripts/Core` – Spielstand, Zahlen (`Balance.cs`), Upgrades, Deckel, Speichern
