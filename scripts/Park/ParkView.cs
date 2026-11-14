@@ -268,7 +268,12 @@ public partial class ParkView : Control
             if (phase < 0.12f) Sprites.Sparkle(this, (b.Pos + new Vector2(6, -10)).Round(), Mathf.Sin(phase / 0.12f * Mathf.Pi));
         }
 
-        if (wiesn) DrawWiesnCrowd(gs, size);
+        if (wiesn)
+        {
+            UpdateSoeder(gs, size);
+            DrawWiesnCrowd(gs, size);
+        }
+        else _sLast = -1;
 
         foreach (var v in Sim.Visitors)
         {
@@ -459,39 +464,252 @@ public partial class ParkView : Control
         "Pfand sammeln? Vorbildlich!",
         "Schaut's euch des Zelt o. Sauber!",
         "Mia san mia.",
-        "Foto? Freilich, kommt's her!",
     };
 
-    const float SoederWalk = 4f, SoederPause = 3.5f, SoederSpeed = 30f;
+    enum SoederAct { Walk, Talk, Drink, Photo, Flip }
 
-    /// <summary>Söder läuft ein Stück, bleibt stehen und sagt was. Hin und her auf dem Hauptweg.</summary>
-    void DrawSoeder(GameState gs, Vector2 size)
+    /// <summary>Was er nach jedem Laufstück macht; der Salto kommt selten.</summary>
+    static readonly SoederAct[] SoederPlan =
     {
+        SoederAct.Talk, SoederAct.Drink, SoederAct.Talk, SoederAct.Photo, SoederAct.Talk,
+        SoederAct.Flip, SoederAct.Talk, SoederAct.Drink, SoederAct.Photo, SoederAct.Talk,
+    };
+
+    const float SoederSpeed = 30f;
+    // Salto-Ablauf in Sekunden: rufen, Traube bildet sich, Sprung, Jubel, alle gehen weiter
+    const float FlipShout = 1.2f, FlipGather = 2.3f, FlipJump = 3.2f, FlipCheer = 4.6f, FlipEnd = 6f;
+
+    SoederAct _sAct = SoederAct.Walk;
+    float _sT, _sX = -1, _sLast = -1, _crowdTime;
+    int _sDir = 1, _sCount;
+    Vector2 _sPos;
+
+    // Festbesucher: jeder läuft seinen Weg; wer bei Söder mitmacht, geht zu einem Platz bei ihm und danach weiter
+    const int CrowdN = 64;
+    const float CrowdWalk = 60f;              // so schnell gehen sie zu Söder und zurück (px/s)
+    const float PhotoFlash = 2.4f, PhotoRelease = 3.3f;
+    readonly float[] _lag = new float[CrowdN], _pull = new float[CrowdN];
+    readonly bool[] _member = new bool[CrowdN];
+    readonly Vector2[] _slot = new Vector2[CrowdN], _crowdPos = new Vector2[CrowdN];
+    int _fan = -1;
+
+    static float SoederDuration(SoederAct a) => a switch
+    {
+        SoederAct.Walk => 4f, SoederAct.Talk => 3.5f, SoederAct.Drink => 2.4f,
+        SoederAct.Photo => 4f, _ => FlipEnd,
+    };
+
+    /// <summary>Söder bewegt sich auf dem Hauptweg hin und her und wechselt zwischen Laufen und Aktionen.</summary>
+    void UpdateSoeder(GameState gs, Vector2 size)
+    {
+        float dt = _sLast < 0 ? 0 : Mathf.Clamp(_time - _sLast, 0, 0.1f);
+        _sLast = _time;
         var paths = ParkLayout.Paths(size, gs);
         Rect2 track = paths.Count > 0 && paths[0].Size.X > paths[0].Size.Y ? paths[0] : new Rect2(0, size.Y * 0.45f, size.X, 32);
-        float y = track.GetCenter().Y + 2;
-        float x0 = 40, len = size.X - 80;
+        if (_sX < 0) _sX = size.X * 0.3f;
+        _sT += dt;
+        // Beim Salto bleibt die Menge stehen und schaut zu, statt durch die Traube zu laufen
+        float crowdDt = dt * (1 - FlipClear());
+        _crowdTime += crowdDt;
+        if (_sAct == SoederAct.Walk)
+        {
+            _sX += _sDir * SoederSpeed * dt;
+            if (_sX > size.X - 60) { _sX = size.X - 60; _sDir = -1; }
+            if (_sX < 60) { _sX = 60; _sDir = 1; }
+        }
+        if (_sT >= SoederDuration(_sAct))
+        {
+            _sT = 0;
+            if (_sAct == SoederAct.Walk)
+            {
+                _sAct = SoederPlan[_sCount % SoederPlan.Length];
+                _sPos = new Vector2(_sX, track.GetCenter().Y + 2).Round();
+                if (_sAct == SoederAct.Photo && !PickFan(gs, size)) _sAct = SoederAct.Talk;
+                if (_sAct == SoederAct.Flip) PickRing(gs, size);
+            }
+            else { _sAct = SoederAct.Walk; _sCount++; }
+        }
+        _sPos = new Vector2(_sX, track.GetCenter().Y + 2).Round();
 
-        float cycle = SoederWalk + SoederPause;
-        int k = (int)(_time / cycle);
-        float inCycle = _time % cycle;
-        bool walking = inCycle < SoederWalk;
-        float s = (k * SoederWalk + Mathf.Min(inCycle, SoederWalk)) * SoederSpeed % (2 * len);
-        float x = s < len ? x0 + s : x0 + 2 * len - s;
-        var pos = new Vector2(x, y + (walking ? Mathf.Round(Mathf.Sin(_time * 9) * 1.5f) : 0)).Round();
+        // Mitmacher wieder loslassen
+        if (_sAct == SoederAct.Photo && _sT > PhotoRelease && _fan >= 0) _member[_fan] = false;
+        if (_sAct == SoederAct.Flip && _sT > FlipCheer + 0.2f) Array.Clear(_member);
+        if (_sAct == SoederAct.Walk) { Array.Clear(_member); _fan = -1; }
 
-        // Figur: Trachtenjanker, dunkle Haare, Maßkrug in der Hand
-        Sprites.Person(this, pos, Color.FromHtml("#4a5a3a"), Color.FromHtml("#2a2420"));
-        DrawRect(new Rect2(pos + new Vector2(-6, -1), 12, 2), Color.FromHtml("#e8e4dc")); // Hemdkragen
-        var m = pos + new Vector2(11, -2);
-        DrawRect(new Rect2(m - Vector2.One, 8, 10), Palette.Ink);
-        DrawRect(new Rect2(m, 6, 8), Color.FromHtml("#e8b040"));
-        DrawRect(new Rect2(m, 6, 2), Palette.PanelLight);
+        var cpaths = CrowdPaths(gs, size);
+        for (int i = 0; i < CrowdN; i++)
+        {
+            float goal = _member[i] ? 1 : 0;
+            if (_pull[i] == goal) continue;
+            float dist = (_slot[i] - CrowdBase(i, cpaths)).Length();
+            _pull[i] = Mathf.MoveToward(_pull[i], goal, CrowdWalk * dt / Mathf.Max(dist, 8));
+        }
+        // Wer mitmacht, bleibt auf seinem Weg stehen und läuft danach von dort weiter
+        for (int i = 0; i < CrowdN; i++) _lag[i] += crowdDt * _pull[i];
+    }
 
-        // Sprechblase, solange er steht (und kurz danach)
-        if (walking && inCycle > 0.8f) return;
-        string line = SoederLines[k % SoederLines.Length];
-        SpeechBubble(pos + new Vector2(0, -18), line, size);
+    /// <summary>Wie stark die Leute beim Salto Platz machen (0 bis 1).</summary>
+    float FlipClear()
+    {
+        if (_sAct != SoederAct.Flip) return 0;
+        float up = Mathf.SmoothStep(FlipShout - 0.5f, FlipShout + 0.5f, _sT);
+        float down = 1 - Mathf.SmoothStep(FlipCheer + 0.3f, FlipEnd, _sT);
+        return up * down;
+    }
+
+    List<Rect2> CrowdPaths(GameState gs, Vector2 size)
+    {
+        var paths = ParkLayout.Paths(size, gs);
+        if (paths.Count == 0) paths = new List<Rect2> { new(0, size.Y * 0.45f, size.X, 32), new(size.X * 0.45f, 0, 32, size.Y) };
+        return paths;
+    }
+
+    /// <summary>Wo Festbesucher i gerade auf seinem Weg ist.</summary>
+    Vector2 CrowdBase(int i, List<Rect2> paths)
+    {
+        var r = paths[i % paths.Count];
+        bool horizontal = r.Size.X > r.Size.Y;
+        float h1 = Hash(i * 3 + 1), h2 = Hash(i * 3 + 2), h3 = Hash(i * 3 + 3);
+        float speed = 0.015f + h1 * 0.03f;
+        float dir = i % 2 == 0 ? 1 : -1;
+        float t = (((_crowdTime - _lag[i]) * speed * dir + h2) % 1f + 1f) % 1f;
+        float across = 0.2f + 0.6f * h3;
+        return horizontal
+            ? new Vector2(r.Position.X + t * r.Size.X, r.Position.Y + across * r.Size.Y)
+            : new Vector2(r.Position.X + across * r.Size.X, r.Position.Y + t * r.Size.Y);
+    }
+
+    /// <summary>Der nächste Festbesucher kommt fürs Foto neben Söder.</summary>
+    bool PickFan(GameState gs, Vector2 size)
+    {
+        var paths = CrowdPaths(gs, size);
+        int best = -1; float bestD = 140;
+        for (int i = 0; i < CrowdN; i++)
+        {
+            float d = CrowdBase(i, paths).DistanceTo(_sPos);
+            if (d < bestD && d > 4) { bestD = d; best = i; }
+        }
+        if (best < 0) return false;
+        float side = CrowdBase(best, paths).X < _sPos.X ? -1 : 1;
+        _fan = best;
+        _member[best] = true;
+        _slot[best] = _sPos + new Vector2(side * 26, -2);
+        return true;
+    }
+
+    /// <summary>Die Leute in der Nähe bilden eine Traube um ihn, jeder auf seiner Seite.</summary>
+    void PickRing(GameState gs, Vector2 size)
+    {
+        var paths = CrowdPaths(gs, size);
+        var near = new List<(int i, float d, float a)>();
+        for (int i = 0; i < CrowdN; i++)
+        {
+            var d = CrowdBase(i, paths) - _sPos;
+            if (d.Length() < 210) near.Add((i, d.Length(), Mathf.Atan2(d.Y / 0.6f, d.X)));
+        }
+        near.Sort((x, y) => x.d.CompareTo(y.d));
+        if (near.Count > 12) near.RemoveRange(12, near.Count - 12);
+        near.Sort((x, y) => x.a.CompareTo(y.a));
+        // Winkel auseinanderziehen, damit keiner auf dem anderen steht
+        var ang = new float[near.Count];
+        float gap = Mathf.Tau / 13;
+        for (int k = 0; k < near.Count; k++)
+            ang[k] = k == 0 ? near[k].a : Mathf.Max(near[k].a, ang[k - 1] + gap);
+        var c = _sPos + new Vector2(0, 6);
+        for (int k = 0; k < near.Count; k++)
+        {
+            int i = near[k].i;
+            _member[i] = true;
+            _slot[i] = (c + new Vector2(Mathf.Cos(ang[k]) * 58, Mathf.Sin(ang[k]) * 34)).Round();
+        }
+    }
+
+    void DrawSoeder(GameState gs, Vector2 size)
+    {
+        var pos = _sPos;
+        float t = _sT;
+        bool walking = _sAct == SoederAct.Walk;
+        if (walking) pos.Y += Mathf.Round(Mathf.Sin(_time * 9) * 1.5f);
+        var feet = pos + new Vector2(0, 10);
+
+        switch (_sAct)
+        {
+            case SoederAct.Walk:
+                Sprites.Soeder(this, feet, _time, true);
+                break;
+            case SoederAct.Talk:
+                Sprites.Soeder(this, feet, _time, false);
+                SpeechBubble(pos + new Vector2(0, -37), SoederLines[_sCount % SoederLines.Length], size);
+                break;
+            case SoederAct.Drink:
+            {
+                bool up = t > 0.3f && t < SoederDuration(SoederAct.Drink) - 0.3f;
+                Sprites.Soeder(this, feet, _time, false, up ? 1 : 0);
+                if (t < 0.9f) SpeechBubble(pos + new Vector2(0, -37), "Prost!", size);
+                break;
+            }
+            case SoederAct.Photo:
+                DrawSoederSelfie(feet, t, size);
+                break;
+            case SoederAct.Flip:
+                DrawSoederFlip(feet, t, size);
+                break;
+        }
+    }
+
+    /// <summary>Ein Besucher aus der Menge kommt dazu, hält das Handy hoch, Blitz, geht weiter.</summary>
+    void DrawSoederSelfie(Vector2 feet, float t, Vector2 size)
+    {
+        Sprites.Soeder(this, feet, _time, false);
+        bool ready = _fan >= 0 && _pull[_fan] > 0.95f && _member[_fan];
+        if (ready)
+        {
+            var fan = _crowdPos[_fan];
+            float side = fan.X < feet.X ? -1 : 1;
+            var shirt = Sprites.Tracht[_fan % Sprites.Tracht.Length];
+            // Arm hoch, Handy vor beiden
+            var hand = fan + new Vector2(-side * 8, -26);
+            DrawRect(new Rect2(fan + new Vector2(-side * 8 - 2, -16), 4, 10), Palette.Ink);
+            DrawRect(new Rect2(fan + new Vector2(-side * 8 - 1, -15), 2, 9), shirt);
+            DrawRect(new Rect2(hand - new Vector2(4, 6), 8, 12), Palette.Ink);
+            DrawRect(new Rect2(hand - new Vector2(3, 5), 6, 10), Color.FromHtml("#3a4250"));
+            if (t > PhotoFlash && t < PhotoFlash + 0.18f)
+                DrawCircle(hand, 26, new Color(1, 1, 1, 0.75f));
+        }
+        string line = t < PhotoFlash ? "Foto? Freilich, kommt's her!" : "Sauber!";
+        SpeechBubble(feet + new Vector2(0, -47), line, size);
+    }
+
+    /// <summary>Salto: er ruft, alle machen Platz, die Leute in der Nähe stellen sich drumherum, Sprung, Jubel.</summary>
+    void DrawSoederFlip(Vector2 feet, float t, Vector2 size)
+    {
+        if (t > FlipGather && t < FlipJump)
+        {
+            float k = (t - FlipGather) / (FlipJump - FlipGather);
+            float h = 4 * 38 * k * (1 - k);
+            float angle = -Mathf.Tau * Mathf.SmoothStep(0.05f, 0.95f, k);
+            // Schatten bleibt am Boden
+            DrawRect(new Rect2(feet + new Vector2(-9 + 3 * k * (1 - k), -1), 18 - 12 * k * (1 - k), 3), new Color(0, 0, 0, 0.18f));
+            var center = (feet + new Vector2(0, -23 - h)).Round();
+            DrawSetTransform(center, angle, Vector2.One);
+            Sprites.Soeder(this, new Vector2(0, 23), _time, false, 0, false);
+            DrawSetTransform(Vector2.Zero, 0, Vector2.One);
+            // Ein paar Bierspritzer
+            for (int i = 0; i < 4; i++)
+            {
+                var d = center + new Vector2((i - 1.5f) * 9, -8 - k * 26 - i % 2 * 5);
+                DrawRect(new Rect2(d.Round(), 2, 2), new Color(Color.FromHtml("#e8b040"), 1 - k * 0.6f));
+            }
+        }
+        else
+        {
+            // kurz in die Knie vor dem Sprung
+            bool crouch = t > FlipGather - 0.25f && t <= FlipGather;
+            Sprites.Soeder(this, feet + new Vector2(0, crouch ? 2 : 0), _time, false);
+        }
+
+        string line = t < FlipGather ? "Platz da, Leit! Geht's amoi weg!" : t > FlipJump + 0.1f && t < FlipCheer + 0.6f ? "Zack! So geht des in Bayern." : null;
+        if (line != null) SpeechBubble(feet + new Vector2(0, -47), line, size);
     }
 
     /// <summary>Pixel-Sprechblase mit Spitze nach unten zu anchor, bleibt im Park.</summary>
@@ -519,27 +737,37 @@ public partial class ParkView : Control
     /// <summary>Festbesucher drängen sich auf allen Wegen, viele mit Maßkrug.</summary>
     void DrawWiesnCrowd(GameState gs, Vector2 size)
     {
-        var paths = ParkLayout.Paths(size, gs);
-        if (paths.Count == 0) paths = new List<Rect2> { new(0, size.Y * 0.45f, size.X, 32), new(size.X * 0.45f, 0, 32, size.Y) };
-        const int n = 64;
-        for (int i = 0; i < n; i++)
+        var paths = CrowdPaths(gs, size);
+        float clear = FlipClear();
+        bool cheer = _sAct == SoederAct.Flip && _sT > FlipJump && _sT < FlipCheer + 0.4f;
+        for (int i = 0; i < CrowdN; i++)
         {
-            var r = paths[i % paths.Count];
-            bool horizontal = r.Size.X > r.Size.Y;
-            float h1 = Hash(i * 3 + 1), h2 = Hash(i * 3 + 2), h3 = Hash(i * 3 + 3);
-            float speed = 0.015f + h1 * 0.03f;
-            float dir = i % 2 == 0 ? 1 : -1;
-            float t = ((_time * speed * dir + h2) % 1f + 1f) % 1f;
-            float across = 0.2f + 0.6f * h3;
-            var pos = horizontal
-                ? new Vector2(r.Position.X + t * r.Size.X, r.Position.Y + across * r.Size.Y)
-                : new Vector2(r.Position.X + across * r.Size.X, r.Position.Y + t * r.Size.Y);
-            pos.Y += Mathf.Round(Mathf.Sin(_time * 9 + i) * 1.5f);
-            Sprites.Person(this, pos.Round(), Sprites.Tracht[i % Sprites.Tracht.Length], Palette.Hair[(i / 3) % Palette.Hair.Length]);
+            var pos = CrowdBase(i, paths);
+            if (_pull[i] > 0)
+            {
+                pos = pos.Lerp(_slot[i], Mathf.SmoothStep(0, 1, _pull[i]));
+                if (cheer && _pull[i] > 0.9f) pos.Y -= Mathf.Round(Mathf.Abs(Mathf.Sin(_time * 10 + i)) * 4);
+            }
+            else if (clear > 0)
+            {
+                // Beim Salto: wer nicht zuschaut, macht Platz
+                var d = pos - _sPos;
+                float dist = d.Length();
+                const float room = 110;
+                if (dist < room)
+                {
+                    var dirOut = dist < 0.5f ? new Vector2(i % 2 == 0 ? 1 : -1, 0) : d / dist;
+                    pos = _sPos + dirOut * Mathf.Lerp(dist, room, clear);
+                }
+            }
+            if (_pull[i] < 0.95f) pos.Y += Mathf.Round(Mathf.Sin(_time * 9 + i) * 1.5f);
+            pos = pos.Round();
+            _crowdPos[i] = pos;
+            Sprites.Person(this, pos, Sprites.Tracht[i % Sprites.Tracht.Length], Palette.Hair[(i / 3) % Palette.Hair.Length]);
             if (i % 4 == 1) Sprites.Hat(this, pos);
             if (i % 3 == 0) // Maßkrug in der Hand
             {
-                var m = pos.Round() + new Vector2(10, -2);
+                var m = pos + new Vector2(10, -2);
                 DrawRect(new Rect2(m - Vector2.One, 8, 10), Palette.Ink);
                 DrawRect(new Rect2(m, 6, 8), Color.FromHtml("#e8b040"));
                 DrawRect(new Rect2(m, 6, 2), Palette.PanelLight);

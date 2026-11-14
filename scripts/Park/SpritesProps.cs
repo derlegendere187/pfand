@@ -1049,4 +1049,125 @@ public static partial class Sprites
             _ => null,
         });
     }
+
+    // ---------------------------------------------------------------- Söder (nur er in hoher Auflösung)
+
+    static readonly string[] SoederTop =
+    {
+        ".........oooooooo.........",
+        ".......ooGGGGGgGGoo.......",
+        "......oGGgggGGGGGGGo......",
+        ".....oGGgGGGGGGGGGGGo.....",
+        ".....oGGGGGGGGGGGdGGo.....",
+        ".....oGGSSSGGGGSSSGGo.....",
+        ".....oGSSSSSSSSSSSSGo.....",
+        ".....oGSSSSSSSSSSSSGo.....",
+        ".....oSbbbbSSSSbbbbSo.....",
+        "....oSSSeeSSSSSSeeSSSo....",
+        "....oSSSssSSSSSSssSSSo....",
+        ".....oSSSSSSnnSSSSSSo.....",
+        ".....oSSSSSnnnnSSSSSo.....",
+        ".....osSSMMMMMMMMSSso.....",
+        ".....osSMMSSSSSSMMSso.....",
+        ".....osSMSmmmmmmSMSso.....",
+        "......osMSSSSSSSSMso......",
+        "......osMCCCCCCCCMso......",
+        ".......oCCCCCCCCCCo.......",
+        "........ooCCCCCCoo........",
+        "..ooooooWWWwTTwWWWoooooo..",
+        "..ouUUUUUUlWTTWlUUUUUUuo..",
+        "..ouUUUUUUlWTtWlUUUUUUuo..",
+        "..ouUUUUUUulTTluUUUUUUuo..",
+        "..ouUUUUUUUlTtlUUUUUUUuo..",
+        "..ouUUUUUUUlTTlUUUUUUUuo..",
+        "..ouUUUUUUUuTtuUUUUUUUuo..",
+        "..ouUUUUUUUUuuUUUUUUUUuo..",
+        "..ouUUUUUUUUBBUUUUUUUUuo..",
+        "..ouUUUUUUUUuuUUUUUUUUuo..",
+        "..ouUUuUUUUUuuUUUUUuUUuo..",
+        "..ouUUuuUUUUuuUUUUuuUUuo..",
+        "..oSSouuuuuuuuuuuuuuoSSo..",
+        "..oooouuuuuuuuuuuuuuoooo..",
+        ".....oDDDDDDDDDDDDDDo.....",
+        ".....oDDDDDDDDDDDDDDo.....",
+        ".....oDDDDDDdDDDDDDDo.....",
+    };
+
+    static readonly string[] SoederLegL =
+    {
+        ".....oDDDDDo.",
+        ".....oDDDDDo.",
+        ".....oDDDDDo.",
+        ".....oDDDDDo.",
+        ".....oDDDDDo.",
+        ".....oDDDDDo.",
+        ".....oFFFFFo.",
+        "....oFFFFFFo.",
+        "....oooooooo.",
+    };
+
+    static readonly string[] SoederLegR =
+    {
+        ".oDDDDDo.....",
+        ".oDDDDDo.....",
+        ".oDDDDDo.....",
+        ".oDDDDDo.....",
+        ".oDDDDDo.....",
+        ".oDDDDDo.....",
+        ".oFFFFFo.....",
+        ".oFFFFFFo....",
+        ".oooooooo....",
+    };
+
+    static Color? SoederColor(char ch) => ch switch
+    {
+        'o' => Out,
+        'G' => Hx("#9a9a96"), 'g' => Hx("#c4c4be"), 'd' => Hx("#6c6c68"),
+        'S' => Hx("#e8c4a2"), 's' => Hx("#cfa686"), 'n' => Hx("#d6ae8c"),
+        'b' => Hx("#4a4440"), 'e' => Hx("#3a3a2e"),
+        'M' => Hx("#4a4038"), 'C' => Hx("#a8a29a"), 'm' => Hx("#b07060"),
+        'W' => Hx("#c8d8f0"), 'w' => Hx("#a8bcd8"),
+        'T' => Hx("#c060a8"), 't' => Hx("#a04888"),
+        'U' => Hx("#3a4a9a"), 'u' => Hx("#2c3a7a"), 'l' => Hx("#24306a"), 'B' => Hx("#1e2450"),
+        'D' => Hx("#2a2e44"), 'F' => Hx("#1e1e22"),
+        _ => null,
+    };
+
+    /// <summary>Markus Söder in feiner Auflösung (26×46 Spielpixel), von vorn: graue Haare, Bart, blauer Anzug, rosa Krawatte, Maßkrug. Füße bei pos.</summary>
+    /// <param name="pose">0 normal, 1 trinkt aus dem Krug</param>
+    public static void Soeder(CanvasItem ci, Vector2 pos, float time, bool walking, int pose = 0, bool shadow = true)
+    {
+        const float p = 1;
+        var o = (pos - new Vector2(13, 44)).Round();
+        if (shadow) R(ci, o, p, 4, 43, 18, 3, Shade);
+        int step = walking ? ((int)(time * 6)) % 2 : -1;
+        Map(ci, o + new Vector2(0, 37 - (step == 0 ? 1 : 0)), p, SoederLegL, SoederColor);
+        Map(ci, o + new Vector2(13, 37 - (step == 1 ? 1 : 0)), p, SoederLegR, SoederColor);
+        Map(ci, o, p, SoederTop, SoederColor);
+        // Anstecknadel am Revers
+        R(ci, o, p, 17, 24, 2, 2, Hx("#d8e4f0"));
+        R(ci, o, p, 18, 25, 1, 1, Hx("#6f8fc0"));
+        if (pose == 1)
+        {
+            // Arm angewinkelt, Krug am Mund, schräg gekippt
+            ci.DrawRect(new Rect2(o + new Vector2(18, 15), 7, 12), Out);
+            ci.DrawRect(new Rect2(o + new Vector2(19, 16), 5, 10), Hx("#3a4a9a"));
+            ci.DrawRect(new Rect2(o + new Vector2(23, 16), 1, 10), Hx("#2c3a7a"));
+            var mm = o + new Vector2(11, 9);
+            ci.DrawRect(new Rect2(mm, 11, 10), Out);
+            ci.DrawRect(new Rect2(mm + new Vector2(1, 1), 2, 8), Foam);
+            ci.DrawRect(new Rect2(mm + new Vector2(3, 1), 7, 8), MugBeer);
+            ci.DrawRect(new Rect2(mm + new Vector2(3, 2), 7, 1), MugHi);
+            ci.DrawRect(new Rect2(mm + new Vector2(5, 9), 5, 3), Out);
+            ci.DrawRect(new Rect2(mm + new Vector2(6, 9), 3, 2), Hx("#e8c4a2")); // Hand
+            return;
+        }
+        // Maßkrug in der rechten Hand
+        var m = o + new Vector2(21, 27);
+        ci.DrawRect(new Rect2(m, 9, 12), Out);
+        ci.DrawRect(new Rect2(m + new Vector2(1, 1), 6, 3), Foam);
+        ci.DrawRect(new Rect2(m + new Vector2(1, 4), 6, 7), MugBeer);
+        ci.DrawRect(new Rect2(m + new Vector2(2, 4), 1, 7), MugHi);
+        ci.DrawRect(new Rect2(m + new Vector2(7, 4), 1, 5), Out);
+    }
 }
