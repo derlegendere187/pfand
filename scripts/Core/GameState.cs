@@ -69,6 +69,7 @@ public class GameState
     public bool BottleTaken;                            // jemand anderes hat schon mal eine Flasche mitgenommen (für Kalle)
     public Godot.Vector2 TakenAt;                             // wo das zum ersten Mal passiert ist (Kalle zeigt hin)
     public bool KomboSeen;                              // erster Bon mit Kombo-Bonus (für Kalle)
+    public bool CapIntroDone;                           // der erste Kronkorken wurde groß gezeigt, jetzt darf Kalle erklären
 
     // Statistik
     public double PlayTime;                             // Sekunden
@@ -141,7 +142,8 @@ public class GameState
 
     /// <summary>Album und Skilltree tauchen auf, sobald man den ersten Kronkorken hat.</summary>
     public bool SkillsVisible => Kronkorken > 0 || Caps.Count > 0 || Skills.Count > 0;
-    public double CapChance => Balance.CapDropChance * (1 + 0.1 * SkillLevel("glueck")) * (BoostActive("gluecksstraehne") ? 3 : 1);
+    public double CapChance => Math.Min(1, (Balance.CapDropChance + Balance.CapChancePerLevel * SkillLevel("glueck")) * (BoostActive("gluecksstraehne") ? 4 : 1));
+    public double MultiCapChance => Balance.MultiCapPerLevel * SkillLevel("mehrfach");
     /// <summary>Sammler geben erst mit "Ehrliche Sammler" Kronkorken ab.</summary>
     public double CollectorCapFactor => 0.1 * SkillLevel("ehrlich");
 
@@ -156,16 +158,16 @@ public class GameState
         }
     }
     public bool BoostActive(string id) => ActiveBoosts.TryGetValue(id, out var t) && t > 0;
-    public double FeedInterval => Balance.FeedInterval / (1 + 0.1 * SkillLevel("abgabe"));
+    public double FeedInterval => Balance.FeedInterval / (1 + 0.5 * SkillLevel("abgabe"));
     public double RetroChance => Balance.RetroChancePerLevel * SkillLevel("retro");
     public double GoldChance => Balance.GoldChancePerLevel * SkillLevel("gold");
     /// <summary>Anteil der leeren Flaschen, die Besucher liegen lassen (der Rest wird mitgenommen).</summary>
     public double LeaveChance => Math.Min(1, Balance.LeaveChanceBase + Balance.LeaveChancePerLevel * SkillLevel("liegen"));
     public double DrinkFactor => (1 - 0.03 * SkillLevel("durst"))
-        * (BoostActive("happyhour") ? 0.5 : 1) * (ActiveEvent == "oktoberfest" ? 0.7 : 1);
+        * (BoostActive("happyhour") ? 0.4 : 1) * (ActiveEvent == "oktoberfest" ? 0.7 : 1);
     public double VisitorBoost => 0.05 * SkillLevel("stammgaeste");
     public int ExtraVisitorSlots => SkillLevel("platz");
-    public double GroupCrateChance => Level("gruppen") > 0
+    public double GroupCrateChance => HasSkill("u_gruppen")
         ? Balance.GroupCrateChanceBase + Balance.GroupCrateChancePerLevel * SkillLevel("kastenrunde") : 0;
     public float ClickRadius => Balance.ClickRadiusBase * (1 + Balance.ClickRadiusPerLevel * SkillLevel("aoe"));
     public double CollectorSpeed => Balance.CollectorSpeed * (1 + 0.08 * SkillLevel("flink"));
@@ -173,27 +175,30 @@ public class GameState
     public double BottleLifetime => Balance.BottleLifetime + Balance.BottleLifetimePerLevel * SkillLevel("revier");
     public double KomboMax => Balance.KomboMax + Balance.KomboMaxPerLevel * SkillLevel("kombo");
     /// <summary>Kombo-Bonus für einen Einwurf mit n Flaschen (0.12 = +12 %).</summary>
-    public double Kombo(int n) => Math.Min(KomboMax, Math.Max(0, n - Balance.KomboStart + 1) * Balance.KomboPerBottle);
+    public double Kombo(int n) => HasSkill("kombo_an") ? Math.Min(KomboMax, Math.Max(0, n - Balance.KomboStart + 1) * Balance.KomboPerBottle) : 0;
     /// <summary>Wie oft pro Sekunde ein Aktions-Flyer auftaucht.</summary>
     public double FlyerRate => (1 + 0.1 * SkillLevel("flyer")) / Balance.FlyerMeanInterval;
 
     // Ausbau der Park-Objekte
-    public double BankStayFactor => 1 + 0.1 * SkillLevel("bank_tisch");
-    public double BankDrinkFactor => 1 - 0.03 * SkillLevel("tischrunde");
-    public double TableStayFactor => 1 + 0.1 * SkillLevel("tt_turnier");
-    public double TableDrinkBonus => 1 - 0.05 * SkillLevel("tt_sieger");
+    public double BankStayFactor => 1 + 0.15 * SkillLevel("bank_tisch");
+    public double BankDrinkFactor => 1 - 0.06 * SkillLevel("tischrunde");
+    public double TableStayFactor => 1 + 0.15 * SkillLevel("tt_turnier");
+    public double TableDrinkBonus => 1 - 0.08 * SkillLevel("tt_sieger");
     public int ImbissExtraSlots => SkillLevel("imbiss_theke");
-    public double ImbissDrinkBonus => 1 - 0.03 * SkillLevel("imbiss_kuehl");
-    public double ImbissVisitBonus => 0.05 * SkillLevel("imbiss_schild");
-    public double GrillStayBonus => 1 + 0.1 * SkillLevel("grill_rost");
-    public double GrillDrinkBonus => 1 - 0.06 * SkillLevel("grill_kuehl");
+    public double ImbissDrinkBonus => 1 - 0.05 * SkillLevel("imbiss_kuehl");
+    public double ImbissVisitBonus => 0.08 * SkillLevel("imbiss_schild");
+    public double GrillStayBonus => 1 + 0.15 * SkillLevel("grill_rost");
+    public double GrillDrinkBonus => 1 - 0.08 * SkillLevel("grill_kuehl");
     public double BinRingChance => Balance.BinRingChancePerLevel * SkillLevel("eimer_ring");
 
     public double Value(BottleType t) => BottleInfo.BaseValue(t) * ValueMultiplier * TypeMultiplier(t);
 
+    /// <summary>Solange der Automat zählt, passt nichts in die Tasche – außer mit "Zweite Hand".</summary>
+    public bool CanCollectWhileFeeding => !Feeding || HasSkill("weitersammeln");
+
     public bool TryAddToBag(BottleType t)
     {
-        if (BagFull || Feeding) return false;
+        if (BagFull || !CanCollectWhileFeeding) return false;
         Bag.Add(t);
         return true;
     }
@@ -210,7 +215,7 @@ public class GameState
     /// <summary>Eine Flasche direkt einwerfen (auch durch Sammler und Lastenrad).</summary>
     public (double value, int cap) FeedDirect(BottleType t, Random rng, bool byCollector = false)
     {
-        var v = Value(t) * EventValueBonus;
+        var v = Value(t) * EventValueBonus * (byCollector ? 1 + Balance.CollectorValuePerLevel * SkillLevel("sammler_lohn") : 1);
         Money += v;
         TotalEarned += v;
         BottlesFed++;
@@ -225,32 +230,32 @@ public class GameState
             Caps[cap] = (Caps.TryGetValue(cap, out var c) ? c : 0) + 1;
             Kronkorken++;
             CapFound?.Invoke(cap, Caps[cap] == 1);
+            // Doppelfund: mit etwas Glück steckt gleich noch einer drin, und noch einer …
+            for (int extra = 0; extra < 9 && rng.NextDouble() < MultiCapChance; extra++)
+            {
+                Caps[cap]++;
+                Kronkorken++;
+                CapFound?.Invoke(cap, false);
+            }
         }
         return (v, cap);
     }
 
-    /// <summary>Welches Motiv? Seltene Motive und spätere Sets kommen seltener. Der Albumjäger bevorzugt fehlende.</summary>
+    /// <summary>Welches Motiv? Seltene Motive und spätere Sets kommen seltener (dafür gibt es keine Skills).</summary>
     public int RollCap(Random rng)
     {
-        bool onlyMissing = Caps.Count < CapData.Count && rng.NextDouble() < Balance.AlbumjaegerPerLevel * SkillLevel("albumjaeger");
-        double kenner = 1 + Balance.CapKennerPerLevel * SkillLevel("kenner");
         double total = 0;
-        for (int i = 0; i < CapData.Count; i++) if (!onlyMissing || !Caps.ContainsKey(i)) total += CapWeight(i, kenner);
+        for (int i = 0; i < CapData.Count; i++) total += CapWeight(i);
         double r = rng.NextDouble() * total;
         for (int i = 0; i < CapData.Count; i++)
         {
-            if (onlyMissing && Caps.ContainsKey(i)) continue;
-            r -= CapWeight(i, kenner);
+            r -= CapWeight(i);
             if (r <= 0) return i;
         }
         return CapData.Count - 1;
     }
 
-    static double CapWeight(int i, double kenner)
-    {
-        int tier = CapData.Tier(i);
-        return CapData.SetWeight(CapData.All[i].Set) * Balance.CapTierWeight[tier] * (tier > 0 ? kenner : 1);
-    }
+    static double CapWeight(int i) => CapData.SetWeight(CapData.All[i].Set) * Balance.CapTierWeight[CapData.Tier(i)];
 
     // --- Upgrades ---
     public bool CanBuy(UpgradeDef d)

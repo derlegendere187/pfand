@@ -109,12 +109,15 @@ public static class SaveSystem
             }
             else
             {
+                s.Kronkorken += RefundRemovedSkills(data.SkillLevels);
                 s.Skills = (data.SkillLevels ?? new())
                     .Where(kv => SkillDefs.Get(kv.Key) is { } d && kv.Value > 0)
                     .ToDictionary(kv => kv.Key, kv => Math.Min(kv.Value, SkillDefs.Get(kv.Key).MaxLevel));
             }
             // Vor Version 4 gab es Kronkorken von Anfang an: wer schon welche hat, bekommt das Sammelalbum
             if (data.Version < 5) MigrateToSkillUnlocks(s, data.Ausbau);
+            MigrateUpgradesToSkills(s);
+            s.CapIntroDone = s.Kronkorken > 0 || s.Caps.Count > 0 || s.Skills.Count > 0;
             s.PlayTime = data.PlayTime;
             s.FedByType = data.FedByType ?? new();
             s.CollectedByHand = data.CollectedByHand;
@@ -156,6 +159,31 @@ public static class SaveSystem
             if (!steps.TryGetValue(kind, out var ids)) continue;
             for (int i = 0; i < kv.Value && i < ids.Length; i++) GrantWithParents(s, ids[i]);
         }
+    }
+
+    /// <summary>Picknickdecke und Freundeskreis waren Geld-Upgrades, jetzt sind es Skills mit Stufen.</summary>
+    static void MigrateUpgradesToSkills(GameState s)
+    {
+        foreach (var (up, sk) in new[] { ("picknick", "u_picknick"), ("gruppen", "u_gruppen") })
+        {
+            if (!s.Upgrades.TryGetValue(up, out var l)) continue;
+            s.Upgrades.Remove(up);
+            if (l > 0) s.Skills[sk] = Math.Max(s.SkillLevel(sk), Math.Min(l, SkillDefs.Get(sk).MaxLevel));
+        }
+    }
+
+    /// <summary>Kennerblick und Albumjäger gibt es nicht mehr: die Kronkorken dafür gibt es zurück (alte Preisformel).</summary>
+    static int RefundRemovedSkills(Dictionary<string, int> levels)
+    {
+        if (levels == null) return 0;
+        var removed = new Dictionary<string, (double b, double g, int depth)> { ["kenner"] = (4, 1.5, 2), ["albumjaeger"] = (8, 1.5, 3) };
+        int sum = 0;
+        foreach (var kv in levels)
+        {
+            if (!removed.TryGetValue(kv.Key, out var r)) continue;
+            for (int l = 0; l < kv.Value; l++) sum += (int)Math.Ceiling(r.b * Math.Pow(r.g, l) * Math.Pow(Balance.SkillDepthCost, r.depth - 1));
+        }
+        return sum;
     }
 
     static void GrantWithParents(GameState s, string id)

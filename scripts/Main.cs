@@ -108,7 +108,7 @@ public partial class Main : Control
         {
             gs.Upgrades["weg"] = 4; gs.Upgrades["tasche"] = 2; gs.Upgrades["muelleimer"] = 3;
             gs.Upgrades["bank"] = 3; gs.Upgrades["laterne"] = 2;
-            gs.Upgrades["picknick"] = 2;
+            gs.Skills["u_picknick"] = 2;
             gs.Caps[0] = 2; gs.Caps[2] = 1; gs.Caps[4] = 1; gs.Caps[7] = 1;
             gs.Kronkorken = 5;
             gs.BottlesFed = 100;
@@ -157,7 +157,11 @@ public partial class Main : Control
         foreach (var u in UpgradeDefs.All)
             if (u.Skill != null && gs.Level(u.Id) > 0 && !gs.HasSkill(u.Skill)) gs.Skills[u.Skill] = 1;
         // Debug-Start: Kalle erklärt nichts, was schon da ist (--hint=ID zeigt einen Tipp gezielt)
-        if (debugStart) KalleHints.MarkCurrent(gs);
+        if (debugStart)
+        {
+            gs.CapIntroDone = gs.Kronkorken > 0 || gs.Caps.Count > 0 || gs.Skills.Count > 0;
+            KalleHints.MarkCurrent(gs);
+        }
         if (_args.TryGetValue("hint", out var hintId)) gs.SeenHints.Remove(hintId);
 
         BuildUi();

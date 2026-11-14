@@ -17,19 +17,19 @@ public static class Balance
 
     // Besucher
     public const double SpawnIntervalBase = 4.0;     // Sekunden zwischen neuen Besuchern
-    public const double SpawnBonusPerPath = 0.5;     // +50 % Besucher pro Weg
-    public const double SpawnBonusPerBin = 0.1;      // +10 % pro Mülleimer
+    public const double SpawnBonusPerPath = 0.6;     // +60 % Besucher pro Weg
+    public const double SpawnBonusPerBin = 0.15;     // +15 % pro Mülleimer
     public const int MaxVisitorsBase = 6;
-    public const int MaxVisitorsPerPath = 4;
-    public const int MaxVisitorsPerBench = 2;
+    public const int MaxVisitorsPerPath = 5;
+    public const int MaxVisitorsPerBench = 3;
     public const double StayBase = 22;               // Sekunden, die jemand sitzen bleibt
-    public const double StayBonusPerBench = 0.25;    // +25 % Verweildauer pro Bank
+    public const double StayBonusPerBench = 0.3;     // +30 % Verweildauer pro Bank
     public const double DrinkInterval = 5;           // alle X Sekunden ist eine Flasche leer
     public const double WalkSpeed = 45;              // Pixel pro Sekunde
     public const double EveningLeaveChancePerSecond = 0.1; // ohne Laternen
 
     // Imbissbude
-    public const double ImbissSpawnBonus = 0.5;      // +50 % Besucher
+    public const double ImbissSpawnBonus = 0.75;     // +75 % Besucher
     public const int ImbissMaxVisitors = 6;
     public const double ImbissDrinkFactor = 0.7;     // Leute trinken schneller
     public const double ImbissVisitChance = 0.4;     // Anteil, der erst zum Imbiss geht
@@ -59,7 +59,7 @@ public static class Balance
     public const double BinChanceMax = 0.8;
     public const int BinCapacity = 15;
     public const int BinCapacityPerLevel = 3;        // Skill "Große Eimer"
-    public const double BinRingChancePerLevel = 0.03; // Skill "Pfandtonne": pro Eimer
+    public const double BinRingChancePerLevel = 0.04; // Skill "Pfandtonne": pro Eimer
 
     // Liegen gelassene Flaschen nehmen nach einer Weile andere Leute mit (Eimer und Kästen nicht)
     public const int BottleLifetime = 60;            // Sekunden
@@ -98,16 +98,20 @@ public static class Balance
     public const double SkillDepthCost = 1.5;        // ×1,5 pro Knoten Abstand (weit außen wird es richtig teuer)
 
     // Tischtennis
-    public const double TableSpawnBonus = 0.2;
+    public const double TableSpawnBonus = 0.35;
     public const double TableDrinkFactor = 0.8;      // Spieler trinken schneller
 
     // Sammler (Angestellte)
     public const double CollectorSpeed = 55;
-    public const int CollectorCarry = 4;
+    public const int CollectorCarry = 5;
+    public const double CollectorValuePerLevel = 0.1; // Skill "Tüchtige Sammler"
 
     // Automat
     public const double FeedInterval = 0.1;          // Sekunden pro eingeworfener Flasche
     public const double CapDropChance = 0.03;        // Chance auf einen Kronkorken (nicht bei Dosen)
+    public const int CapChanceLevels = 20;           // Skill "Glücksdeckel": auf der letzten Stufe hat jede Flasche einen
+    public const double CapChancePerLevel = (1 - CapDropChance) / CapChanceLevels;
+    public const double MultiCapPerLevel = 0.05;     // Skill "Doppelfund": Chance auf noch einen, immer wieder
     public const int FirstCapGuaranteedAt = 12;      // spätestens diese Flasche bringt den ersten Kronkorken
 
     // Kombo: langer Bon = mehr Geld. Ab der 10. Flasche eines Einwurfs +1 % auf den ganzen Bon
@@ -118,8 +122,6 @@ public static class Balance
 
     // Kronkorken-Seltenheit: Gewicht je Stufe im Set (häufig, selten, sehr selten, legendär)
     public static readonly double[] CapTierWeight = { 10, 4, 1.5, 0.5 };
-    public const double CapKennerPerLevel = 0.15;    // Skill "Kennerblick": seltene Stufen öfter
-    public const double AlbumjaegerPerLevel = 0.1;
 
     // Picknickdecken: ohne Upgrade stehen die Leute nur kurz auf der Wiese herum
     public const double StandStayFactor = 0.85;
