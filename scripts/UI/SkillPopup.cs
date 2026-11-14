@@ -154,6 +154,14 @@ public partial class SkillCanvas : Control
         return d.MaxLevel > 1 ? Badge.Plus : Badge.None;
     }
 
+    /// <summary>Mehrere Ausbauten hängen direkt am selben Knoten: lange Linien zuerst zeichnen, damit die kurzen obenauf liegen.</summary>
+    static float LineLength(SkillDef d)
+    {
+        if (d.Id == SkillDefs.Root) return 0;
+        var p = SkillDefs.Get(d.Parent ?? SkillDefs.Root);
+        return new Vector2(d.Pos.X - p.Pos.X, d.Pos.Y - p.Pos.Y).Length();
+    }
+
     Vector2 Center(SkillDef d) => (Size / 2 + _offset + new Vector2(d.Pos.X, d.Pos.Y) * Spacing).Round();
 
     SkillDef NodeAt(Vector2 p)
@@ -189,6 +197,8 @@ public partial class SkillCanvas : Control
                         _flashT = 0.3f;
                     }
                     _pressed = false;
+                    _dragging = false;   // sonst bleibt der Tooltip bis zum nächsten Klick weg
+                    _hover = NodeAt(mb.Position)?.Id;
                 }
             }
         }
@@ -221,7 +231,9 @@ public partial class SkillCanvas : Control
         DrawBackground();
 
         // Linien zuerst, damit die Knoten darüber liegen
-        foreach (var d in SkillDefs.All)
+        var lines = new List<SkillDef>(SkillDefs.All);
+        lines.Sort((x, y) => LineLength(y).CompareTo(LineLength(x)));
+        foreach (var d in lines)
         {
             if (d.Id == SkillDefs.Root) continue;
             var state = StateOf(d);

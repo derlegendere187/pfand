@@ -89,6 +89,8 @@ public class Stranger
 {
     public Vector2 Pos, Exit;
     public GroundBottle Target;
+    public readonly List<GroundBottle> Next = new();   // weitere abgelaufene Flaschen auf seiner Runde
+    public int Got;
     public bool Leaving, Carrying;
     public float WalkPhase;
 }
@@ -721,7 +723,7 @@ public class VisitorSim
         else
         {
             // Ohne Picknickdecken stehen die Leute nur auf der Wiese herum
-            int picknick = gs.Level("picknick");
+            int picknick = gs.SkillLevel("u_picknick");
             v.HasBlanket = picknick > 0
                 && _rng.NextDouble() < Balance.BlanketChanceBase + Balance.BlanketChancePerLevel * (picknick - 1);
             var blanketSpot = v.HasBlanket ? FreeBlanketSpot(paths, gs) : null;
@@ -732,7 +734,7 @@ public class VisitorSim
                 v.BlanketPos = spot;
                 v.Target = v.BlanketPos + new Vector2(Rf(-12, 12), Rf(-4, 4));
                 // Am Feiertag kommen viele Familien und Freundesgruppen
-                double groupChance = Balance.GroupChancePerLevel * gs.Level("gruppen") + (gs.ActiveEvent == "feiertag" ? 0.5 : 0);
+                double groupChance = Balance.GroupChancePerLevel * gs.SkillLevel("u_gruppen") + (gs.ActiveEvent == "feiertag" ? 0.5 : 0);
                 wantsGroup = _rng.NextDouble() < groupChance;
             }
             else v.Target = spot;
@@ -749,7 +751,7 @@ public class VisitorSim
                 v.Crate = new GroupCrate { Pos = cp, Owner = v };
                 Crates.Add(v.Crate);
             }
-            int friends = 1 + _rng.Next(Balance.GroupExtraMax + gs.Level("gruppen"));
+            int friends = 1 + _rng.Next(Balance.GroupExtraMax + gs.SkillLevel("u_gruppen"));
             var offsets = new[] { new Vector2(-18, -8), new Vector2(18, -8), new Vector2(-18, 10), new Vector2(18, 10) };
             for (int f = 0; f < friends && f < offsets.Length; f++)
             {
@@ -1020,6 +1022,17 @@ public class VisitorSim
             {
                 if (b.Claimed || b.Age < life) continue;
                 b.Claimed = true;
+                // Ist schon einer unterwegs und hat noch Platz, nimmt der sie auf seiner Runde mit
+                Stranger best = null;
+                float bestD = StrangerReach;
+                foreach (var s0 in Strangers)
+                {
+                    if (s0.Leaving || 1 + s0.Next.Count + s0.Got >= StrangerCarry) continue;
+                    var last = s0.Next.Count > 0 ? s0.Next[^1].Pos : s0.Target.Pos;
+                    float d = last.DistanceTo(b.Pos);
+                    if (d < bestD) { bestD = d; best = s0; }
+                }
+                if (best != null) { best.Next.Add(b); continue; }
                 var edge = NearestEdge(b.Pos);
                 Strangers.Add(new Stranger { Pos = edge, Exit = edge, Target = b });
             }
@@ -1031,19 +1044,39 @@ public class VisitorSim
             s.WalkPhase += (float)dt * 10;
             if (!s.Leaving)
             {
-                // Schon weg (der Spieler war schneller): umdrehen
-                if (!Bottles.Contains(s.Target)) { s.Leaving = true; continue; }
+                // Schon weg (der Spieler war schneller): nächste Flasche oder umdrehen
+                if (!Bottles.Contains(s.Target)) { NextStrangerTarget(s); continue; }
                 if (MoveTowards(ref s.Pos, s.Target.Pos, step))
                 {
                     Bottles.Remove(s.Target);
                     s.Carrying = true;
-                    s.Leaving = true;
+                    s.Got++;
                     if (!gs.BottleTaken) { gs.BottleTaken = true; gs.TakenAt = s.Pos; gs.Notify(); }
+                    NextStrangerTarget(s);
                 }
             }
             else MoveTowards(ref s.Pos, s.Exit, step);
         }
         Strangers.RemoveAll(s => s.Leaving && s.Pos.DistanceTo(s.Exit) < 1);
+    }
+
+    const int StrangerCarry = 6;
+    const float StrangerReach = 260;
+
+    /// <summary>Zur nächstgelegenen Flasche auf der Liste, sonst zum nächsten Rand und weg.</summary>
+    void NextStrangerTarget(Stranger s)
+    {
+        s.Next.RemoveAll(b => !Bottles.Contains(b));
+        if (s.Next.Count == 0)
+        {
+            s.Leaving = true;
+            s.Exit = NearestEdge(s.Pos);
+            return;
+        }
+        var near = s.Next[0];
+        foreach (var b in s.Next) if (b.Pos.DistanceTo(s.Pos) < near.Pos.DistanceTo(s.Pos)) near = b;
+        s.Next.Remove(near);
+        s.Target = near;
     }
 
     Vector2 NearestEdge(Vector2 p)

@@ -22,7 +22,7 @@ public partial class AutomatPanel : PanelContainer
 
     bool _feeding;
     double _feedAcc, _feedTotal, _pulse, _bagIdle, _komboBonus;
-    int _lastBagCount, _feedCount;
+    int _lastBagCount, _feedCount, _feedTarget;
     readonly Dictionary<BottleType, (int count, double sum)> _receipt = new();
     readonly List<int> _capsFound = new();
     readonly Random _rng = new();
@@ -127,6 +127,7 @@ public partial class AutomatPanel : PanelContainer
         _feedAcc = 0;
         _feedTotal = 0;
         _feedCount = 0;
+        _feedTarget = GameState.I.Bag.Count;   // was währenddessen dazukommt, kommt beim nächsten Einwurf dran
         _komboBonus = 0;
         _receipt.Clear();
         _capsFound.Clear();
@@ -145,7 +146,7 @@ public partial class AutomatPanel : PanelContainer
         if (!_feeding) return;
         _feedAcc += delta;
         bool changed = false;
-        while (_feedAcc >= gs.FeedInterval && gs.Bag.Count > 0)
+        while (_feedAcc >= gs.FeedInterval && gs.Bag.Count > 0 && _feedCount < _feedTarget)
         {
             _feedAcc -= gs.FeedInterval;
             var (type, value, cap) = gs.FeedOne(_rng);
@@ -159,7 +160,7 @@ public partial class AutomatPanel : PanelContainer
         double kombo = gs.Kombo(_feedCount);
         _display.Text = GameState.Euro(_feedTotal * (1 + kombo));
         if (kombo > 0) _status.Text = $"ZÄHLT … KOMBO +{System.Math.Round(kombo * 100)} %";
-        if (gs.Bag.Count == 0)
+        if (gs.Bag.Count == 0 || _feedCount >= _feedTarget)
         {
             _feeding = false;
             gs.Feeding = false;
@@ -204,7 +205,7 @@ public partial class AutomatPanel : PanelContainer
             AddBonLine($"{kv.Value.count}× {BottleInfo.Name(kv.Key)}", Format(kv.Value.sum), Wood.Print);
         if (_komboBonus > 0)
             AddBonLine($"KOMBO {_feedCount}× +{System.Math.Round(GameState.I.Kombo(_feedCount) * 100)} %", Format(_komboBonus), Palette.GoodText);
-        else if (_feedCount < Balance.KomboStart)
+        else if (_feedCount < Balance.KomboStart && GameState.I.HasSkill("kombo_an"))
             AddBonLine($"Kombo ab {Balance.KomboStart} Flaschen", "", Wood.PrintSoft);
         _bonLines.AddChild(new DashLine());
         AddBonLine("SUMME", GameState.Euro(_feedTotal + _komboBonus), Wood.Print, true);

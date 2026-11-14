@@ -42,12 +42,12 @@ public static class KalleHints
             "Oh, schon 22 Uhr! Im Dunkeln gehen die Leute nach Hause, und neue kommen kaum noch.",
             "Kauf dir eine Laterne! Dann bleiben die Leute abends länger, und nachts kommen sogar noch welche. Du findest sie rechts bei den Upgrades.",
         }, gs => gs.Level("laterne") > 0, new[] { null, "laterne" }),
-        new("kronkorken", gs => gs.Kronkorken > 0 || gs.Caps.Count > 0, new[]
+        new("kronkorken", gs => (gs.Kronkorken > 0 || gs.Caps.Count > 0) && gs.CapIntroDone, new[]
         {
             "Oh, ein Kronkorken! Die stecken ab und zu in den Flaschen, die du selbst einwirfst. Dosen haben keine.",
             "Mit Kronkorken lernst du im SKILLTREE neue Sachen, unten rechts. Fang mit den Glasflaschen an, dann trinken die Leute nicht nur Bier.",
-            "Je mehr Kronkorken du dort ausgibst, desto mehr Äste wachsen. Später schaltest du auch Neues für den Park frei, zum Beispiel Picknickdecken und Mülleimer.",
-            "Erst im Skilltree freischalten, dann rechts bei den Upgrades kaufen. Und im ALBUM siehst du, welche Motive du schon gesammelt hast.",
+            "Je mehr Kronkorken du dort ausgibst, desto mehr Äste wachsen. Später schaltest du auch Neues für den Park frei, zum Beispiel Picknickdecken, Mülleimer und Bänke.",
+            "Mülleimer, Bänke und Co. erst im Skilltree freischalten, dann rechts bei den Upgrades kaufen. Und im ALBUM siehst du, welche Motive du schon gesammelt hast.",
         }, Focus: new[] { null, "skills", "skills", "album" }),
         new("muelleimer", gs => gs.Level("muelleimer") > 0, new[]
         {

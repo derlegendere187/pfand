@@ -50,14 +50,14 @@ public static class EventDefs
 
         // ---- Aktionen: kurz, kommen nur per Flyer im Park und laufen auch neben einem Event ----
         new EventDef { Id = "pfandaktion", Kind = EventKind.Aktion, Short = true, Name = "PFANDAKTION",
-            Desc = "Alle Flaschen sind doppelt so viel wert", Skill = "ak_pfandaktion",
-            Duration = 30, ValueBonus = 2 },
+            Desc = "Alle Flaschen sind 2,5-mal so viel wert", Skill = "ak_pfandaktion",
+            Duration = 45, ValueBonus = 2.5 },
         new EventDef { Id = "happyhour", Kind = EventKind.Aktion, Short = true, Name = "HAPPY HOUR",
-            Desc = "Alle trinken doppelt so schnell", Skill = "ak_happyhour",
-            Duration = 30 },
+            Desc = "Alle trinken 2,5-mal so schnell", Skill = "ak_happyhour",
+            Duration = 45 },
         new EventDef { Id = "gluecksstraehne", Kind = EventKind.Aktion, Short = true, Name = "GLÜCKSSTRÄHNE",
-            Desc = "Dreimal so viele Kronkorken", Skill = "ak_gluecksstraehne",
-            Duration = 30 },
+            Desc = "Viermal so viele Kronkorken", Skill = "ak_gluecksstraehne",
+            Duration = 45 },
     };
 
     public static EventDef Get(string id) => All.Find(e => e.Id == id);
