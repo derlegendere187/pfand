@@ -48,7 +48,7 @@ public static class KalleHints
             "Mit Kronkorken lernst du im SKILLTREE neue Sachen, unten rechts. Fang mit den Glasflaschen an, dann trinken die Leute nicht nur Bier.",
             "Je mehr Kronkorken du dort ausgibst, desto mehr Äste wachsen. Später schaltest du auch Neues für den Park frei, zum Beispiel Picknickdecken, Mülleimer und Bänke.",
             "Mülleimer, Bänke und Co. erst im Skilltree freischalten, dann rechts bei den Upgrades kaufen. Und im ALBUM siehst du, welche Motive du schon gesammelt hast.",
-        }, Focus: new[] { null, "skills", "skills", "album" }),
+        }, Focus: new[] { "captoast", "skills", "skills", "album" }),
         new("muelleimer", gs => gs.Level("muelleimer") > 0, new[]
         {
             "Ein Mülleimer! Manche Leute werfen ihre leeren Flaschen jetzt da rein. Klick auf den Eimer, dann holst du alle auf einmal raus.",

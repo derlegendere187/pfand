@@ -15,6 +15,7 @@ public class SaveData
     public int PeakVisitors { get; set; }
     public int Kronkorken { get; set; }
     public double TimeOfDay { get; set; }
+    public int Day { get; set; }
     public List<int> Bag { get; set; } = new();
     public Dictionary<string, int> Upgrades { get; set; } = new();
     public Dictionary<string, int> Ausbau { get; set; }           // nur bis Version 4 (Ausbau pro Objekt)
@@ -51,6 +52,7 @@ public static class SaveSystem
             PeakVisitors = s.PeakVisitors,
             Kronkorken = s.Kronkorken,
             TimeOfDay = s.TimeOfDay,
+            Day = s.Day,
             Bag = s.Bag.Select(b => (int)b).ToList(),
             Upgrades = new Dictionary<string, int>(s.Upgrades),
             Caps = new Dictionary<int, int>(s.Caps),
@@ -91,6 +93,8 @@ public static class SaveSystem
             s.BottlesFed = data.BottlesFed;
             s.PeakVisitors = data.PeakVisitors;
             s.TimeOfDay = data.TimeOfDay;
+            // Ältere Spielstände kennen den Tag noch nicht: wer schon Kronkorken hat, ist längst über die erste Nacht hinaus
+            s.Day = data.Day > 0 ? data.Day : (data.Kronkorken > 0 || (data.Caps?.Count ?? 0) > 0 || (data.SkillLevels?.Count ?? 0) > 0 ? 1 : 0);
             s.Bag = data.Bag.Where(b => Enum.IsDefined(typeof(BottleType), b)).Select(b => (BottleType)b).ToList();
             s.Upgrades = data.Upgrades ?? new();
             s.Caps = (data.Caps ?? new()).Where(kv => kv.Key >= 0 && kv.Key < CapData.Count).ToDictionary(kv => kv.Key, kv => kv.Value);

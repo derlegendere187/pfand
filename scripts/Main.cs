@@ -48,6 +48,7 @@ public partial class Main : Control
     StatsPopup _stats;
     AutomatPanel _automat;
     Label _albumCount, _skillCount, _statsCount;
+    CapToast _capToast;
     Button _tabUpgrades, _tabEvents, _albumButton, _skillButton;
     UpgradePanel _upgradePanel;
     ParkView _park;
@@ -167,6 +168,7 @@ public partial class Main : Control
         // Debug-Start: Kalle erklärt nichts, was schon da ist (--hint=ID zeigt einen Tipp gezielt)
         if (debugStart)
         {
+            gs.Day = System.Math.Max(gs.Day, 1);   // Testen: Kronkorken sofort möglich
             gs.CapIntroDone = gs.Kronkorken > 0 || gs.Caps.Count > 0 || gs.Skills.Count > 0;
             KalleHints.MarkCurrent(gs);
         }
@@ -273,7 +275,8 @@ public partial class Main : Control
         body.AddChild(right);
 
         // Kronkorken-Meldung steigt im Park neben dem Automaten auf (unter den Popups, damit sie im Skilltree nicht stört)
-        AddChild(new CapToast { Anchor = () => park.ToScreen(new Vector2(14, 80)) });
+        _capToast = new CapToast { Anchor = () => park.ToScreen(new Vector2(14, 80)) };
+        AddChild(_capToast);
 
         _album = new AlbumPopup();
         AddChild(_album);
@@ -292,6 +295,8 @@ public partial class Main : Control
             FocusRect = FocusRect,
         };
         AddChild(tutorial);
+        // Die Meldung zum allerersten Kronkorken bleibt stehen, bis Kalle auf der ersten Seite darüber geredet hat
+        _capToast.HoldFirst = () => !GameState.I.SeenHints.Contains("kronkorken") || tutorial.ShowingHint("kronkorken", 0);
 
         _pause = new PauseMenu { Busy = () => _skills.Visible || _album.Visible || _stats.Visible, SaveGame = Save };
         AddChild(_pause);
@@ -314,6 +319,7 @@ public partial class Main : Control
             case "upgrades": return _upgradePanel.GetGlobalRect();
             case "laterne": return _upgradePanel.CardRect("laterne");
             case "skills": return _skillButton.Visible ? _skillButton.GetGlobalRect() : null;
+            case "captoast": return _capToast.HeldRect;
             case "album": return _albumButton.Visible ? _albumButton.GetGlobalRect() : null;
             case "events": return _tabEvents.Visible ? _tabEvents.GetGlobalRect() : null;
             case "bottle": return sim.Bottles.Count > 0 ? Around(sim.Bottles[0].Pos, 24) : null;
