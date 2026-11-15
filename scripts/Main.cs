@@ -63,6 +63,7 @@ public partial class Main : Control
         GetTree().AutoAcceptQuit = false;
         _args = ParseArgs();
         Theme = PfandTheme.Build();
+        GameCursor.Install(GetTree().Root);
         // Debug: Fenstergröße erzwingen, um andere Seitenverhältnisse zu prüfen
         if (_args.TryGetValue("window", out var win) && win.Split('x') is { Length: 2 } wh && int.TryParse(wh[0], out var ww) && int.TryParse(wh[1], out var hh))
         {
@@ -345,7 +346,7 @@ public partial class Main : Control
         b.AddThemeFontSizeOverride("font_size", 26);
         // Reiter: aktiver Reiter ist helles Holz, inaktive dunkler
         b.AddThemeStyleboxOverride("normal", PfandTheme.ButtonBox(Wood.Slot, Wood.Plank2, Wood.SlotEdge));
-        b.AddThemeStyleboxOverride("hover", PfandTheme.ButtonBox(Wood.Plank2, Wood.GrainLight, Wood.GrainDark));
+        b.AddThemeStyleboxOverride("hover", PfandTheme.ButtonBox(Wood.SlotHover, Wood.Slot, Wood.SlotEdge));
         b.AddThemeStyleboxOverride("pressed", PfandTheme.ButtonBox(Wood.Plank, Wood.GrainLight, Wood.GrainDark));
         b.AddThemeStyleboxOverride("hover_pressed", PfandTheme.ButtonBox(Wood.Plank, Wood.GrainLight, Wood.GrainDark));
         b.AddThemeColorOverride("font_color", Wood.Muted);
@@ -367,8 +368,8 @@ public partial class Main : Control
     {
         var button = new Button { CustomMinimumSize = new Vector2(0, 62), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         button.AddThemeStyleboxOverride("normal", PfandTheme.WoodPanel(6, false));
-        button.AddThemeStyleboxOverride("hover", PfandTheme.ButtonBox(Wood.GrainLight, Wood.Nail, Wood.GrainDark));
-        button.AddThemeStyleboxOverride("pressed", PfandTheme.ButtonBox(Wood.Plank2, Wood.GrainDark, Wood.Plank2));
+        button.AddThemeStyleboxOverride("hover", PfandTheme.ButtonBox(Wood.GrainDark, Wood.Plank2, Wood.Slot));
+        button.AddThemeStyleboxOverride("pressed", PfandTheme.ButtonBox(Wood.Slot, Wood.GrainDark, Wood.Slot));
         var col = new VBoxContainer { Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore };
         col.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         col.AddThemeConstantOverride("separation", 2);
@@ -464,6 +465,8 @@ public partial class Main : Control
         _speedLabel.Text = $"TEST: ZEIT x{Engine.TimeScale:0}  (Tasten 1-5)";
         _speedLabel.Visible = Engine.TimeScale != 1;
     }
+
+    public override void _ExitTree() => GameCursor.Uninstall();
 
     public override void _Notification(int what)
     {
