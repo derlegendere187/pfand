@@ -37,7 +37,7 @@ public static class UpgradeDefs
             BasePrice = 3.00, Growth = 1.7, Max = 3, MaxBonus = gs => gs.SkillLevel("bau"), RevealedBy = gs => gs.LaterneHint,
             C1 = H("#f2c75c"), C2 = H("#5a4a3a") },
         new UpgradeDef { Id = "tasche", Skill = "u_tasche", Name = "TASCHE+", Effect = "+4 Plätze in der Tasche",
-            BasePrice = 8.00, Growth = 1.75, Max = 6, MaxBonus = gs => gs.SkillLevel("rucksack"), C1 = H("#b07a4a"), C2 = H("#f4ead2") },
+            BasePrice = 8.00, Growth = 1.5, Max = 6, MaxBonus = gs => gs.SkillLevel("rucksack"), C1 = H("#b07a4a"), C2 = H("#f4ead2") },
         new UpgradeDef { Id = "muelleimer", Skill = "u_muelleimer", Name = "MÜLLEIMER", Effect = "Flaschen landen im Eimer",
             BasePrice = 10.00, Growth = 1.6, Max = 4, MaxBonus = gs => gs.SkillLevel("bau"), C1 = H("#4f7a5a"), C2 = H("#2f4a38") },
         new UpgradeDef { Id = "bank", Skill = "u_bank", Name = "BANK", Effect = "Leute bleiben länger",
@@ -45,11 +45,11 @@ public static class UpgradeDefs
         new UpgradeDef { Id = "sammler", Skill = "u_sammler", Name = "SAMMLER", Effect = "Angestellte sammeln und werfen selbst ein",
             BasePrice = 90.00, Growth = 1.7, Max = 5, MaxBonus = gs => gs.SkillLevel("personal"), C1 = H("#e08a4a"), C2 = H("#2a1d14") },
         new UpgradeDef { Id = "tischtennis", Skill = "u_tischtennis", Name = "TISCHTENNIS", Effect = "Spieler kommen und trinken viel",
-            BasePrice = 200.00, Growth = 2.0, Max = 2, C1 = H("#4f8a6a"), C2 = H("#fffaf0") },
+            BasePrice = 600.00, Growth = 2.0, Max = 2, C1 = H("#4f8a6a"), C2 = H("#fffaf0") },
         new UpgradeDef { Id = "grill", Skill = "u_grill", Name = "GRILLPLATZ", Effect = "Grillrunden füllen einen Bierkasten",
-            BasePrice = 320, Growth = 2.5, Max = 1, C1 = H("#5a4a3a"), C2 = H("#e08a4a") },
+            BasePrice = 2500, Growth = 2.5, Max = 1, C1 = H("#5a4a3a"), C2 = H("#e08a4a") },
         new UpgradeDef { Id = "imbiss", Skill = "u_imbiss", Name = "IMBISSBUDE", Effect = "Mehr Leute, die mehr trinken",
-            BasePrice = 800, Growth = 2.5, Max = 1, C1 = H("#d9735a"), C2 = H("#fffaf0") },
+            BasePrice = 8000, Growth = 2.5, Max = 1, C1 = H("#d9735a"), C2 = H("#fffaf0") },
     };
 
     public static UpgradeDef Get(string id) => All.Find(u => u.Id == id);

@@ -109,7 +109,7 @@ public static class SaveSystem
             }
             else
             {
-                s.Kronkorken += RefundRemovedSkills(data.SkillLevels);
+                s.Kronkorken += RefundRemovedSkills(data.SkillLevels) + RefundCappedLevels(data.SkillLevels);
                 s.Skills = (data.SkillLevels ?? new())
                     .Where(kv => SkillDefs.Get(kv.Key) is { } d && kv.Value > 0)
                     .ToDictionary(kv => kv.Key, kv => Math.Min(kv.Value, SkillDefs.Get(kv.Key).MaxLevel));
@@ -176,6 +176,17 @@ public static class SaveSystem
         Scale("glueck", l => (int)Math.Round(l * 97 / 20.0));
         Scale("mehrfach", l => l * 5);
         Scale("u_picknick", l => 5 + l * 5);
+    }
+
+    /// <summary>Skills mit weniger Stufen als früher (z. B. Ehrliche Sammler): überzählige Stufen werden erstattet.</summary>
+    static int RefundCappedLevels(Dictionary<string, int> levels)
+    {
+        if (levels == null) return 0;
+        int sum = 0;
+        foreach (var kv in levels)
+            if (SkillDefs.Get(kv.Key) is { } d && d.MaxLevel > 0)
+                for (int k = d.MaxLevel; k < kv.Value; k++) sum += SkillDefs.Cost(d, k);
+        return sum;
     }
 
     /// <summary>Picknickdecke und Freundeskreis waren Geld-Upgrades, jetzt sind es Skills mit Stufen.</summary>

@@ -369,9 +369,10 @@ public class GameState
     public double EventPauseLength => Balance.EventPause * (1 - Balance.EventPauseCutPerLevel * SkillLevel("ev_cooldown"));
     /// <summary>
     /// Events kosten Kronkorken. Der Preis steigt, je öfter man es veranstaltet (höchstens bis zum doppelten Grundpreis).
-    /// Sponsoren machen es billiger.
+    /// Mit dem Glücksdeckel wird es teurer, weil dann auch mehr Kronkorken reinkommen. Sponsoren machen es billiger.
     /// </summary>
     public int EventCost(EventDef e) => (int)Math.Ceiling(e.Cost * (1 + Balance.EventCostGrowth * Math.Min(TimesHeld(e), Balance.EventCostGrowthMax))
+        * (1 + Balance.EventCostPerCapLevel * SkillLevel("glueck"))
         * (1 - 0.05 * SkillLevel("ev_sponsor")));
     public bool EventRunning(EventDef e) => e.Short ? BoostActive(e.Id) : ActiveEvent == e.Id;
     public bool CanStartEvent(EventDef e) => !e.Short && EventUnlocked(e) && ActiveEvent == null

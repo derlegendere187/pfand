@@ -75,7 +75,7 @@ public static class Balance
 
     // Seltene Flaschen (brauchen Skills)
     public const double RetroChancePerLevel = 0.005;
-    public const double GoldChancePerLevel = 0.001;
+    public const double GoldChancePerLevel = 0.003;
 
     // Liegenlassen: Anfangs nehmen 40 % der Leute ihre Flaschen wieder mit
     public const double LeaveChanceBase = 0.6;
@@ -139,6 +139,7 @@ public static class Balance
     // Events werden mit jedem Mal teurer
     public const double EventCostGrowth = 0.25;      // +25 % des Grundpreises pro Durchführung
     public const int EventCostGrowthMax = 4;         // höchstens viermal (also maximal doppelter Preis)
+    public const double EventCostPerCapLevel = 0.1;  // +10 % je Glücksdeckel-Stufe: bleibt gemessen an den Kronkorken pro Minute etwa gleich teuer
 
     // Speichern
     public const double AutosaveSeconds = 30;

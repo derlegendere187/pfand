@@ -119,7 +119,7 @@ public static class SkillDefs
             Icon = new[] { "..####..", "..#oo#..", "...##...", "..####..", ".#oooo#.", ".#o##o#.", ".#oooo#.", "..####.." } },
 
         // ---- Pfandwert (rechts) ----
-        S("wert", Wert, "PFANDWERT", null, 1, 0, 1, 1.14, 60, n => $"Alle Flaschen +{n * 5} % wert",
+        S("wert", Wert, "PFANDWERT", null, 1, 0, 1, 1.10, 60, n => $"Alle Flaschen +{n * 5} % wert",
             new[] { "........", ".#....#.", "..#..#..", "...##...", "..####..", "...##...", "..####..", "...##..." }),
         S("abgabe", Wert, "SCHNELLE ABGABE", "wert", 2, 0, 2, 1.22, 20, n => $"Automat zählt {n * 50} % schneller",
             new[] { "........", "#...#...", "##..##..", "###.###.", "###.###.", "##..##..", "#...#...", "........" }),
@@ -162,7 +162,7 @@ public static class SkillDefs
             new[] { "...o....", "...##...", "..#oo#..", "..#oo#..", ".#oooo#.", ".#o##o#.", ".#oooo#.", ".######." }),
 
         // ---- Glück (unten rechts): Kronkorken und Aktionen ----
-        S("glueck", Glueck, "GLÜCKSDECKEL", null, 1, 1, 3, 1.07, Balance.CapChanceLevels,
+        S("glueck", Glueck, "GLÜCKSDECKEL", null, 1, 1, 3, 1.09, Balance.CapChanceLevels,
             n => $"Kronkorken-Chance {Pct(Balance.CapDropChance + n * Balance.CapChancePerLevel)} statt {Pct(Balance.CapDropChance)}", ICap),
         new SkillDef { Id = "mehrfach", Branch = Glueck, Name = "DOPPELFUND", Parent = "glueck", Pos = new(2, 1), Base = 20, Growth = 1.07, Max = 50,
             RequiresMax = "glueck",
@@ -256,7 +256,7 @@ public static class SkillDefs
         S("flink", Park, "FLINKE SAMMLER", "u_sammler", -3, -4, 3, 1.3, 10, n => $"Sammler laufen {n * 8} % schneller",
             new[] { "...##...", "..####..", "...##...", ".######.", "#.####.#", "..#..#..", ".#....#.", "#......#" }),
         S("tragkraft", Park, "STARKE SAMMLER", "u_sammler", -4, -4, 4, 1.4, 6, n => $"Sammler tragen {n} Flaschen mehr", IBag),
-        S("ehrlich", Park, "EHRLICHE SAMMLER", "u_sammler", -5, -4, 3, 1.3, 15,
+        S("ehrlich", Park, "EHRLICHE SAMMLER", "u_sammler", -5, -4, 3, 1.3, 10,
             n => $"Sammler bringen Kronkorken ({n * 10} % so oft wie du)", ICap),
         S("sammler_lohn", Park, "TÜCHTIGE SAMMLER", "u_sammler", -6, -4, 3, 1.3, 10,
             n => $"Flaschen von Sammlern +{n * 10} % wert", ICoin),
