@@ -37,6 +37,10 @@ public partial class TutorialOverlay : Control
     string[] _focus;
     bool _blocking;
     bool _hint;                     // Kalle gibt gerade einen Tipp (außerhalb der Einführung)
+    string _hintId;
+
+    /// <summary>Kommt gerade (oder gleich) dieser Tipp, höchstens bis zu dieser Seite?</summary>
+    public bool ShowingHint(string id, int upToPage) => _hint && _hintId == id && _page <= upToPage;
     Control _box;
     Label _text;
     Button _next;
@@ -162,6 +166,7 @@ public partial class TutorialOverlay : Control
             gs.Notify();
             if (h.Skip?.Invoke(gs) ?? false) continue;
             _hint = true;
+            _hintId = h.Id;
             _pages = h.Pages;
             _focus = h.Focus;
             _page = 0;

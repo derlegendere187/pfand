@@ -146,7 +146,12 @@ public class VisitorSim
         while (_dropTimes.Count > 0 && _clock - _dropTimes.Peek() > 60) _dropTimes.Dequeue();
 
         // Während der Einführung bleibt die Uhr stehen, damit man in Ruhe lesen kann
-        if (!gs.TutorialActive && !gs.ClockPaused) gs.TimeOfDay = (gs.TimeOfDay + dt / Balance.DayLengthSeconds) % 1.0;
+        if (!gs.TutorialActive && !gs.ClockPaused)
+        {
+            double t = gs.TimeOfDay + dt / Balance.DayLengthSeconds;
+            if (t >= 1) gs.Day++;   // die Nacht ist vorbei
+            gs.TimeOfDay = t % 1.0;
+        }
         gs.UpdateEvents(dt);
 
         var paths = ParkLayout.Paths(Size, gs);

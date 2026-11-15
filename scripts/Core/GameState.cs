@@ -50,6 +50,10 @@ public class GameState
     public int PeakVisitors;       // Rekord: so viele Leute waren gleichzeitig im Park
     public int Kronkorken;         // Währung für den Skilltree
     public double TimeOfDay = Balance.StartTimeOfDay;
+    public int Day;                 // wie viele Nächte schon vorbei sind (0 = erster Tag)
+
+    /// <summary>Kronkorken gibt es erst ab dem Morgen nach der ersten Nacht.</summary>
+    public bool CapsPossible => Day >= 1;
     public List<BottleType> Bag = new();
     public Dictionary<string, int> Upgrades = new();
     public Dictionary<int, int> Caps = new();          // Album: Motiv -> wie oft gefunden
@@ -83,7 +87,12 @@ public class GameState
     public event Action Changed;
     /// <summary>Ein Kronkorken wurde gefunden (Motiv, neu fürs Album?).</summary>
     public event Action<int, bool> CapFound;
-    public void DebugCapFound(int cap) => CapFound?.Invoke(cap, true);
+    public void DebugCapFound(int cap)
+    {
+        Caps[cap] = (Caps.TryGetValue(cap, out var c) ? c : 0) + 1;
+        Kronkorken++;
+        CapFound?.Invoke(cap, Caps[cap] == 1);
+    }
     public bool CrateLeftBehind;                        // eine Gruppe hat ihren Bierkasten stehen lassen (für Kalle)
 
     public void Notify() => Changed?.Invoke();
@@ -233,7 +242,7 @@ public class GameState
         double chance = CapChance * (t == BottleType.Retro || t == BottleType.Gold ? 5 : 1) * (byCollector ? CollectorCapFactor : 1);
         // Der erste Kronkorken kommt spätestens mit der zwölften Flasche, damit man den Skilltree früh entdeckt
         bool firstGuaranteed = !byCollector && Caps.Count == 0 && Kronkorken == 0 && Skills.Count == 0 && BottlesFed >= Balance.FirstCapGuaranteedAt;
-        if (BottleInfo.HasCap(t) && (firstGuaranteed || rng.NextDouble() < chance))
+        if (CapsPossible && BottleInfo.HasCap(t) && (firstGuaranteed || rng.NextDouble() < chance))
             cap = byCollector ? RollKnownCap(rng) : RollCap(rng);
         if (cap >= 0)
         {
