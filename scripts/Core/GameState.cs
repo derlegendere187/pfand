@@ -183,12 +183,19 @@ public class GameState
     public double BankStayFactor => 1 + 0.15 * SkillLevel("bank_tisch");
     public double BankDrinkFactor => 1 - 0.06 * SkillLevel("tischrunde");
     public double TableStayFactor => 1 + 0.15 * SkillLevel("tt_turnier");
-    public double TableDrinkBonus => 1 - 0.08 * SkillLevel("tt_sieger");
-    public int ImbissExtraSlots => SkillLevel("imbiss_theke");
-    public double ImbissDrinkBonus => 1 - 0.05 * SkillLevel("imbiss_kuehl");
+    // Ausbaustufen über die Grundanzahl hinaus (zwei Platten, eine Bude, ein Grill): kein neuer Platz, aber mehr Wirkung
+    public int TableStufe => Math.Max(0, Level("tischtennis") - 2);
+    public int ImbissStufe => Math.Max(0, Level("imbiss") - 1);
+    public int GrillStufe => Math.Max(0, Level("grill") - 1);
+    public double TableSpawnFactor => 1 + 0.3 * TableStufe;
+    public double ImbissSpawnBonus => Balance.ImbissSpawnBonus * (1 + 0.3 * ImbissStufe);
+
+    public double TableDrinkBonus => (1 - 0.08 * SkillLevel("tt_sieger")) * (1 - 0.05 * TableStufe);
+    public int ImbissExtraSlots => SkillLevel("imbiss_theke") + 2 * ImbissStufe;
+    public double ImbissDrinkBonus => (1 - 0.05 * SkillLevel("imbiss_kuehl")) * (1 - 0.05 * ImbissStufe);
     public double ImbissVisitBonus => 0.08 * SkillLevel("imbiss_schild");
     public double GrillStayBonus => 1 + 0.15 * SkillLevel("grill_rost");
-    public double GrillDrinkBonus => 1 - 0.08 * SkillLevel("grill_kuehl");
+    public double GrillDrinkBonus => (1 - 0.08 * SkillLevel("grill_kuehl")) * (1 - 0.04 * GrillStufe);
     public double BinRingChance => Balance.BinRingChancePerLevel * SkillLevel("eimer_ring");
 
     public double Value(BottleType t) => BottleInfo.BaseValue(t) * ValueMultiplier * TypeMultiplier(t);

@@ -485,7 +485,8 @@ public partial class SkillCanvas : Control
         else if (StateOf(d) == NodeState.Teaser) title = "NEUER AST";
         else
         {
-            if (d.MaxLevel > 1) lines.Add(($"Stufe {lvl}/{d.MaxLevel}", Wood.Muted));
+            if (d.Endless) lines.Add(($"Stufe {lvl} (ohne Ende)", Wood.Muted));
+            else if (d.MaxLevel > 1) lines.Add(($"Stufe {lvl}/{d.MaxLevel}", Wood.Muted));
             var change = maxed ? null : Change(d, lvl);
             string effect = d.Effect(maxed ? lvl : lvl + 1);
             if (change != null) effect = WithoutStatt(effect);

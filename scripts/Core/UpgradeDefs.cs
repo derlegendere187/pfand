@@ -45,11 +45,11 @@ public static class UpgradeDefs
         new UpgradeDef { Id = "sammler", Skill = "u_sammler", Name = "SAMMLER", Effect = "Angestellte sammeln und werfen selbst ein",
             BasePrice = 90.00, Growth = 1.7, Max = 5, MaxBonus = gs => gs.SkillLevel("personal"), C1 = H("#e08a4a"), C2 = H("#2a1d14") },
         new UpgradeDef { Id = "tischtennis", Skill = "u_tischtennis", Name = "TISCHTENNIS", Effect = "Spieler kommen und trinken viel",
-            BasePrice = 600.00, Growth = 2.0, Max = 2, C1 = H("#4f8a6a"), C2 = H("#fffaf0") },
+            BasePrice = 600.00, Growth = 2.0, Max = 2, MaxBonus = gs => gs.SkillLevel("tt_ausbau"), C1 = H("#4f8a6a"), C2 = H("#fffaf0") },
         new UpgradeDef { Id = "grill", Skill = "u_grill", Name = "GRILLPLATZ", Effect = "Grillrunden füllen einen Bierkasten",
-            BasePrice = 2500, Growth = 2.5, Max = 1, C1 = H("#5a4a3a"), C2 = H("#e08a4a") },
+            BasePrice = 2500, Growth = 2.5, Max = 1, MaxBonus = gs => gs.SkillLevel("grill_ausbau"), C1 = H("#5a4a3a"), C2 = H("#e08a4a") },
         new UpgradeDef { Id = "imbiss", Skill = "u_imbiss", Name = "IMBISSBUDE", Effect = "Mehr Leute, die mehr trinken",
-            BasePrice = 8000, Growth = 2.5, Max = 1, C1 = H("#d9735a"), C2 = H("#fffaf0") },
+            BasePrice = 8000, Growth = 2.5, Max = 1, MaxBonus = gs => gs.SkillLevel("imbiss_ausbau"), C1 = H("#d9735a"), C2 = H("#fffaf0") },
     };
 
     public static UpgradeDef Get(string id) => All.Find(u => u.Id == id);

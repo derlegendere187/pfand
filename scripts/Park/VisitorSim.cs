@@ -191,7 +191,7 @@ public class VisitorSim
             + (imbiss ? Balance.ImbissMaxVisitors + gs.ImbissExtraSlots : 0) + tables.Count * 2
             + (activeEvent?.Guests ?? 0) + (activeEvent?.ExtraVisitors ?? 0) + gs.ExtraVisitorSlots;
         double boost = 1 + Balance.SpawnBonusPerPath * paths.Count + Balance.SpawnBonusPerBin * bins.Count
-            + (imbiss ? Balance.ImbissSpawnBonus : 0) + Balance.TableSpawnBonus * tables.Count + (activeEvent?.SpawnBoost ?? 0) + gs.VisitorBoost;
+            + (imbiss ? gs.ImbissSpawnBonus : 0) + Balance.TableSpawnBonus * tables.Count * gs.TableSpawnFactor + (activeEvent?.SpawnBoost ?? 0) + gs.VisitorBoost;
         double interval = Balance.SpawnIntervalBase / boost;
         if (phaseFactor > 0 && !gs.TutorialActive)
         {
@@ -432,7 +432,7 @@ public class VisitorSim
         if (phaseFactor <= 0) return;
         _grillWait -= dt;
         if (_grillWait > 0) return;
-        _grillWait = R(6, 12);
+        _grillWait = R(6, 12) / (1 + 0.4 * GameState.I.GrillStufe);   // Grillmeister: nächste Runde kommt schneller
 
         var grill = ParkLayout.Grill(Size);
         int n = Balance.GrillGroupMin + _rng.Next(Balance.GrillGroupMax - Balance.GrillGroupMin + 1);

@@ -114,7 +114,7 @@ public partial class Main : Control
             gs.BottlesFed = 100;
         }
         if (_args.ContainsKey("allskills"))
-            foreach (var sk in SkillDefs.All) if (sk.MaxLevel > 0) gs.Skills[sk.Id] = sk.MaxLevel;
+            foreach (var sk in SkillDefs.All) if (sk.Max > 0) gs.Skills[sk.Id] = sk.Max;
         if (_args.TryGetValue("skills", out var sks))
             foreach (var pair in sks.Split(','))
             {
