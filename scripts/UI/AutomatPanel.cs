@@ -263,15 +263,34 @@ public partial class Barcode : Control
     }
 }
 
-/// <summary>Raster der Taschenplätze mit kleinen Flaschen.</summary>
+/// <summary>
+/// Raster der Taschenplätze mit kleinen Flaschen. Die Fläche ist fest begrenzt:
+/// wird die Tasche größer, werden die Plätze kleiner, statt die Spalte zu verlängern.
+/// </summary>
 public partial class BagGrid : Control
 {
-    const int Cols = 6, Slot = 26, Gap = 4;
+    const int Cols = 6, Slot = 26, Gap = 4, MaxRows = 8;
+    const int BoxW = Cols * (Slot + Gap) - Gap, BoxH = MaxRows * (Slot + Gap) - Gap;
+
+    /// <summary>Größter Platz, bei dem alle Plätze in die Fläche passen.</summary>
+    static (int cols, int slot, int gap) Layout(int cap)
+    {
+        for (int slot = Slot; slot > 8; slot--)
+        {
+            int gap = Math.Max(2, (int)Mathf.Round(slot * Gap / (float)Slot));
+            int cols = (BoxW + gap) / (slot + gap);
+            int rows = (cap + cols - 1) / cols;
+            if (rows * (slot + gap) - gap <= BoxH) return (cols, slot, gap);
+        }
+        return ((BoxW + 2) / 10, 8, 2);
+    }
 
     public void UpdateMinSize()
     {
-        int rows = (GameState.I.BagCapacity + Cols - 1) / Cols;
-        CustomMinimumSize = new Vector2(Cols * (Slot + Gap) - Gap, rows * (Slot + Gap) - Gap);
+        int cap = GameState.I.BagCapacity;
+        var (cols, slot, gap) = Layout(cap);
+        int rows = (cap + cols - 1) / cols;
+        CustomMinimumSize = new Vector2(BoxW, rows * (slot + gap) - gap);
     }
 
     public override void _Ready() => UpdateMinSize();
@@ -279,16 +298,18 @@ public partial class BagGrid : Control
     public override void _Draw()
     {
         var gs = GameState.I;
-        float offsetX = Mathf.Floor((Size.X - (Cols * (Slot + Gap) - Gap)) / 2);
+        var (cols, slot, gap) = Layout(gs.BagCapacity);
+        int inset = Math.Max(2, slot * 3 / Slot);
+        float offsetX = Mathf.Floor((Size.X - (cols * (slot + gap) - gap)) / 2);
         for (int i = 0; i < gs.BagCapacity; i++)
         {
-            var pos = new Vector2(offsetX + i % Cols * (Slot + Gap), i / Cols * (Slot + Gap));
-            var r = new Rect2(pos, Slot, Slot);
+            var pos = new Vector2(offsetX + i % cols * (slot + gap), i / cols * (slot + gap));
+            var r = new Rect2(pos, slot, slot);
             DrawRect(r, Wood.SlotEdge);
-            DrawRect(r.Grow(-3), Wood.Slot);
-            DrawRect(new Rect2(r.Position.X + 3, r.End.Y - 6, r.Size.X - 6, 3), Wood.SlotLow);
+            DrawRect(r.Grow(-inset), Wood.Slot);
+            DrawRect(new Rect2(r.Position.X + inset, r.End.Y - inset * 2, r.Size.X - inset * 2, inset), Wood.SlotLow);
             if (i < gs.Bag.Count)
-                Sprites.Bottle(this, r.GetCenter(), gs.Bag[i], 0, i, 0.7f);
+                Sprites.Bottle(this, r.GetCenter(), gs.Bag[i], 0, i, 0.7f * slot / Slot);
         }
     }
 }

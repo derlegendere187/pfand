@@ -37,8 +37,15 @@ public partial class CapToast : Control
             _items.Add(new Item { Cap = cap, IsNew = isNew, Intro = true, Life = IntroLife, Max = IntroLife });
             return;
         }
-        float offset = 0;
-        foreach (var i in _items) if (i.Life > i.Max - 0.4f) offset += i.Intro ? 60 : 26;
+        // Viele Funde auf einmal (Automat zählt eine volle Tasche): höchstens ein paar Meldungen gleichzeitig
+        const int MaxShown = 6;
+        while (_items.FindAll(i => !i.Intro).Count >= MaxShown)
+            _items.Remove(_items.Find(i => !i.Intro));
+        // Jede Meldung bekommt eine eigene Zeile: die oberste, die gerade frei ist
+        float baseOff = _items.Exists(i => i.Intro) ? 60 : 0;
+        int slot = 0;
+        while (_items.Exists(i => !i.Intro && Mathf.IsEqualApprox(i.Offset, baseOff + slot * 26))) slot++;
+        float offset = baseOff + slot * 26;
         _items.Add(new Item { Cap = cap, IsNew = isNew, Life = Life, Max = Life, Offset = offset });
     }
 
