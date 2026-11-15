@@ -379,9 +379,6 @@ public partial class Main : Control
         int found = GameState.I.Caps.Count(kv => kv.Value > 0);
         _albumCount.Text = $"{found}/{CapData.Count}";
         _skillCount.Text = $"{GameState.I.Kronkorken} KK";
-        // Grün, sobald man sich im Skilltree etwas leisten kann
-        bool canBuy = SkillDefs.All.Exists(GameState.I.CanBuySkill);
-        _skillCount.AddThemeColorOverride("font_color", canBuy ? Palette.GoodText : Wood.Accent);
         // Album und Skilltree erst mit dem Sammelalbum, Events erst nach dem ersten Event-Skill
         _albumButton.Visible = _skillButton.Visible = GameState.I.SkillsVisible;
         bool events = GameState.I.AnyEventUnlocked;
