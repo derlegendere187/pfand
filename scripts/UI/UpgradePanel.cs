@@ -94,7 +94,7 @@ public partial class UpgradeTile : Control
         var r = new Rect2(Vector2.Zero, Size);
         DrawRect(r, Wood.SlotEdge);
         var inner = r.Grow(-p);
-        DrawRect(inner, _hover && affordable ? Wood.Plank2 : Wood.Slot);
+        DrawRect(inner, _hover && affordable ? Wood.SlotHover : Wood.Slot);
         DrawRect(new Rect2(inner.Position.X, inner.End.Y - p, inner.Size.X, p), Wood.SlotLow);
 
         // Bild

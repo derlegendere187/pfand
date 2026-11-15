@@ -17,8 +17,8 @@ public static class MenuKit
         if (!primary)
         {
             b.AddThemeStyleboxOverride("normal", PfandTheme.ButtonBox(Wood.Plank2, Wood.GrainLight, Wood.GrainDark));
-            b.AddThemeStyleboxOverride("hover", PfandTheme.ButtonBox(Wood.GrainLight, Wood.Nail, Wood.GrainDark));
-            b.AddThemeStyleboxOverride("pressed", PfandTheme.ButtonBox(Wood.GrainDark, Wood.Plank2, Wood.GrainDark));
+            b.AddThemeStyleboxOverride("hover", PfandTheme.ButtonBox(Wood.GrainDark, Wood.Plank2, Wood.Slot));
+            b.AddThemeStyleboxOverride("pressed", PfandTheme.ButtonBox(Wood.Slot, Wood.GrainDark, Wood.Slot));
             b.AddThemeColorOverride("font_color", Wood.Ink);
             b.AddThemeColorOverride("font_hover_color", Wood.Ink);
             b.AddThemeColorOverride("font_pressed_color", Wood.Ink);
@@ -31,8 +31,8 @@ public static class MenuKit
         var b = new Button { Text = text, CustomMinimumSize = new Vector2(44, 40) };
         b.AddThemeFontSizeOverride("font_size", 30);
         b.AddThemeStyleboxOverride("normal", PfandTheme.ButtonBox(Wood.Plank2, Wood.GrainLight, Wood.GrainDark, 2));
-        b.AddThemeStyleboxOverride("hover", PfandTheme.ButtonBox(Wood.GrainLight, Wood.Nail, Wood.GrainDark, 2));
-        b.AddThemeStyleboxOverride("pressed", PfandTheme.ButtonBox(Wood.GrainDark, Wood.Plank2, Wood.GrainDark, 2));
+        b.AddThemeStyleboxOverride("hover", PfandTheme.ButtonBox(Wood.GrainDark, Wood.Plank2, Wood.Slot, 2));
+        b.AddThemeStyleboxOverride("pressed", PfandTheme.ButtonBox(Wood.Slot, Wood.GrainDark, Wood.Slot, 2));
         b.AddThemeColorOverride("font_color", Wood.Ink);
         b.AddThemeColorOverride("font_hover_color", Wood.Ink);
         return b;

@@ -20,12 +20,13 @@ public static class Wood
     public static readonly Color Slot = H("#4e321c");
     public static readonly Color SlotEdge = H("#2a1a0c");
     public static readonly Color SlotLow = H("#5e3e24");
+    public static readonly Color SlotHover = H("#3e2716");
     public static readonly Color Shadow = H("#140c06");
     public static readonly Color Btn = H("#5e7e3a");
     public static readonly Color BtnHi = H("#7a9a50");
     public static readonly Color BtnLo = H("#425a26");
-    public static readonly Color BtnHover = H("#6a8c42");
-    public static readonly Color BtnDown = H("#4e6a30");
+    public static readonly Color BtnHover = H("#50702e");   // Hover macht Knöpfe dunkler, Drücken noch dunkler
+    public static readonly Color BtnDown = H("#44602a");
     public static readonly Color BtnInk = H("#f4eed8");
     public static readonly Color Off = H("#5a4632");
     public static readonly Color OffHi = H("#6a5440");
