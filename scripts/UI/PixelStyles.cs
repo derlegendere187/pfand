@@ -92,20 +92,38 @@ public partial class WoodBox : PixelBox
         Cut(ci, new Rect2(rect.Position + new Vector2(P, P), rect.Size), Wood.Shadow);
         Cut(ci, rect, Wood.Edge);
         var r = rect.Grow(-P);
-        R(ci, r.Position.X, r.Position.Y, r.Size.X, r.Size.Y, Wood.Plank);
-        R(ci, r.Position.X, r.Position.Y, r.Size.X, P, Wood.GrainLight);
-
-        // Bretterfugen alle 7 Pixel
-        float plank = 7 * P;
-        for (float y = r.Position.Y + plank; y < r.End.Y - 2 * P; y += plank)
-        {
-            R(ci, r.Position.X, y, r.Size.X, P, Wood.GrainDark);
-            R(ci, r.Position.X, y + P, r.Size.X, P, Wood.GrainLight);
-        }
-
-        // Maserung: kurze Striche, fest aus der Position abgeleitet (flackert nicht)
+        if (r.Size.X < 1 || r.Size.Y < 1) return;
+        // Bretter, Fugen und Maserung sind hunderte kleine Striche: einmal als Bild bauen, dann nur noch ein Bild zeichnen
         uint seed = (uint)(rect.Position.X * 31 + rect.Position.Y * 17 + rect.Size.X * 7 + rect.Size.Y);
-        int cols = (int)(r.Size.X / P), rows = (int)(r.Size.Y / P);
+        var key = ((int)r.Size.X, (int)r.Size.Y, seed, Nails);
+        if (!_cache.TryGetValue(key, out var tex))
+        {
+            if (_cache.Count > 400) _cache.Clear();   // z. B. nach vielen Fenstergrößen
+            _cache[key] = tex = ImageTexture.CreateFromImage(BuildPlanks(key.Item1, key.Item2, seed, Nails));
+        }
+        RenderingServer.CanvasItemAddTextureRect(ci, r, tex.GetRid());
+    }
+
+    static readonly System.Collections.Generic.Dictionary<(int, int, uint, bool), ImageTexture> _cache = new();
+
+    /// <summary>Holzfläche w×h: Bretter mit Fugen alle 7 Pixel, Maserung fest aus seed, Nägel in den Ecken.</summary>
+    static Image BuildPlanks(int w, int h, uint seed, bool nails)
+    {
+        var img = Image.CreateEmpty(w, h, false, Image.Format.Rgba8);
+        void F(float x, float y, float fw, float fh, Color c)
+        {
+            if (fw <= 0 || fh <= 0) return;
+            img.FillRect(new Rect2I((int)x, (int)y, (int)fw, (int)fh), c);
+        }
+        F(0, 0, w, h, Wood.Plank);
+        F(0, 0, w, P, Wood.GrainLight);
+        float plank = 7 * P;
+        for (float y = plank; y < h - 2 * P; y += plank)
+        {
+            F(0, y, w, P, Wood.GrainDark);
+            F(0, y + P, w, P, Wood.GrainLight);
+        }
+        int cols = (int)(w / P), rows = (int)(h / P);
         int n = cols * rows / 45;
         for (int i = 0; i < n; i++)
         {
@@ -116,16 +134,16 @@ public partial class WoodBox : PixelBox
             seed = seed * 1664525 + 1013904223;
             int len = 2 + (int)(seed % 5);
             var c = (seed >> 8) % 2 == 0 ? Wood.Plank2 : Wood.GrainLight;
-            R(ci, r.Position.X + cx * P, r.Position.Y + cy * P, len * P, P, c);
+            F(cx * P, cy * P, len * P, P, c);
         }
-
-        if (Nails && r.Size.X > 8 * P && r.Size.Y > 8 * P)
+        if (nails && w > 8 * P && h > 8 * P)
         {
-            R(ci, r.Position.X + P, r.Position.Y + P, P, P, Wood.Nail);
-            R(ci, r.End.X - 2 * P, r.Position.Y + P, P, P, Wood.Nail);
-            R(ci, r.Position.X + P, r.End.Y - 2 * P, P, P, Wood.Nail);
-            R(ci, r.End.X - 2 * P, r.End.Y - 2 * P, P, P, Wood.Nail);
+            F(P, P, P, P, Wood.Nail);
+            F(w - 2 * P, P, P, P, Wood.Nail);
+            F(P, h - 2 * P, P, P, Wood.Nail);
+            F(w - 2 * P, h - 2 * P, P, P, Wood.Nail);
         }
+        return img;
     }
 }
 

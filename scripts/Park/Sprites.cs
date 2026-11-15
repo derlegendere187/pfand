@@ -12,8 +12,19 @@ public static partial class Sprites
     static void R(CanvasItem ci, Vector2 o, float p, float x, float y, float w, float h, Color c)
         => ci.DrawRect(new Rect2(o.X + x * p, o.Y + y * p, w * p, h * p), c);
 
-    /// <summary>Person von oben (8×8), zentriert auf pos.</summary>
+    /// <summary>Person von oben (8×8), zentriert auf pos. Kommt nach dem ersten Mal als fertiges Bild aus dem SpriteBaker.</summary>
     public static void Person(CanvasItem ci, Vector2 pos, Color shirt, Color hair, float p = 3)
+    {
+        float q = p / 1.5f;
+        var o = (pos - new Vector2(6 * q, 6 * q)).Round();
+        var size = new Vector2(14 * q, 14 * q);
+        var tex = SpriteBaker.Get("person", shirt.ToRgba32(), hair.ToRgba32(), (int)(p * 10), size,
+            c => PersonRaw(c, new Vector2(7 * q, 7 * q), shirt, hair, p));
+        if (tex != null) ci.DrawTextureRect(tex, new Rect2(o - new Vector2(q, q), size), false);
+        else PersonRaw(ci, pos, shirt, hair, p);
+    }
+
+    static void PersonRaw(CanvasItem ci, Vector2 pos, Color shirt, Color hair, float p)
     {
         // Feines Raster: 12×12 Kunstpixel in derselben Größe wie früher 8×8
         float q = p / 1.5f;
@@ -108,11 +119,32 @@ public static partial class Sprites
     };
 
     /// <summary>Flasche oder Dose, zentriert auf pos, gedreht um rot (Radiant). Feine Pixel (2 × scale).</summary>
-    public static void Bottle(CanvasItem ci, Vector2 pos, BottleType t, float rot, int colorIdx, float scale = 1f, bool onGround = false)
+    /// <param name="cache">false bei laufender Animation der Größe (sonst entstünde für jede Zwischengröße ein Bild)</param>
+    public static void Bottle(CanvasItem ci, Vector2 pos, BottleType t, float rot, int colorIdx, float scale = 1f, bool onGround = false, bool cache = true)
     {
         float p = 2 * scale;
         if (onGround)
             ci.DrawRect(new Rect2(pos + new Vector2(-7, 5) * scale, new Vector2(16, 5) * scale), new Color(0, 0, 0, 0.22f));
+        if (cache)
+        {
+            var size = new Vector2(8 * p, 15 * p);
+            int color = t == BottleType.Dose ? colorIdx % Palette.Cans.Length : 0;
+            var tex = SpriteBaker.Get("bottle", (uint)t, (uint)color, Mathf.RoundToInt(scale * 100), size,
+                c => BottleRaw(c, size / 2, t, 0, color, scale));
+            if (tex != null)
+            {
+                ci.DrawSetTransform(pos, rot, Vector2.One);
+                ci.DrawTextureRect(tex, new Rect2(-size / 2, size), false);
+                ci.DrawSetTransform(Vector2.Zero, 0, Vector2.One);
+                return;
+            }
+        }
+        BottleRaw(ci, pos, t, rot, colorIdx, scale);
+    }
+
+    static void BottleRaw(CanvasItem ci, Vector2 pos, BottleType t, float rot, int colorIdx, float scale)
+    {
+        float p = 2 * scale;
         ci.DrawSetTransform(pos, rot, Vector2.One);
         var ink = Palette.Ink;
         if (t == BottleType.Dose)
@@ -121,9 +153,9 @@ public static partial class Sprites
             Map(ci, new Vector2(-3 * p, -4.5f * p), p, CanArt, ch => ch switch
             {
                 'o' => ink,
-                'S' => Color.FromHtml("#e8e2d4"),
-                's' => Color.FromHtml("#b8b0a0"),
-                'T' => Color.FromHtml("#8a8478"),
+                'S' => Hx("#e8e2d4"),
+                's' => Hx("#b8b0a0"),
+                'T' => Hx("#8a8478"),
                 'c' => c,
                 'h' => c.Lightened(0.35f),
                 'd' => c.Darkened(0.3f),
@@ -134,7 +166,7 @@ public static partial class Sprites
         else
         {
             var k = BottleColors(t);
-            Color H(string x) => Color.FromHtml(x);
+            Color H(string x) => Hx(x);
             Map(ci, new Vector2(-3 * p, -6.5f * p), p, GlassBottle, ch => ch switch
             {
                 'o' => ink,
@@ -174,16 +206,16 @@ public static partial class Sprites
     /// <summary>Sammler: Person mit orangener Warnweste und Sack, wenn er was trägt.</summary>
     public static void Collector(CanvasItem ci, Vector2 pos, int carrying)
     {
-        Person(ci, pos, Color.FromHtml("#e08a4a"), Color.FromHtml("#5a3a26"));
+        Person(ci, pos, Hx("#e08a4a"), Hx("#5a3a26"));
         const float q = 2;
         var o = (pos - new Vector2(12, 12)).Round();
-        R(ci, o, q, 1, 8.5f, 10, 1, Color.FromHtml("#f2e070")); // Reflexstreifen
+        R(ci, o, q, 1, 8.5f, 10, 1, Hx("#f2e070")); // Reflexstreifen
         if (carrying > 0)
         {
             // Sack über der Schulter
             R(ci, o, q, 9.5f, 6.5f, 5, 5, Palette.Ink);
-            R(ci, o, q, 10, 7, 4, 4, Color.FromHtml("#d9c7a3"));
-            R(ci, o, q, 10, 7, 4, 1, Color.FromHtml("#efe2c4"));
+            R(ci, o, q, 10, 7, 4, 4, Hx("#d9c7a3"));
+            R(ci, o, q, 10, 7, 4, 1, Hx("#efe2c4"));
             R(ci, o, q, 13, 7, 1, 4, Palette.MachineDark);
         }
     }
@@ -191,14 +223,14 @@ public static partial class Sprites
     /// <summary>Fremder Sammler: graue Kapuzenjacke, Plastiktüte in der Hand, wenn er was hat.</summary>
     public static void Stranger(CanvasItem ci, Vector2 pos, bool carrying)
     {
-        Person(ci, pos, Color.FromHtml("#6f7378"), Color.FromHtml("#4a4e54"));
+        Person(ci, pos, Hx("#6f7378"), Hx("#4a4e54"));
         if (!carrying) return;
         const float q = 2;
         var o = (pos - new Vector2(12, 12)).Round();
         // Plastiktüte
         R(ci, o, q, 10.5f, 6.5f, 4, 5, Palette.Ink);
-        R(ci, o, q, 11, 7, 3, 4, Color.FromHtml("#e8e4da"));
-        R(ci, o, q, 11, 7, 3, 1, Color.FromHtml("#b8b2a4"));
+        R(ci, o, q, 11, 7, 3, 4, Hx("#e8e4da"));
+        R(ci, o, q, 11, 7, 3, 1, Hx("#b8b2a4"));
     }
 
     static readonly string[] LampArt =
@@ -230,13 +262,13 @@ public static partial class Sprites
         R(ci, o, p, 1, 17, 8, 2, new Color(0, 0, 0, 0.2f)); // Schatten
         Map(ci, o, p, LampArt, ch => ch switch
         {
-            'o' => Color.FromHtml("#1e1e24"),
-            'R' => Color.FromHtml("#3a3a44"),
-            'r' => Color.FromHtml("#5a5a66"),
-            'P' => Color.FromHtml("#4a4a56"),
-            'W' => Color.FromHtml("#fff6d8"),
-            'Y' => Color.FromHtml("#ffe2a0"),
-            'M' => Color.FromHtml("#e8b860"),
+            'o' => Hx("#1e1e24"),
+            'R' => Hx("#3a3a44"),
+            'r' => Hx("#5a5a66"),
+            'P' => Hx("#4a4a56"),
+            'W' => Hx("#fff6d8"),
+            'Y' => Hx("#ffe2a0"),
+            'M' => Hx("#e8b860"),
             _ => null,
         });
     }

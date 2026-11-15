@@ -44,18 +44,20 @@ public static partial class Sprites
             }
         }
 
+        // Als fertiges Bild statt ~300 Einzelrechtecken pro Deckel
+        if (!CapTexCache.TryGetValue(img, out var tex))
+        {
+            var image = Image.CreateEmpty(CapN, CapN, false, Image.Format.Rgba8);
+            for (int y = 0; y < CapN; y++)
+                for (int x = 0; x < CapN; x++)
+                    image.SetPixel(x, y, img[y * CapN + x] ?? Colors.Transparent);
+            CapTexCache[img] = tex = ImageTexture.CreateFromImage(image);
+        }
         float q = p / 2;
-        var o = topLeft.Round();
-        for (int y = 0; y < CapN; y++)
-            for (int x = 0; x < CapN;)
-            {
-                var c = img[y * CapN + x];
-                if (c == null) { x++; continue; }
-                int s = x;
-                while (x < CapN && img[y * CapN + x] == c) x++;
-                ci.DrawRect(new Rect2(o.X + s * q, o.Y + y * q, (x - s) * q, q), c.Value);
-            }
+        ci.DrawTextureRect(tex, new Rect2(topLeft.Round(), CapN * q, CapN * q), false);
     }
+
+    static readonly System.Collections.Generic.Dictionary<Color?[], ImageTexture> CapTexCache = new();
 
     /// <summary>Der fertige Kronkorken als 24×24-Farbfeld (null = durchsichtig).</summary>
     static Color?[] BuildCap(CapData.Motif m)

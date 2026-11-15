@@ -19,10 +19,70 @@ public partial class ParkView : Control
     float _time;
     Vector2 _mouse = new(-100, -100);
 
+    static readonly Color ImbissRed = Color.FromHtml("#b8432f");
+    StaticLayer _static;
+    int _staticKey;
+
     public override void _Ready()
     {
         MouseFilter = MouseFilterEnum.Stop;
         ClipContents = true;
+        // Boden und feste Objekte liegen auf einer eigenen Ebene darunter, die nur bei Änderungen neu zeichnet
+        _static = new StaticLayer { Park = this, ShowBehindParent = true, MouseFilter = MouseFilterEnum.Ignore };
+        _static.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        AddChild(_static);
+    }
+
+    /// <summary>Die feste Ebene als ein einziges Bild. Bis es gebaut ist, wird sie direkt gezeichnet.</summary>
+    partial class StaticLayer : Control
+    {
+        public ParkView Park;
+        public bool Pending;
+        public override void _Draw()
+        {
+            var tex = SpriteBaker.Get("static", (uint)Park._staticKey, 0, 0, Size, c => Park.DrawStatic(c));
+            Pending = tex == null;
+            if (tex != null) DrawTextureRect(tex, new Rect2(Vector2.Zero, Size), false);
+            else Park.DrawStatic(this);
+        }
+    }
+
+    /// <summary>Alles, wovon die feste Ebene abhängt: ändert sich das, wird sie neu gezeichnet.</summary>
+    int StaticKey(GameState gs)
+    {
+        var h = new HashCode();
+        h.Add((int)Size.X); h.Add((int)Size.Y); h.Add(Mathf.RoundToInt(SpriteBaker.ScreenScale * 100));
+        h.Add(gs.Level("weg")); h.Add(gs.Level("bank")); h.Add(gs.Level("tischtennis")); h.Add(gs.Level("imbiss")); h.Add(gs.Level("sammler"));
+        h.Add(gs.SkillLevel("bau")); h.Add(gs.HasSkill("bank_tisch")); h.Add(gs.HasSkill("bank_doppel"));
+        return h.ToHashCode();
+    }
+
+    /// <summary>Boden, Imbiss, Bänke, Tischtennisplatten und Sammlerstand: bewegen sich nicht.</summary>
+    void DrawStatic(CanvasItem ci)
+    {
+        var gs = GameState.I;
+        var size = Size;
+        var paths = ParkLayout.Paths(size, gs);
+        EnsureGround(size, paths);
+        if (_ground != null) ci.DrawTexture(_ground, Vector2.Zero);
+
+        if (gs.Level("imbiss") > 0)
+        {
+            var ir = ParkLayout.ImbissRect(size);
+            Sprites.Imbiss(ci, ir, gs.ImbissStufe >= 2 ? 2 : 1);
+        }
+
+        var benchList = ParkLayout.Benches(size, gs);
+        for (int i = 0; i < benchList.Count; i++)
+        {
+            int lvl = gs.AusbauLevel("bank", i);
+            Sprites.Bench(ci, benchList[i]);
+            if (lvl >= 1) Sprites.PicnicTable(ci, benchList[i] + ParkLayout.BenchOpposite(i, true));
+            if (lvl >= 2) Sprites.Bench(ci, benchList[i] + ParkLayout.BenchOpposite(i));
+        }
+
+        foreach (var t in ParkLayout.Tables(size, gs)) Sprites.Table(ci, t);
+        if (gs.Level("sammler") > 0) Sprites.Depot(ci, ParkLayout.Depot(size));
     }
 
     /// <summary>Parkkoordinate in Bildschirmkoordinate (der Park ist skaliert).</summary>
@@ -34,7 +94,13 @@ public partial class ParkView : Control
     {
         _time += (float)delta;
         Sim.Size = Size;
+        SpriteBaker.ScreenScale = (GetViewport().GetFinalTransform() * GetGlobalTransformWithCanvas()).Scale.X;
+        var key = StaticKey(GameState.I);
+        if (key != _staticKey) { _staticKey = key; SpriteBaker.Drop("static"); _static.QueueRedraw(); }
+        else if (_static.Pending) _static.QueueRedraw();   // bis das Bild fertig ist
+        long t0 = Bench.T0();
         Sim.Update(delta, GameState.I);
+        Bench.Add("sim", t0);
         foreach (var f in Sim.PendingFloats) Float(f.pos, f.text, f.color);
         Sim.PendingFloats.Clear();
         for (int i = _floats.Count - 1; i >= 0; i--)
@@ -241,35 +307,29 @@ public partial class ParkView : Control
 
     public override void _Draw()
     {
+        long t0 = Bench.T0();
+        DrawPark();
+        Bench.Add("parkdraw", t0);
+    }
+
+    void DrawPark()
+    {
         var gs = GameState.I;
         var size = Size;
-        var paths = ParkLayout.Paths(size, gs);
-        EnsureGround(size, paths);
-        if (_ground != null) DrawTexture(_ground, Vector2.Zero);
-
         bool wiesn = gs.ActiveEvent == "oktoberfest";
+        // Schrift bleibt direkt gezeichnet (im gebackenen Bild würde sie unscharf)
+        if (gs.Level("imbiss") > 0)
+        {
+            var ir = ParkLayout.ImbissRect(size);
+            DrawString(PfandTheme.Pixel, new Vector2(ir.Position.X, ir.Position.Y + 26), "IMBISS",
+                HorizontalAlignment.Center, ir.Size.X, 28, ImbissRed);
+        }
         if (wiesn) DrawWiesnGround(size);
 
         foreach (var v in Sim.Visitors)
             if (v.HasBlanket && v.BlanketOpen > 0)
                 Sprites.BlanketOpening(this, v.BlanketPos, v.BlanketColor, v.BlanketStyle, v.BlanketOpen);
 
-        if (gs.Level("imbiss") > 0)
-        {
-            var ir = ParkLayout.ImbissRect(size);
-            Sprites.Imbiss(this, ir, gs.ImbissStufe >= 2 ? 2 : 1);
-            DrawString(PfandTheme.Pixel, new Vector2(ir.Position.X, ir.Position.Y + 26), "IMBISS",
-                HorizontalAlignment.Center, ir.Size.X, 28, Color.FromHtml("#b8432f"));
-        }
-
-        var benchList = ParkLayout.Benches(size, gs);
-        for (int i = 0; i < benchList.Count; i++)
-        {
-            int lvl = gs.AusbauLevel("bank", i);
-            Sprites.Bench(this, benchList[i]);
-            if (lvl >= 1) Sprites.PicnicTable(this, benchList[i] + ParkLayout.BenchOpposite(i, true));
-            if (lvl >= 2) Sprites.Bench(this, benchList[i] + ParkLayout.BenchOpposite(i));
-        }
 
         bool grill = gs.Level("grill") > 0;
         bool grillBusy = grill && Sim.GrillBusy;
@@ -282,12 +342,10 @@ public partial class ParkView : Control
             if (c.Visible) Sprites.Kasten(this, CrateRect(c), c.Bottles.Count);
 
         var tables = ParkLayout.Tables(size, gs);
-        foreach (var t in tables) Sprites.Table(this, t);
 
         if (gs.ActiveEvent != null && EventDefs.Get(gs.ActiveEvent) is { } ev)
             Sprites.EventProps(this, ev.Kind, Sim.EventCenter, _time, Sim.Bierball?.BottleDown ?? false, Sim.Bierball?.Wobble ?? 0);
 
-        if (gs.Level("sammler") > 0) Sprites.Depot(this, ParkLayout.Depot(size));
 
         var bins = ParkLayout.Bins(size, gs);
         for (int i = 0; i < bins.Count; i++)
@@ -300,7 +358,7 @@ public partial class ParkView : Control
         foreach (var b in Sim.Bottles)
         {
             float pop = Mathf.Min(1f, b.Age * 5f);
-            Sprites.Bottle(this, b.Pos, b.Type, b.Rot, b.ColorIdx, (0.6f + 0.4f * pop) * 1.3f, true);
+            Sprites.Bottle(this, b.Pos, b.Type, b.Rot, b.ColorIdx, (0.6f + 0.4f * pop) * 1.3f, true, pop >= 1);
         }
         // Jede Flasche funkelt alle paar Sekunden kurz auf (zeitversetzt)
         foreach (var b in Sim.Bottles)

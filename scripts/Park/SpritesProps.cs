@@ -9,7 +9,13 @@ namespace Pfand.Park;
 /// </summary>
 public static partial class Sprites
 {
-    static Color Hx(string h) => Color.FromHtml(h);
+    // Farben aus Hex-Text werden einmal umgerechnet und dann gemerkt (sonst jedes Frame für jedes Rechteck neu)
+    static readonly System.Collections.Generic.Dictionary<string, Color> _hx = new();
+    static Color Hx(string h)
+    {
+        if (!_hx.TryGetValue(h, out var c)) _hx[h] = c = Color.FromHtml(h);
+        return c;
+    }
 
     static readonly Color Out = Hx("#2a1d14");
     static readonly Color Shade = new(0, 0, 0, 0.2f);

@@ -32,6 +32,7 @@ namespace Pfand;
 ///   --shotdelay=3
 ///   --window=1920x1080 im Fenster mit dieser Größe starten (Seitenverhältnisse prüfen)
 ///   --layoutcheck      Überschneidungen fester Plätze ausgeben (mit --wiesn auch Oktoberfest) und beenden
+///   --bench=10         Leistung messen (ohne VSync), Ergebnis in die Konsole schreiben und beenden
 ///   --title            Startbildschirm zeigen (sonst springen Debug-Parameter direkt ins Spiel)
 /// </summary>
 public partial class Main : Control
@@ -96,8 +97,9 @@ public partial class Main : Control
     void StartGame(bool cont)
     {
         var gs = GameState.I;
-        _noSave = _args.ContainsKey("fresh");
-        bool loaded = cont && !_noSave && SaveSystem.Load(gs);
+        // Beim Messen wird der Spielstand nur gelesen, nie überschrieben
+        _noSave = _args.ContainsKey("fresh") || _args.ContainsKey("bench");
+        bool loaded = cont && !_args.ContainsKey("fresh") && SaveSystem.Load(gs);
         // Ganz neues Spiel: Kalle erklärt erst einmal alles (Debug-Startwerte überspringen das)
         if (!loaded) gs.Tutorial = TutorialStep.Intro;
         bool debugStart = false;
@@ -145,6 +147,12 @@ public partial class Main : Control
             }
         if (_args.ContainsKey("imbiss")) gs.Upgrades["imbiss"] = 1;
         if (_args.TryGetValue("time", out var t) && double.TryParse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var time)) gs.TimeOfDay = time;
+        if (_args.TryGetValue("bench", out var bs) && double.TryParse(bs, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var bsec))
+        {
+            DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Disabled);
+            Engine.MaxFps = 0;
+            Bench.Start(bsec);
+        }
         if (_args.TryGetValue("speed", out var s) && double.TryParse(s, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var speed)) { Engine.TimeScale = speed; CallDeferred(MethodName.UpdateSpeedLabel); }
         if (_args.TryGetValue("screenshot", out var shot))
         {
@@ -227,6 +235,7 @@ public partial class Main : Control
         frame.SizeFlagsVertical = SizeFlags.ExpandFill;
         var parkFrame = new Pfand.Park.ParkFrame();
         var park = _park = parkFrame.Park;
+        AddChild(new SpriteBaker());
         frame.AddChild(parkFrame);
         middle.AddChild(frame);
         body.AddChild(middle);
@@ -388,6 +397,7 @@ public partial class Main : Control
 
     public override void _Process(double delta)
     {
+        if (Bench.Frame(delta)) { GetTree().Quit(); return; }
         if (_shotPath != null && (Time.GetTicksMsec() - _startMs) / 1000.0 >= _shotDelay)
         {
             var path = _shotPath;

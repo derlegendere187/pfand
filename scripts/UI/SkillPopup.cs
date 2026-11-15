@@ -383,18 +383,23 @@ public partial class SkillCanvas : Control
         var gs = GameState.I;
         DrawBackground();
 
+        // Zustand jedes Knotens einmal pro Frame bestimmen (nicht in jedem Vergleich beim Sortieren neu)
+        _states.Clear();
+        foreach (var d in SkillDefs.All) _states[d.Id] = StateOf(d);
+
         // Linien zuerst, damit die Knoten darüber liegen
         // Gelernte Linien zuletzt, damit gemeinsame Schienen hell sind, so weit etwas gelernt ist
-        var lines = new List<SkillDef>(SkillDefs.All);
-        lines.Sort((x, y) =>
+        _lines.Clear();
+        _lines.AddRange(SkillDefs.All);
+        _lines.Sort((x, y) =>
         {
-            int s = StateOrder(StateOf(x)).CompareTo(StateOrder(StateOf(y)));
+            int s = StateOrder(_states[x.Id]).CompareTo(StateOrder(_states[y.Id]));
             return s != 0 ? s : LineLength(y).CompareTo(LineLength(x));
         });
-        foreach (var d in lines)
+        foreach (var d in _lines)
         {
             if (d.Id == SkillDefs.Root) continue;
-            var state = StateOf(d);
+            var state = _states[d.Id];
             if (state == NodeState.Hidden) continue;
             var c = state == NodeState.Learned ? LineGot : state == NodeState.Available ? LineOpen : RingDark;
             DrawLine(Center(SkillDefs.Get(d.Parent ?? SkillDefs.Root)), Center(d), c, 4, true);
@@ -402,31 +407,63 @@ public partial class SkillCanvas : Control
 
         foreach (var d in SkillDefs.All)
         {
-            var state = StateOf(d);
+            var state = _states[d.Id];
             if (state != NodeState.Hidden) DrawNode(d, state, gs);
         }
 
         if (_hover != null && !_dragging && SkillDefs.Get(_hover) is { } hd) DrawTooltip(hd, gs);
     }
 
-    /// <summary>Dunkles Holz, Bretter wandern beim Verschieben mit.</summary>
-    void DrawBackground()
+    readonly Dictionary<string, NodeState> _states = new();
+    readonly List<SkillDef> _lines = new();
+    static ImageTexture _backTile;
+    const int Tile = 300;   // Vielfaches der Brettbreite (30)
+    static readonly Dictionary<(string, bool), ImageTexture> _icons = new();
+
+    /// <summary>Dunkles Holz als kachelbares Bild: Bretter und Maserung, die beim Verschieben mitwandern.</summary>
+    static ImageTexture BackTile()
     {
-        DrawRect(new Rect2(Vector2.Zero, Size), Back);
-        const float plank = 30;
-        float start = Mathf.PosMod(_offset.Y + Size.Y / 2, plank);
-        for (float y = start; y < Size.Y; y += plank)
+        if (_backTile != null) return _backTile;
+        var img = Image.CreateEmpty(Tile, Tile, false, Image.Format.Rgba8);
+        img.Fill(Back);
+        for (int y = 0; y < Tile; y += 30)
         {
-            DrawRect(new Rect2(0, Mathf.Round(y), Size.X, 3), BackLine);
-            DrawRect(new Rect2(0, Mathf.Round(y) + 3, Size.X, 3), BackLight);
+            img.FillRect(new Rect2I(0, y, Tile, 3), BackLine);
+            img.FillRect(new Rect2I(0, y + 3, Tile, 3), BackLight);
         }
         var rng = new Random(3);
-        for (int i = 0; i < 700; i++)
+        for (int i = 0; i < 70; i++)
         {
-            var p = new Vector2(rng.Next(-2200, 2200), rng.Next(-1600, 1600)) + Size / 2 + _offset;
-            p = new Vector2(p.X - Mathf.PosMod(p.X, 3), p.Y - Mathf.PosMod(p.Y, 3));
-            DrawRect(new Rect2(p, 3 * rng.Next(2, 7), 3), rng.Next(2) == 0 ? BackLight : BackLine);
+            int x = rng.Next(0, Tile / 3) * 3, y = rng.Next(0, Tile / 3) * 3, w = 3 * rng.Next(2, 7);
+            var c = rng.Next(2) == 0 ? BackLight : BackLine;
+            img.FillRect(new Rect2I(x, y, w, 3), c);
+            if (x + w > Tile) img.FillRect(new Rect2I(0, y, x + w - Tile, 3), c);   // nahtlos über den Rand
         }
+        return _backTile = ImageTexture.CreateFromImage(img);
+    }
+
+    void DrawBackground()
+    {
+        var start = new Vector2(Mathf.PosMod(_offset.X + Size.X / 2, Tile), Mathf.PosMod(_offset.Y + Size.Y / 2, Tile)) - new Vector2(Tile, Tile);
+        DrawTextureRect(BackTile(), new Rect2(start.Round(), Size + new Vector2(2 * Tile, 2 * Tile)), true);
+    }
+
+    /// <summary>Knotensymbol (8×8 Kunstpixel) als fertiges Bild statt 64 einzelner Rechtecke.</summary>
+    static ImageTexture Icon(SkillDef d, bool bright)
+    {
+        if (_icons.TryGetValue((d.Id, bright), out var tex)) return tex;
+        const int p = 3;
+        var ink = bright ? Wood.Ink : Wood.Ink.Darkened(0.15f);
+        var light = d.Branch.Color.Lightened(0.15f);
+        var img = Image.CreateEmpty(8 * p, 8 * p, false, Image.Format.Rgba8);
+        for (int y = 0; y < 8; y++)
+            for (int x = 0; x < 8; x++)
+            {
+                char ch = d.Icon[y][x];
+                if (ch == '#') img.FillRect(new Rect2I(x * p, y * p, p, p), ink);
+                else if (ch == 'o') img.FillRect(new Rect2I(x * p, y * p, p, p), light);
+            }
+        return _icons[(d.Id, bright)] = ImageTexture.CreateFromImage(img);
     }
 
     void DrawNode(SkillDef d, NodeState state, GameState gs)
@@ -460,16 +497,7 @@ public partial class SkillCanvas : Control
             DrawLock(r);
             return;
         }
-        var ink = state == NodeState.Learned || root ? Wood.Ink : Wood.Ink.Darkened(0.15f);
-        var light = d.Branch.Color.Lightened(0.15f);
-        var o = c - new Vector2(4 * p, 4 * p);
-        for (int y = 0; y < 8; y++)
-            for (int x = 0; x < 8; x++)
-            {
-                char ch = d.Icon[y][x];
-                if (ch == '#') DrawRect(new Rect2(o.X + x * p, o.Y + y * p, p, p), ink);
-                else if (ch == 'o') DrawRect(new Rect2(o.X + x * p, o.Y + y * p, p, p), light);
-            }
+        DrawTexture(Icon(d, state == NodeState.Learned || root), c - new Vector2(4 * p, 4 * p));
 
         if (state == NodeState.Teaser) { DrawRect(r.Grow(-2 * p), new Color(Inside, 0.55f)); DrawLock(r); return; }
         if (!root) DrawBadge(r, BadgeOf(d));
