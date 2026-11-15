@@ -225,8 +225,9 @@ public class GameState
         // Der erste Kronkorken kommt spätestens mit der zwölften Flasche, damit man den Skilltree früh entdeckt
         bool firstGuaranteed = !byCollector && Caps.Count == 0 && Kronkorken == 0 && Skills.Count == 0 && BottlesFed >= Balance.FirstCapGuaranteedAt;
         if (BottleInfo.HasCap(t) && (firstGuaranteed || rng.NextDouble() < chance))
+            cap = byCollector ? RollKnownCap(rng) : RollCap(rng);
+        if (cap >= 0)
         {
-            cap = RollCap(rng);
             Caps[cap] = (Caps.TryGetValue(cap, out var c) ? c : 0) + 1;
             Kronkorken++;
             CapFound?.Invoke(cap, Caps[cap] == 1);
@@ -253,6 +254,23 @@ public class GameState
             if (r <= 0) return i;
         }
         return CapData.Count - 1;
+    }
+
+    /// <summary>Wie RollCap, aber nur unter Motiven, die man schon gefunden hat (Sammler bringen keine neuen). -1 = noch keins.</summary>
+    public int RollKnownCap(Random rng)
+    {
+        double total = 0;
+        foreach (var i in Caps.Keys) total += CapWeight(i);
+        if (total <= 0) return -1;
+        double r = rng.NextDouble() * total;
+        int last = -1;
+        foreach (var i in Caps.Keys)
+        {
+            last = i;
+            r -= CapWeight(i);
+            if (r <= 0) return i;
+        }
+        return last;
     }
 
     static double CapWeight(int i) => CapData.SetWeight(CapData.All[i].Set) * Balance.CapTierWeight[CapData.Tier(i)];
@@ -291,7 +309,10 @@ public class GameState
 
     // --- Skills ---
     /// <summary>Lernbar, sobald der Elternknoten gelernt ist.</summary>
-    public bool SkillAvailable(SkillDef s) => s.Id != SkillDefs.Root && HasSkill(s.Parent ?? SkillDefs.Root) && GateOpen(s);
+    public bool SkillAvailable(SkillDef s) => s.Id != SkillDefs.Root && HasSkill(s.Parent ?? SkillDefs.Root) && GateOpen(s) && RequirementMet(s);
+
+    /// <summary>Manche Skills brauchen einen anderen voll ausgebaut (Doppelfund erst mit 100 % Glücksdeckel).</summary>
+    public bool RequirementMet(SkillDef s) => s.RequiresMax == null || SkillMaxed(SkillDefs.Get(s.RequiresMax));
 
     /// <summary>Äste an der Wurzel öffnen sich nach und nach, je mehr Kronkorken man im Skilltree ausgegeben hat.</summary>
     public bool GateOpen(SkillDef s) => SpentOnSkills >= SkillDefs.GateOf(s);

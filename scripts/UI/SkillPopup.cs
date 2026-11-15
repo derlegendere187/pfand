@@ -135,6 +135,8 @@ public partial class SkillCanvas : Control
         var gs = GameState.I;
         if (gs.HasSkill(d.Id)) return NodeState.Learned;
         if (gs.SkillAvailable(d)) return NodeState.Available;
+        // Braucht noch einen anderen Skill voll ausgebaut: schon sichtbar, aber mit Schloss
+        if (d.RequiresMax != null && gs.HasSkill(d.Parent ?? SkillDefs.Root) && gs.GateOpen(d)) return NodeState.Teaser;
         // Der nächste Ast an der Wurzel zeigt sich schon mit Schloss, damit man weiß, worauf man hinarbeitet
         if (gs.NextGatedBranch == d) return NodeState.Teaser;
         return NodeState.Hidden;
@@ -154,13 +156,47 @@ public partial class SkillCanvas : Control
         return d.MaxLevel > 1 ? Badge.Plus : Badge.None;
     }
 
-    /// <summary>Mehrere Ausbauten hängen direkt am selben Knoten: lange Linien zuerst zeichnen, damit die kurzen obenauf liegen.</summary>
+    /// <summary>Lange Linien zuerst zeichnen, damit die kurzen obenauf liegen.</summary>
     static float LineLength(SkillDef d)
     {
         if (d.Id == SkillDefs.Root) return 0;
         var p = SkillDefs.Get(d.Parent ?? SkillDefs.Root);
         return new Vector2(d.Pos.X - p.Pos.X, d.Pos.Y - p.Pos.Y).Length();
     }
+
+    /// <summary>
+    /// Hängen mehrere Ausbauten in derselben Reihe am selben Knoten, bekommt jeder einen eigenen Ast:
+    /// eine Schiene unter der Reihe, von der zu jedem Knoten ein Zweig hochgeht. Sonst sähe es aus wie eine Kette.
+    /// </summary>
+    static bool OnRail(SkillDef d)
+    {
+        if (d.Id == SkillDefs.Root) return false;
+        var p = SkillDefs.Get(d.Parent ?? SkillDefs.Root);
+        if (d.Pos.Y != p.Pos.Y) return false;
+        int dir = Math.Sign(d.Pos.X - p.Pos.X);
+        return SkillDefs.All.FindAll(s => s.Parent == p.Id && s.Pos.Y == p.Pos.Y && Math.Sign(s.Pos.X - p.Pos.X) == dir).Count >= 2;
+    }
+
+    /// <summary>Weg der Linie vom Elternknoten zu d.</summary>
+    Vector2[] LinePath(SkillDef d)
+    {
+        var p = SkillDefs.Get(d.Parent ?? SkillDefs.Root);
+        var a = Center(p);
+        var b = Center(d);
+        if (!OnRail(d)) return new[] { a, b };
+        float dir = Math.Sign(d.Pos.X - p.Pos.X);
+        var j = a + new Vector2(dir * Spacing / 2, 0).Round();
+        float railY = a.Y + Mathf.Round(Spacing * 0.42f);
+        return new[] { a, j, new Vector2(j.X, railY), new Vector2(b.X, railY), b };
+    }
+
+    void DrawPath(Vector2[] pts, Color c)
+    {
+        for (int i = 0; i + 1 < pts.Length; i++) DrawLine(pts[i], pts[i + 1], c, 4);
+        for (int i = 1; i + 1 < pts.Length; i++) DrawRect(new Rect2(pts[i] - new Vector2(2, 2), 4, 4), c);   // saubere Ecken
+    }
+
+    static int StateOrder(NodeState s) => s == NodeState.Learned ? 2 : s == NodeState.Available ? 1 : 0;
 
     Vector2 Center(SkillDef d) => (Size / 2 + _offset + new Vector2(d.Pos.X, d.Pos.Y) * Spacing).Round();
 
@@ -231,17 +267,20 @@ public partial class SkillCanvas : Control
         DrawBackground();
 
         // Linien zuerst, damit die Knoten darüber liegen
+        // Gelernte Linien zuletzt, damit gemeinsame Schienen hell sind, so weit etwas gelernt ist
         var lines = new List<SkillDef>(SkillDefs.All);
-        lines.Sort((x, y) => LineLength(y).CompareTo(LineLength(x)));
+        lines.Sort((x, y) =>
+        {
+            int s = StateOrder(StateOf(x)).CompareTo(StateOrder(StateOf(y)));
+            return s != 0 ? s : LineLength(y).CompareTo(LineLength(x));
+        });
         foreach (var d in lines)
         {
             if (d.Id == SkillDefs.Root) continue;
             var state = StateOf(d);
             if (state == NodeState.Hidden) continue;
-            var a = Center(SkillDefs.Get(d.Parent ?? SkillDefs.Root));
-            var b = Center(d);
             var c = state == NodeState.Learned ? LineGot : state == NodeState.Available ? LineOpen : RingDark;
-            DrawLine(a, b, c, 4);
+            DrawPath(LinePath(d), c);
         }
 
         foreach (var d in SkillDefs.All)
@@ -298,7 +337,7 @@ public partial class SkillCanvas : Control
         DrawRect(r.Grow(-2 * p), Inside);
 
         // Symbol (8×8)
-        if (state == NodeState.Teaser)
+        if (state == NodeState.Teaser && d.RequiresMax == null)
         {
             DrawString(PfandTheme.Body, new Vector2(r.Position.X, c.Y + 12), "?", HorizontalAlignment.Center, NodeSize, 36, RingDark.Lightened(0.3f));
             DrawLock(r);
@@ -315,7 +354,9 @@ public partial class SkillCanvas : Control
                 else if (ch == 'o') DrawRect(new Rect2(o.X + x * p, o.Y + y * p, p, p), light);
             }
 
+        if (state == NodeState.Teaser) { DrawRect(r.Grow(-2 * p), new Color(Inside, 0.55f)); DrawLock(r); return; }
         if (!root) DrawBadge(r, BadgeOf(d));
+        if (!root && gs.CanBuySkill(d)) DrawAffordable(r);
 
         // Stufe als kleine Zahl unten links, sobald etwas gelernt ist
         if (d.MaxLevel > 1 && lvl > 0)
@@ -361,6 +402,18 @@ public partial class SkillCanvas : Control
                 }
                 break;
         }
+    }
+
+    /// <summary>Genug Kronkorken für den nächsten Schritt: kleiner grüner Pfeil oben rechts, der leicht hüpft.</summary>
+    void DrawAffordable(Rect2 r)
+    {
+        const float p = 3;
+        float bob = Mathf.Round(Mathf.Sin(_time * 5) * 1.5f);
+        var o = new Vector2(r.End.X - 3 * p, r.Position.Y - 2 * p + bob);
+        void R(float x, float y, float w, float h, Color c) => DrawRect(new Rect2(o.X + x * p, o.Y + y * p, w * p, h * p), c);
+        // Pfeil nach oben mit dunkler Kontur, in Gold, damit er sich vom grünen Plus unterscheidet
+        R(1, -1, 3, 1, Edge); R(0, 0, 5, 1, Edge); R(-1, 1, 7, 2, Edge); R(1, 3, 3, 3, Edge);
+        R(2, 0, 1, 1, RingGotHi); R(1, 1, 3, 1, RingGot); R(0, 2, 5, 1, RingGot); R(2, 3, 1, 2, RingGot);
     }
 
     void DrawLock(Rect2 r)
@@ -427,7 +480,9 @@ public partial class SkillCanvas : Control
 
         var lines = new List<(string text, Color color)>();
         string title = d.Name;
-        if (StateOf(d) == NodeState.Teaser) title = "NEUER AST";
+        if (StateOf(d) == NodeState.Teaser && d.RequiresMax != null)
+            lines.Add(($"Erst {SkillDefs.Get(d.RequiresMax).Name} voll ausbauen", BadInk));
+        else if (StateOf(d) == NodeState.Teaser) title = "NEUER AST";
         else
         {
             if (d.MaxLevel > 1) lines.Add(($"Stufe {lvl}/{d.MaxLevel}", Wood.Muted));

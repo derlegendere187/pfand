@@ -725,7 +725,7 @@ public class VisitorSim
             // Ohne Picknickdecken stehen die Leute nur auf der Wiese herum
             int picknick = gs.SkillLevel("u_picknick");
             v.HasBlanket = picknick > 0
-                && _rng.NextDouble() < Balance.BlanketChanceBase + Balance.BlanketChancePerLevel * (picknick - 1);
+                && _rng.NextDouble() < Balance.BlanketChancePerLevel * picknick;
             var blanketSpot = v.HasBlanket ? FreeBlanketSpot(paths, gs) : null;
             if (blanketSpot == null) v.HasBlanket = false;   // kein Platz frei: dann eben ohne Decke
             var spot = blanketSpot ?? FreeGrassSpot(paths, gs);

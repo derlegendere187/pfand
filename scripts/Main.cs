@@ -108,7 +108,7 @@ public partial class Main : Control
         {
             gs.Upgrades["weg"] = 4; gs.Upgrades["tasche"] = 2; gs.Upgrades["muelleimer"] = 3;
             gs.Upgrades["bank"] = 3; gs.Upgrades["laterne"] = 2;
-            gs.Skills["u_picknick"] = 2;
+            gs.Skills["u_picknick"] = 10;
             gs.Caps[0] = 2; gs.Caps[2] = 1; gs.Caps[4] = 1; gs.Caps[7] = 1;
             gs.Kronkorken = 5;
             gs.BottlesFed = 100;
@@ -263,6 +263,9 @@ public partial class Main : Control
         right.AddChild(bottom);
         body.AddChild(right);
 
+        // Kronkorken-Meldung steigt im Park neben dem Automaten auf (unter den Popups, damit sie im Skilltree nicht stört)
+        AddChild(new CapToast { Anchor = () => park.ToScreen(new Vector2(14, 80)) });
+
         _album = new AlbumPopup();
         AddChild(_album);
         albumButton.Pressed += _album.Open;
@@ -272,9 +275,6 @@ public partial class Main : Control
         _stats = new StatsPopup();
         AddChild(_stats);
         statsButton.Pressed += _stats.Open;
-
-        // Kronkorken-Meldung steigt im Park neben dem Automaten auf
-        AddChild(new CapToast { Anchor = () => park.ToScreen(new Vector2(14, 80)) });
 
         var tutorial = new TutorialOverlay
         {
@@ -379,6 +379,9 @@ public partial class Main : Control
         int found = GameState.I.Caps.Count(kv => kv.Value > 0);
         _albumCount.Text = $"{found}/{CapData.Count}";
         _skillCount.Text = $"{GameState.I.Kronkorken} KK";
+        // Grün, sobald man sich im Skilltree etwas leisten kann
+        bool canBuy = SkillDefs.All.Exists(GameState.I.CanBuySkill);
+        _skillCount.AddThemeColorOverride("font_color", canBuy ? Palette.GoodText : Wood.Accent);
         // Album und Skilltree erst mit dem Sammelalbum, Events erst nach dem ersten Event-Skill
         _albumButton.Visible = _skillButton.Visible = GameState.I.SkillsVisible;
         bool events = GameState.I.AnyEventUnlocked;

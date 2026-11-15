@@ -8,7 +8,7 @@ namespace Pfand.Core;
 
 public class SaveData
 {
-    public int Version { get; set; } = 6;
+    public int Version { get; set; } = 7;
     public double Money { get; set; }
     public double TotalEarned { get; set; }
     public long BottlesFed { get; set; }
@@ -117,6 +117,7 @@ public static class SaveSystem
             // Vor Version 4 gab es Kronkorken von Anfang an: wer schon welche hat, bekommt das Sammelalbum
             if (data.Version < 5) MigrateToSkillUnlocks(s, data.Ausbau);
             MigrateUpgradesToSkills(s);
+            if (data.Version < 7) MigrateFinerSteps(s);
             s.CapIntroDone = s.Kronkorken > 0 || s.Caps.Count > 0 || s.Skills.Count > 0;
             s.PlayTime = data.PlayTime;
             s.FedByType = data.FedByType ?? new();
@@ -159,6 +160,22 @@ public static class SaveSystem
             if (!steps.TryGetValue(kind, out var ids)) continue;
             for (int i = 0; i < kv.Value && i < ids.Length; i++) GrantWithParents(s, ids[i]);
         }
+    }
+
+    /// <summary>
+    /// Ab Version 7 sind Glücksdeckel, Doppelfund und Picknickdecke feiner gestuft:
+    /// alte Stufen werden so umgerechnet, dass die Wirkung gleich bleibt.
+    /// </summary>
+    static void MigrateFinerSteps(GameState s)
+    {
+        void Scale(string id, Func<int, int> f)
+        {
+            if (s.Skills.TryGetValue(id, out var l) && l > 0)
+                s.Skills[id] = Math.Clamp(f(l), 1, SkillDefs.Get(id).MaxLevel);
+        }
+        Scale("glueck", l => (int)Math.Round(l * 97 / 20.0));
+        Scale("mehrfach", l => l * 5);
+        Scale("u_picknick", l => 5 + l * 5);
     }
 
     /// <summary>Picknickdecke und Freundeskreis waren Geld-Upgrades, jetzt sind es Skills mit Stufen.</summary>

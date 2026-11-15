@@ -222,6 +222,16 @@ public static partial class Sprites
         // Würstchenkette
         R(ci, o, p, 9, 32, 30, 1, Hx("#6a4a32"));
         for (int k = 0; k < 7; k++) R(ci, o, p, 10 + k * 4, 33, 3, 1, Hx("#c0603c"));
+        // Verkäufer hinter der Theke: Kochmütze, Gesicht, weiße Schürze über rotem Hemd
+        var skin = Hx("#e8b48a");
+        R(ci, o, p, 24, 27, 8, 12, Out);
+        R(ci, o, p, 25, 27.5f, 6, 2, Cream);                       // Mütze
+        R(ci, o, p, 25, 28, 6, 1, Hx("#fffaf0"));
+        R(ci, o, p, 25.5f, 29.5f, 5, 3, skin);                     // Gesicht
+        R(ci, o, p, 26.5f, 30.5f, 1, 1, Out); R(ci, o, p, 28.5f, 30.5f, 1, 1, Out);
+        R(ci, o, p, 25, 33, 6, 5, red.Darkened(0.1f));             // Hemd
+        R(ci, o, p, 26, 34, 4, 4, Cream);                          // Schürze
+        R(ci, o, p, 24.5f, 34, 1, 3, skin); R(ci, o, p, 30.5f, 34, 1, 3, skin);   // Arme
         // Tafel mit Preisen
         R(ci, o, p, 46, 29, 14, 8, Out);
         R(ci, o, p, 47, 30, 12, 6, Hx("#2a3a30"));

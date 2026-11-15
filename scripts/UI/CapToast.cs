@@ -7,8 +7,9 @@ using Pfand.Park;
 namespace Pfand.UI;
 
 /// <summary>
-/// Dezente Meldung beim Kronkorken-Fund, so wie „Tasche voll!“ im Park:
-/// kleiner Deckel mit Text, der im Park neben dem Automaten aufsteigt und verblasst.
+/// Dezente Meldung beim Kronkorken-Fund, so wie „Tasche voll!“ im Park.
+/// Bekannte Motive laufen in einem Zähler zusammen („+7 Kronkorken“), der bei jedem Fund wächst.
+/// Neue Motive steigen einzeln mit ihrem Deckel auf.
 /// </summary>
 public partial class CapToast : Control
 {
@@ -17,6 +18,8 @@ public partial class CapToast : Control
     class Item { public int Cap; public bool IsNew, Intro; public float Life, Max; public float Offset; }
     readonly List<Item> _items = new();
     const float Life = 1.8f, IntroLife = 3.2f;
+    int _count;                     // Zähler für schon bekannte Motive
+    float _countLife, _countPop;
 
     public override void _Ready()
     {
@@ -37,12 +40,20 @@ public partial class CapToast : Control
             _items.Add(new Item { Cap = cap, IsNew = isNew, Intro = true, Life = IntroLife, Max = IntroLife });
             return;
         }
-        // Viele Funde auf einmal (Automat zählt eine volle Tasche): höchstens ein paar Meldungen gleichzeitig
-        const int MaxShown = 6;
+        // Bekanntes Motiv: nur die Zahl wächst
+        if (!isNew)
+        {
+            if (_countLife <= 0) _count = 0;
+            _count++;
+            _countLife = Life;
+            _countPop = 0.15f;
+            return;
+        }
+        // Neue Motive: höchstens ein paar gleichzeitig, jede in einer eigenen Zeile unter dem Zähler
+        const int MaxShown = 5;
         while (_items.FindAll(i => !i.Intro).Count >= MaxShown)
             _items.Remove(_items.Find(i => !i.Intro));
-        // Jede Meldung bekommt eine eigene Zeile: die oberste, die gerade frei ist
-        float baseOff = _items.Exists(i => i.Intro) ? 60 : 0;
+        float baseOff = (_items.Exists(i => i.Intro) ? 60 : 0) + 30;
         int slot = 0;
         while (_items.Exists(i => !i.Intro && Mathf.IsEqualApprox(i.Offset, baseOff + slot * 26))) slot++;
         float offset = baseOff + slot * 26;
@@ -51,7 +62,9 @@ public partial class CapToast : Control
 
     public override void _Process(double delta)
     {
-        if (_items.Count == 0) return;
+        if (_items.Count == 0 && _countLife <= 0) return;
+        _countLife -= (float)delta;
+        _countPop -= (float)delta;
         foreach (var i in _items) i.Life -= (float)delta;
         if (_items.Exists(i => i.Intro && i.Life <= 0))
         {
@@ -66,12 +79,21 @@ public partial class CapToast : Control
     {
         if (Anchor == null) return;
         var a = Anchor();
+        if (_countLife > 0)
+        {
+            float alpha = Mathf.Clamp(_countLife * 2, 0, 1);
+            int size = _countPop > 0 ? 26 : 22;
+            string text = $"+{_count} Kronkorken";
+            var tp = (a + new Vector2(0, (_items.Exists(i => i.Intro) ? 60 : 0) - 2)).Round();
+            DrawString(PfandTheme.Body, tp + new Vector2(1, 1), text, HorizontalAlignment.Left, -1, size, new Color(Palette.PanelLight, alpha));
+            DrawString(PfandTheme.Body, tp, text, HorizontalAlignment.Left, -1, size, new Color(Palette.GoodText, alpha));
+        }
         foreach (var i in _items)
         {
             if (i.Intro) { DrawIntro(i, a); continue; }
             float t = 1 - i.Life / i.Max;                      // 0 → 1
             float alpha = Mathf.Clamp(i.Life * 2, 0, 1);
-            var pos = (a + new Vector2(0, i.Offset - t * 34)).Round();
+            var pos = (a + new Vector2(0, i.Offset - t * 10)).Round();   // steigt kaum, damit es nicht in den Zähler läuft
 
             if (alpha > 0.5f) Sprites.Cap(this, pos + new Vector2(0, -18), 2, CapData.All[i.Cap], true);
             string text = i.IsNew ? "Neuer Kronkorken!" : "+1 Kronkorken";

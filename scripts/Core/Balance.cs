@@ -109,9 +109,9 @@ public static class Balance
     // Automat
     public const double FeedInterval = 0.1;          // Sekunden pro eingeworfener Flasche
     public const double CapDropChance = 0.03;        // Chance auf einen Kronkorken (nicht bei Dosen)
-    public const int CapChanceLevels = 20;           // Skill "Glücksdeckel": auf der letzten Stufe hat jede Flasche einen
-    public const double CapChancePerLevel = (1 - CapDropChance) / CapChanceLevels;
-    public const double MultiCapPerLevel = 0.05;     // Skill "Doppelfund": Chance auf noch einen, immer wieder
+    public const int CapChanceLevels = 97;           // Skill "Glücksdeckel": auf der letzten Stufe hat jede Flasche einen
+    public const double CapChancePerLevel = 0.01;     // +1 % je Stufe
+    public const double MultiCapPerLevel = 0.01;     // Skill "Doppelfund": Chance auf noch einen, immer wieder
     public const int FirstCapGuaranteedAt = 12;      // spätestens diese Flasche bringt den ersten Kronkorken
 
     // Kombo: langer Bon = mehr Geld. Ab der 10. Flasche eines Einwurfs +1 % auf den ganzen Bon
@@ -126,8 +126,7 @@ public static class Balance
     // Picknickdecken: ohne Upgrade stehen die Leute nur kurz auf der Wiese herum
     public const double StandStayFactor = 0.85;
     public const double BlanketStayFactor = 1.3;
-    public const double BlanketChanceBase = 0.5;     // Stufe 1: jeder Zweite hat eine Decke dabei
-    public const double BlanketChancePerLevel = 0.25;
+    public const double BlanketChancePerLevel = 0.05; // 5 % je Stufe, bis 100 %
 
     // Events kosten Kronkorken. Nach jedem großen Event haben alle eine gemeinsame Pause
     public const double EventPause = 300;            // Sekunden
