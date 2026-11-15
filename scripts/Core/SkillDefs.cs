@@ -72,14 +72,39 @@ public static class SkillDefs
         return n;
     }
 
-    /// <summary>Preis einer Stufe: wächst mit jeder Stufe und je weiter weg von der Wurzel.</summary>
-    public static int Cost(SkillDef d, int level)
+    // Preise werden einmal ausgerechnet und gemerkt: der Skilltree fragt sie jedes Frame für jeden Knoten ab
+    static readonly Dictionary<string, List<int>> _costs = new();
+    static readonly Dictionary<string, List<long>> _sums = new();
+
+    static List<int> Costs(SkillDef d, int level)
     {
+        if (!_costs.TryGetValue(d.Id, out var list))
+        {
+            _costs[d.Id] = list = new List<int>();
+            _sums[d.Id] = new List<long> { 0 };
+        }
+        if (list.Count > level) return list;
+        var sums = _sums[d.Id];
         double depth = Math.Pow(Balance.SkillDepthCost, Math.Max(0, Depth(d) - 1));
-        int cost = 0;
-        for (int l = 0; l <= level; l++)
-            cost = Math.Max(cost + (l > 0 ? 1 : 0), (int)Math.Min(2e9, Math.Ceiling(d.Base * Math.Pow(d.Growth, l) * depth)));
-        return cost;
+        for (int l = list.Count; l <= level; l++)
+        {
+            int prev = l > 0 ? list[l - 1] : 0;
+            int cost = Math.Max(prev + (l > 0 ? 1 : 0), (int)Math.Min(2e9, Math.Ceiling(d.Base * Math.Pow(d.Growth, l) * depth)));
+            list.Add(cost);
+            sums.Add(sums[^1] + cost);
+        }
+        return list;
+    }
+
+    /// <summary>Preis einer Stufe: wächst mit jeder Stufe und je weiter weg von der Wurzel.</summary>
+    public static int Cost(SkillDef d, int level) => Costs(d, level)[level];
+
+    /// <summary>Was die ersten n Stufen zusammen kosten.</summary>
+    public static long TotalCost(SkillDef d, int levels)
+    {
+        if (levels <= 0) return 0;
+        Costs(d, levels - 1);
+        return _sums[d.Id][levels];
     }
 
     // --- Icons ---
@@ -292,7 +317,16 @@ public static class SkillDefs
             n => $"GRILLPLATZ kann {n}× öfter gekauft werden: jede Stufe kommen Grillrunden schneller nach und trinken schneller", IPlus),
     };
 
-    public static SkillDef Get(string id) => All.Find(s => s.Id == id);
+    static Dictionary<string, SkillDef> _byId;
+    public static SkillDef Get(string id)
+    {
+        if (_byId == null)
+        {
+            _byId = new();
+            foreach (var s in All) _byId[s.Id] = s;
+        }
+        return id != null && _byId.TryGetValue(id, out var d) ? d : null;
+    }
 
     /// <summary>
     /// Die Äste an der Wurzel wachsen nacheinander: ein Ast öffnet sich erst, wenn man insgesamt so viele

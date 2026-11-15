@@ -331,11 +331,11 @@ public class GameState
     {
         get
         {
-            int sum = 0;
+            long sum = 0;
             foreach (var kv in Skills)
                 if (SkillDefs.Get(kv.Key) is { } d)
-                    for (int l = 0; l < kv.Value && l < d.MaxLevel; l++) sum += SkillDefs.Cost(d, l);
-            return sum;
+                    sum += SkillDefs.TotalCost(d, Math.Min(kv.Value, d.MaxLevel));
+            return (int)Math.Min(sum, int.MaxValue);
         }
     }
 
