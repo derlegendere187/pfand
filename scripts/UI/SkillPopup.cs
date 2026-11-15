@@ -109,6 +109,21 @@ public partial class SkillCanvas : Control
     static readonly Color RingDark = Color.FromHtml("#4a4438");
     static readonly Color LineGot = Color.FromHtml("#d8cdb4");
     static readonly Color LineOpen = Color.FromHtml("#8a7e66");
+    // Hauptzweige (führen zu weiteren Knoten) golden und dicker, Abzweigungen zu einzelnen Ausbauten hell und dünn
+    static readonly Color TrunkGot = Color.FromHtml("#e8b84a");
+    static readonly Color TrunkOpen = Color.FromHtml("#9a7630");
+    static HashSet<string> _trunks;
+
+    /// <summary>Knoten, an denen noch weitere hängen: die Linie dorthin gehört zum Hauptzweig.</summary>
+    static bool IsTrunk(SkillDef d)
+    {
+        if (_trunks == null)
+        {
+            _trunks = new HashSet<string>();
+            foreach (var s in SkillDefs.All) if (s.Parent != null) _trunks.Add(s.Parent);
+        }
+        return _trunks.Contains(d.Id);
+    }
     static readonly Color BadgeGreen = Color.FromHtml("#7ad05a");
     static readonly Color GoodInk = Color.FromHtml("#9ad870");
     static readonly Color BadInk = Color.FromHtml("#f08a6a");
@@ -401,8 +416,10 @@ public partial class SkillCanvas : Control
             if (d.Id == SkillDefs.Root) continue;
             var state = _states[d.Id];
             if (state == NodeState.Hidden) continue;
-            var c = state == NodeState.Learned ? LineGot : state == NodeState.Available ? LineOpen : RingDark;
-            DrawLine(Center(SkillDefs.Get(d.Parent ?? SkillDefs.Root)), Center(d), c, 4, true);
+            bool trunk = IsTrunk(d);
+            var c = state == NodeState.Learned ? (trunk ? TrunkGot : LineGot)
+                : state == NodeState.Available ? (trunk ? TrunkOpen : LineOpen) : RingDark;
+            DrawLine(Center(SkillDefs.Get(d.Parent ?? SkillDefs.Root)), Center(d), c, trunk ? 6 : 3, true);
         }
 
         foreach (var d in SkillDefs.All)
