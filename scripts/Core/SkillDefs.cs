@@ -161,9 +161,11 @@ public static class SkillDefs
         S("retro", Sorten, "RETRO-FLASCHEN", "s_dose", 0, -4, 8, 1.3, 12,
             n => $"{(n * Balance.RetroChancePerLevel * 100).ToString("0.0")} % der Flaschen sind Retro ({GameState.Euro(BottleInfo.BaseValue(BottleType.Retro))})",
             new[] { "...oo...", "...##...", "...##...", "..####..", ".#o##o#.", ".######.", ".#o##o#.", ".######." }),
+        S("retro_wert", Sorten, "RETRO-SAMMLER", "retro", 1, -5, 10, 1.3, 10, n => $"Retro-Flaschen +{n * 10} % wert", ICoin),
         S("gold", Sorten, "GOLDENE FLASCHE", "retro", 0, -5, 40, 1.5, 6,
             n => $"{(n * Balance.GoldChancePerLevel * 100).ToString("0.0")} % Goldflaschen ({GameState.Euro(BottleInfo.BaseValue(BottleType.Gold))})",
             new[] { "...o....", "...##...", "..#oo#..", "..#oo#..", ".#oooo#.", ".#o##o#.", ".#oooo#.", ".######." }),
+        S("gold_wert", Sorten, "GOLDSCHMIED", "gold", 1, -6, 20, 1.35, 10, n => $"Goldene Flaschen +{n * 10} % wert", ICoin),
 
         // ---- Glück (unten rechts): Kronkorken und Aktionen ----
         S("glueck", Glueck, "GLÜCKSDECKEL", null, 1, 1, 3, 1.09, Balance.CapChanceLevels,

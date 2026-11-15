@@ -1107,8 +1107,7 @@ public class VisitorSim
                     if (c.Carry.Count >= gs.CollectorCarry) { c.State = CollectorState.Abliefern; break; }
                     var b = NearestFreeBottle(c.Pos);
                     if (b != null) { b.Claimed = true; c.TargetBottle = b; c.State = CollectorState.ZurFlasche; break; }
-                    int bin = NearestFilledBin(c.Pos, bins);
-                    if (bin >= 0) { c.TargetBin = bin; c.State = CollectorState.ZumEimer; break; }
+                    // Mülleimer leeren die Sammler nicht: die bleiben für dich
                     if (c.Carry.Count > 0) { c.State = CollectorState.Abliefern; break; }
                     c.State = CollectorState.Wartet;
                     c.Wait = R(1, 2);

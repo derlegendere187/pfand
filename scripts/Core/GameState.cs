@@ -109,6 +109,8 @@ public class GameState
         BottleType.Wasser => 1 + 0.1 * SkillLevel("glas_wert"),
         BottleType.Plastik => 1 + 0.1 * SkillLevel("plastik_wert"),
         BottleType.Dose => 1 + 0.1 * SkillLevel("dose_wert"),
+        BottleType.Retro => 1 + 0.1 * SkillLevel("retro_wert"),
+        BottleType.Gold => 1 + 0.1 * SkillLevel("gold_wert"),
         _ => 1,
     };
 

@@ -19,7 +19,7 @@ public partial class CapToast : Control
     readonly List<Item> _items = new();
     const float Life = 1.8f, IntroLife = 3.2f;
     int _count;                     // Zähler für schon bekannte Motive
-    float _countLife, _countPop;
+    float _countLife;
 
     public override void _Ready()
     {
@@ -46,7 +46,6 @@ public partial class CapToast : Control
             if (_countLife <= 0) _count = 0;
             _count++;
             _countLife = Life;
-            _countPop = 0.15f;
             return;
         }
         // Neue Motive: höchstens ein paar gleichzeitig, jede in einer eigenen Zeile unter dem Zähler
@@ -64,7 +63,6 @@ public partial class CapToast : Control
     {
         if (_items.Count == 0 && _countLife <= 0) return;
         _countLife -= (float)delta;
-        _countPop -= (float)delta;
         foreach (var i in _items) i.Life -= (float)delta;
         if (_items.Exists(i => i.Intro && i.Life <= 0))
         {
@@ -82,7 +80,7 @@ public partial class CapToast : Control
         if (_countLife > 0)
         {
             float alpha = Mathf.Clamp(_countLife * 2, 0, 1);
-            int size = _countPop > 0 ? 26 : 22;
+            const int size = 22;
             string text = $"+{_count} Kronkorken";
             var tp = (a + new Vector2(0, (_items.Exists(i => i.Intro) ? 60 : 0) - 2)).Round();
             DrawString(PfandTheme.Body, tp + new Vector2(1, 1), text, HorizontalAlignment.Left, -1, size, new Color(Palette.PanelLight, alpha));
