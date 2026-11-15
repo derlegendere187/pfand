@@ -109,6 +109,53 @@ public partial class SkillCanvas : Control
     static readonly Color RingDark = Color.FromHtml("#4a4438");
     static readonly Color LineGot = Color.FromHtml("#d8cdb4");
     static readonly Color LineOpen = Color.FromHtml("#8a7e66");
+    // Hauptzweige (führen zu weiteren Knoten) golden und dicker, Abzweigungen grün wie junge Triebe und dünner
+    static readonly Color TwigGot = Color.FromHtml("#a8d86a");
+    static readonly Color TwigOpen = Color.FromHtml("#5f8a3c");
+    static readonly Color TrunkGot = Color.FromHtml("#e8b84a");
+    static readonly Color TrunkOpen = Color.FromHtml("#9a7630");
+    static HashSet<string> _trunks;
+
+    /// <summary>
+    /// Hauptzweig: von jedem Ast an der Wurzel immer weiter zum Kind mit dem größten Unterbaum.
+    /// Alles, was davon seitlich abgeht, ist eine Abzweigung, auch wenn daran noch etwas hängt.
+    /// </summary>
+    static bool IsTrunk(SkillDef d)
+    {
+        if (_trunks == null)
+        {
+            var kids = new Dictionary<string, List<SkillDef>>();
+            foreach (var s in SkillDefs.All)
+            {
+                if (s.Id == SkillDefs.Root) continue;
+                var pid = s.Parent ?? SkillDefs.Root;
+                if (!kids.TryGetValue(pid, out var l)) kids[pid] = l = new List<SkillDef>();
+                l.Add(s);
+            }
+            var size = new Dictionary<string, int>();
+            int Size(string id)
+            {
+                if (size.TryGetValue(id, out var n)) return n;
+                n = 1;
+                if (kids.TryGetValue(id, out var l)) foreach (var c in l) n += Size(c.Id);
+                return size[id] = n;
+            }
+            _trunks = new HashSet<string>();
+            foreach (var start in kids[SkillDefs.Root])
+            {
+                for (var cur = start; cur != null;)
+                {
+                    _trunks.Add(cur.Id);
+                    SkillDef next = null;
+                    if (kids.TryGetValue(cur.Id, out var l))
+                        foreach (var c in l)
+                            if (Size(c.Id) > 1 && (next == null || Size(c.Id) > Size(next.Id))) next = c;
+                    cur = next;
+                }
+            }
+        }
+        return _trunks.Contains(d.Id);
+    }
     static readonly Color BadgeGreen = Color.FromHtml("#7ad05a");
     static readonly Color GoodInk = Color.FromHtml("#9ad870");
     static readonly Color BadInk = Color.FromHtml("#f08a6a");
@@ -401,8 +448,10 @@ public partial class SkillCanvas : Control
             if (d.Id == SkillDefs.Root) continue;
             var state = _states[d.Id];
             if (state == NodeState.Hidden) continue;
-            var c = state == NodeState.Learned ? LineGot : state == NodeState.Available ? LineOpen : RingDark;
-            DrawLine(Center(SkillDefs.Get(d.Parent ?? SkillDefs.Root)), Center(d), c, 4, true);
+            bool trunk = IsTrunk(d);
+            var c = state == NodeState.Learned ? (trunk ? TrunkGot : TwigGot)
+                : state == NodeState.Available ? (trunk ? TrunkOpen : TwigOpen) : RingDark;
+            DrawLine(Center(SkillDefs.Get(d.Parent ?? SkillDefs.Root)), Center(d), c, trunk ? 6 : 3, true);
         }
 
         foreach (var d in SkillDefs.All)
