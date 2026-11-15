@@ -109,6 +109,8 @@ public class GameState
         BottleType.Wasser => 1 + 0.1 * SkillLevel("glas_wert"),
         BottleType.Plastik => 1 + 0.1 * SkillLevel("plastik_wert"),
         BottleType.Dose => 1 + 0.1 * SkillLevel("dose_wert"),
+        BottleType.Retro => 1 + 0.1 * SkillLevel("retro_wert"),
+        BottleType.Gold => 1 + 0.1 * SkillLevel("gold_wert"),
         _ => 1,
     };
 
@@ -183,12 +185,19 @@ public class GameState
     public double BankStayFactor => 1 + 0.15 * SkillLevel("bank_tisch");
     public double BankDrinkFactor => 1 - 0.06 * SkillLevel("tischrunde");
     public double TableStayFactor => 1 + 0.15 * SkillLevel("tt_turnier");
-    public double TableDrinkBonus => 1 - 0.08 * SkillLevel("tt_sieger");
-    public int ImbissExtraSlots => SkillLevel("imbiss_theke");
-    public double ImbissDrinkBonus => 1 - 0.05 * SkillLevel("imbiss_kuehl");
+    // Ausbaustufen über die Grundanzahl hinaus (zwei Platten, eine Bude, ein Grill): kein neuer Platz, aber mehr Wirkung
+    public int TableStufe => Math.Max(0, Level("tischtennis") - 2);
+    public int ImbissStufe => Math.Max(0, Level("imbiss") - 1);
+    public int GrillStufe => Math.Max(0, Level("grill") - 1);
+    public double TableSpawnFactor => 1 + 0.3 * TableStufe;
+    public double ImbissSpawnBonus => Balance.ImbissSpawnBonus * (1 + 0.3 * ImbissStufe);
+
+    public double TableDrinkBonus => (1 - 0.08 * SkillLevel("tt_sieger")) * (1 - 0.05 * TableStufe);
+    public int ImbissExtraSlots => SkillLevel("imbiss_theke") + 2 * ImbissStufe;
+    public double ImbissDrinkBonus => (1 - 0.05 * SkillLevel("imbiss_kuehl")) * (1 - 0.05 * ImbissStufe);
     public double ImbissVisitBonus => 0.08 * SkillLevel("imbiss_schild");
     public double GrillStayBonus => 1 + 0.15 * SkillLevel("grill_rost");
-    public double GrillDrinkBonus => 1 - 0.08 * SkillLevel("grill_kuehl");
+    public double GrillDrinkBonus => (1 - 0.08 * SkillLevel("grill_kuehl")) * (1 - 0.04 * GrillStufe);
     public double BinRingChance => Balance.BinRingChancePerLevel * SkillLevel("eimer_ring");
 
     public double Value(BottleType t) => BottleInfo.BaseValue(t) * ValueMultiplier * TypeMultiplier(t);
@@ -225,8 +234,9 @@ public class GameState
         // Der erste Kronkorken kommt spätestens mit der zwölften Flasche, damit man den Skilltree früh entdeckt
         bool firstGuaranteed = !byCollector && Caps.Count == 0 && Kronkorken == 0 && Skills.Count == 0 && BottlesFed >= Balance.FirstCapGuaranteedAt;
         if (BottleInfo.HasCap(t) && (firstGuaranteed || rng.NextDouble() < chance))
+            cap = byCollector ? RollKnownCap(rng) : RollCap(rng);
+        if (cap >= 0)
         {
-            cap = RollCap(rng);
             Caps[cap] = (Caps.TryGetValue(cap, out var c) ? c : 0) + 1;
             Kronkorken++;
             CapFound?.Invoke(cap, Caps[cap] == 1);
@@ -253,6 +263,23 @@ public class GameState
             if (r <= 0) return i;
         }
         return CapData.Count - 1;
+    }
+
+    /// <summary>Wie RollCap, aber nur unter Motiven, die man schon gefunden hat (Sammler bringen keine neuen). -1 = noch keins.</summary>
+    public int RollKnownCap(Random rng)
+    {
+        double total = 0;
+        foreach (var i in Caps.Keys) total += CapWeight(i);
+        if (total <= 0) return -1;
+        double r = rng.NextDouble() * total;
+        int last = -1;
+        foreach (var i in Caps.Keys)
+        {
+            last = i;
+            r -= CapWeight(i);
+            if (r <= 0) return i;
+        }
+        return last;
     }
 
     static double CapWeight(int i) => CapData.SetWeight(CapData.All[i].Set) * Balance.CapTierWeight[CapData.Tier(i)];
@@ -291,7 +318,10 @@ public class GameState
 
     // --- Skills ---
     /// <summary>Lernbar, sobald der Elternknoten gelernt ist.</summary>
-    public bool SkillAvailable(SkillDef s) => s.Id != SkillDefs.Root && HasSkill(s.Parent ?? SkillDefs.Root) && GateOpen(s);
+    public bool SkillAvailable(SkillDef s) => s.Id != SkillDefs.Root && HasSkill(s.Parent ?? SkillDefs.Root) && GateOpen(s) && RequirementMet(s);
+
+    /// <summary>Manche Skills brauchen einen anderen voll ausgebaut (Doppelfund erst mit 100 % Glücksdeckel).</summary>
+    public bool RequirementMet(SkillDef s) => s.RequiresMax == null || SkillMaxed(SkillDefs.Get(s.RequiresMax));
 
     /// <summary>Äste an der Wurzel öffnen sich nach und nach, je mehr Kronkorken man im Skilltree ausgegeben hat.</summary>
     public bool GateOpen(SkillDef s) => SpentOnSkills >= SkillDefs.GateOf(s);
@@ -348,9 +378,10 @@ public class GameState
     public double EventPauseLength => Balance.EventPause * (1 - Balance.EventPauseCutPerLevel * SkillLevel("ev_cooldown"));
     /// <summary>
     /// Events kosten Kronkorken. Der Preis steigt, je öfter man es veranstaltet (höchstens bis zum doppelten Grundpreis).
-    /// Sponsoren machen es billiger.
+    /// Mit dem Glücksdeckel wird es teurer, weil dann auch mehr Kronkorken reinkommen. Sponsoren machen es billiger.
     /// </summary>
     public int EventCost(EventDef e) => (int)Math.Ceiling(e.Cost * (1 + Balance.EventCostGrowth * Math.Min(TimesHeld(e), Balance.EventCostGrowthMax))
+        * (1 + Balance.EventCostPerCapLevel * SkillLevel("glueck"))
         * (1 - 0.05 * SkillLevel("ev_sponsor")));
     public bool EventRunning(EventDef e) => e.Short ? BoostActive(e.Id) : ActiveEvent == e.Id;
     public bool CanStartEvent(EventDef e) => !e.Short && EventUnlocked(e) && ActiveEvent == null

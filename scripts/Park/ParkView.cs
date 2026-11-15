@@ -257,7 +257,7 @@ public partial class ParkView : Control
         if (gs.Level("imbiss") > 0)
         {
             var ir = ParkLayout.ImbissRect(size);
-            Sprites.Imbiss(this, ir);
+            Sprites.Imbiss(this, ir, gs.ImbissStufe >= 2 ? 2 : 1);
             DrawString(PfandTheme.Pixel, new Vector2(ir.Position.X, ir.Position.Y + 26), "IMBISS",
                 HorizontalAlignment.Center, ir.Size.X, 28, Color.FromHtml("#b8432f"));
         }

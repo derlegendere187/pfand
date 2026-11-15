@@ -194,7 +194,7 @@ public static partial class Sprites
     // ---------------------------------------------------------------- Imbiss
 
     /// <summary>Imbissbude leicht von vorn (70×50 feine Pixel) in rect: Schild, Markise, Fenster mit Regal, Theke.</summary>
-    public static void Imbiss(CanvasItem ci, Rect2 rect)
+    public static void Imbiss(CanvasItem ci, Rect2 rect, int sellers = 1)
     {
         const float p = 2;
         var o = rect.Position.Round();
@@ -222,6 +222,21 @@ public static partial class Sprites
         // Würstchenkette
         R(ci, o, p, 9, 32, 30, 1, Hx("#6a4a32"));
         for (int k = 0; k < 7; k++) R(ci, o, p, 10 + k * 4, 33, 3, 1, Hx("#c0603c"));
+        // Verkäufer hinter der Theke: Kochmütze, Gesicht, weiße Schürze über rotem Hemd (ab Ausbaustufe 3 zu zweit)
+        var skin = Hx("#e8b48a");
+        for (int k = 0; k < sellers; k++)
+        {
+            float sx = k == 0 ? 0 : 12;
+            var shirt = k == 0 ? red.Darkened(0.1f) : Hx("#4f7a9a");
+            R(ci, o, p, 24 + sx, 27, 8, 12, Out);
+            R(ci, o, p, 25 + sx, 27.5f, 6, 2, Cream);                       // Mütze
+            R(ci, o, p, 25 + sx, 28, 6, 1, Hx("#fffaf0"));
+            R(ci, o, p, 25.5f + sx, 29.5f, 5, 3, skin);                     // Gesicht
+            R(ci, o, p, 26.5f + sx, 30.5f, 1, 1, Out); R(ci, o, p, 28.5f + sx, 30.5f, 1, 1, Out);
+            R(ci, o, p, 25 + sx, 33, 6, 5, shirt);                          // Hemd
+            R(ci, o, p, 26 + sx, 34, 4, 4, Cream);                          // Schürze
+            R(ci, o, p, 24.5f + sx, 34, 1, 3, skin); R(ci, o, p, 30.5f + sx, 34, 1, 3, skin);   // Arme
+        }
         // Tafel mit Preisen
         R(ci, o, p, 46, 29, 14, 8, Out);
         R(ci, o, p, 47, 30, 12, 6, Hx("#2a3a30"));

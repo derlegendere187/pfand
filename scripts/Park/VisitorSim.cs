@@ -191,7 +191,7 @@ public class VisitorSim
             + (imbiss ? Balance.ImbissMaxVisitors + gs.ImbissExtraSlots : 0) + tables.Count * 2
             + (activeEvent?.Guests ?? 0) + (activeEvent?.ExtraVisitors ?? 0) + gs.ExtraVisitorSlots;
         double boost = 1 + Balance.SpawnBonusPerPath * paths.Count + Balance.SpawnBonusPerBin * bins.Count
-            + (imbiss ? Balance.ImbissSpawnBonus : 0) + Balance.TableSpawnBonus * tables.Count + (activeEvent?.SpawnBoost ?? 0) + gs.VisitorBoost;
+            + (imbiss ? gs.ImbissSpawnBonus : 0) + Balance.TableSpawnBonus * tables.Count * gs.TableSpawnFactor + (activeEvent?.SpawnBoost ?? 0) + gs.VisitorBoost;
         double interval = Balance.SpawnIntervalBase / boost;
         if (phaseFactor > 0 && !gs.TutorialActive)
         {
@@ -432,7 +432,7 @@ public class VisitorSim
         if (phaseFactor <= 0) return;
         _grillWait -= dt;
         if (_grillWait > 0) return;
-        _grillWait = R(6, 12);
+        _grillWait = R(6, 12) / (1 + 0.4 * GameState.I.GrillStufe);   // Grillmeister: nächste Runde kommt schneller
 
         var grill = ParkLayout.Grill(Size);
         int n = Balance.GrillGroupMin + _rng.Next(Balance.GrillGroupMax - Balance.GrillGroupMin + 1);
@@ -725,7 +725,7 @@ public class VisitorSim
             // Ohne Picknickdecken stehen die Leute nur auf der Wiese herum
             int picknick = gs.SkillLevel("u_picknick");
             v.HasBlanket = picknick > 0
-                && _rng.NextDouble() < Balance.BlanketChanceBase + Balance.BlanketChancePerLevel * (picknick - 1);
+                && _rng.NextDouble() < Balance.BlanketChancePerLevel * picknick;
             var blanketSpot = v.HasBlanket ? FreeBlanketSpot(paths, gs) : null;
             if (blanketSpot == null) v.HasBlanket = false;   // kein Platz frei: dann eben ohne Decke
             var spot = blanketSpot ?? FreeGrassSpot(paths, gs);
@@ -1107,8 +1107,7 @@ public class VisitorSim
                     if (c.Carry.Count >= gs.CollectorCarry) { c.State = CollectorState.Abliefern; break; }
                     var b = NearestFreeBottle(c.Pos);
                     if (b != null) { b.Claimed = true; c.TargetBottle = b; c.State = CollectorState.ZurFlasche; break; }
-                    int bin = NearestFilledBin(c.Pos, bins);
-                    if (bin >= 0) { c.TargetBin = bin; c.State = CollectorState.ZumEimer; break; }
+                    // Mülleimer leeren die Sammler nicht: die bleiben für dich
                     if (c.Carry.Count > 0) { c.State = CollectorState.Abliefern; break; }
                     c.State = CollectorState.Wartet;
                     c.Wait = R(1, 2);

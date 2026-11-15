@@ -95,7 +95,7 @@ public partial class SkillCanvas : Control
 {
     public enum NodeState { Hidden, Teaser, Available, Learned }
 
-    const float Spacing = 96, NodeSize = 46;
+    const float NodeSize = 46;
 
     static readonly Color Back = Color.FromHtml("#2e2014");
     static readonly Color BackLine = Color.FromHtml("#241810");
@@ -128,7 +128,7 @@ public partial class SkillCanvas : Control
     }
 
     /// <summary>Wurzel etwas unter die Mitte, weil der Baum nach oben weiter wächst.</summary>
-    public void CenterOnRoot() { _offset = new Vector2(0, Spacing / 2); QueueRedraw(); }
+    public void CenterOnRoot() { _offset = Vector2.Zero; QueueRedraw(); }
 
     public static NodeState StateOf(SkillDef d)
     {
@@ -143,7 +143,7 @@ public partial class SkillCanvas : Control
     /// <summary>Zusatzzeichen am Knoten: wie der Skill etwas verbessert.</summary>
     enum Badge { None, Plus, Up, Fast, Down }
 
-    static readonly HashSet<string> UpIds = new() { "wert", "bier_wert", "glas_wert", "plastik_wert", "dose_wert", "wert_koenig" };
+    static readonly HashSet<string> UpIds = new() { "wert", "bier_wert", "glas_wert", "plastik_wert", "dose_wert", "retro_wert", "gold_wert", "wert_koenig" };
     static readonly HashSet<string> FastIds = new() { "abgabe", "durst", "flink", "tischrunde", "tt_sieger", "imbiss_kuehl", "grill_kuehl", "ev_cooldown" };
 
     static Badge BadgeOf(SkillDef d)
@@ -154,15 +154,167 @@ public partial class SkillCanvas : Control
         return d.MaxLevel > 1 ? Badge.Plus : Badge.None;
     }
 
-    /// <summary>Mehrere Ausbauten hängen direkt am selben Knoten: lange Linien zuerst zeichnen, damit die kurzen obenauf liegen.</summary>
+    /// <summary>Lange Linien zuerst zeichnen, damit die kurzen obenauf liegen.</summary>
     static float LineLength(SkillDef d)
     {
         if (d.Id == SkillDefs.Root) return 0;
-        var p = SkillDefs.Get(d.Parent ?? SkillDefs.Root);
-        return new Vector2(d.Pos.X - p.Pos.X, d.Pos.Y - p.Pos.Y).Length();
+        return Layout[d.Id].DistanceTo(Layout[d.Parent ?? SkillDefs.Root]);
     }
 
-    Vector2 Center(SkillDef d) => (Size / 2 + _offset + new Vector2(d.Pos.X, d.Pos.Y) * Spacing).Round();
+    // --- Anordnung: der Baum wächst von der Wurzel strahlenförmig nach außen ---
+    // Jeder Knoten bekommt einen Winkelbereich, so groß, dass er und alle seine Unterpunkte Platz haben.
+    // Unterpunkte fächern sich in diesem Bereich um ihren Elternknoten auf, jede Ebene sitzt auf einem größeren Ring.
+    const float Ring1 = 190, RingStep = 130, NodeGap = 92;
+    static Dictionary<string, Vector2> _layout;
+    static float _extent;
+
+    static float RingRadius(int depth) => depth <= 0 ? 0 : Ring1 + (depth - 1) * RingStep;
+
+    /// <summary>Winkel des Knotens im alten Raster: bestimmt nur die Reihenfolge der Äste und Unterpunkte.</summary>
+    static float GridAngle(SkillDef d) => Mathf.Atan2(d.Pos.Y, d.Pos.X);
+
+    static Dictionary<string, Vector2> Layout
+    {
+        get
+        {
+            if (_layout != null) return _layout;
+            var kids = new Dictionary<string, List<SkillDef>>();
+            foreach (var d in SkillDefs.All)
+            {
+                if (d.Id == SkillDefs.Root) continue;
+                var pid = d.Parent ?? SkillDefs.Root;
+                if (!kids.TryGetValue(pid, out var l)) kids[pid] = l = new List<SkillDef>();
+                l.Add(d);
+            }
+            List<SkillDef> Kids(string id) => kids.TryGetValue(id, out var l) ? l : new List<SkillDef>();
+
+            // Benötigter Winkel: eigener Platz auf dem Ring oder die Summe der Unterpunkte, je nachdem, was größer ist
+            var need = new Dictionary<string, float>();
+            float Need(SkillDef d, int depth)
+            {
+                float own = NodeGap / RingRadius(depth);
+                float sum = 0;
+                foreach (var c in Kids(d.Id)) sum += Need(c, depth + 1);
+                return need[d.Id] = Mathf.Max(own, sum);
+            }
+
+            _layout = new() { [SkillDefs.Root] = Vector2.Zero };
+            _extent = 0;
+            void Place(SkillDef d, int depth, float from, float width)
+            {
+                float mid = from + width / 2;
+                var pos = (Vector2.FromAngle(mid) * RingRadius(depth)).Round();
+                _layout[d.Id] = pos;
+                _extent = Mathf.Max(_extent, pos.Length());
+                var list = Kids(d.Id);
+                if (list.Count == 0) return;
+                // Reihenfolge wie im alten Raster, gemessen relativ zur Richtung des Elternknotens
+                list.Sort((x, y) => Mathf.Wrap(GridAngle(x) - GridAngle(d), -Mathf.Pi, Mathf.Pi)
+                    .CompareTo(Mathf.Wrap(GridAngle(y) - GridAngle(d), -Mathf.Pi, Mathf.Pi)));
+                float sum = 0;
+                foreach (var c in list) sum += need[c.Id];
+                float scale = width / sum, a = from;
+                foreach (var c in list)
+                {
+                    float w = need[c.Id] * scale;
+                    Place(c, depth + 1, a, w);
+                    a += w;
+                }
+            }
+
+            var roots = Kids(SkillDefs.Root);
+            roots.Sort((x, y) => GridAngle(x).CompareTo(GridAngle(y)));
+            float total = 0;
+            foreach (var r in roots) total += Need(r, 1);
+            float k = Mathf.Tau / total;
+            // Der Pfandwert-Ast zeigt nach rechts, die anderen folgen im Kreis
+            float start = 0;
+            foreach (var r in roots)
+            {
+                if (r.Id == "wert") break;
+                start += need[r.Id] * k;
+            }
+            float angle = -start - need["wert"] * k / 2;
+            foreach (var r in roots)
+            {
+                Place(r, 1, angle, need[r.Id] * k);
+                angle += need[r.Id] * k;
+            }
+            Relax(Kids);
+            _extent = 0;
+            foreach (var v in _layout.Values) _extent = Mathf.Max(_extent, v.Length());
+            return _layout;
+        }
+    }
+
+    /// <summary>
+    /// Weich nachziehen: jede Linie zieht Richtung Wunschlänge (Unterpunkte kurz am Elternknoten),
+    /// Knoten stoßen sich ab. So rücken Unterpunkte als Fächer an ihren Knoten, und nichts liegt aufeinander.
+    /// </summary>
+    static void Relax(Func<string, List<SkillDef>> kids)
+    {
+        var ids = new List<string>(_layout.Keys);
+        var pos = new Vector2[ids.Count];
+        var index = new Dictionary<string, int>();
+        for (int i = 0; i < ids.Count; i++) { index[ids[i]] = i; pos[i] = _layout[ids[i]]; }
+        var edges = new List<(int a, int b, float len)>();
+        foreach (var d in SkillDefs.All)
+        {
+            if (d.Id == SkillDefs.Root) continue;
+            var pid = d.Parent ?? SkillDefs.Root;
+            bool leaf = kids(d.Id).Count == 0;
+            float len = pid == SkillDefs.Root ? 190 : leaf ? 104 : 140;
+            edges.Add((index[pid], index[d.Id], len));
+        }
+        int root = index[SkillDefs.Root];
+        const float minDist = 100;
+        for (int it = 0; it < 600; it++)
+        {
+            var f = new Vector2[pos.Length];
+            foreach (var (a, b, len) in edges)
+            {
+                var dv = pos[b] - pos[a];
+                float dist = Mathf.Max(1, dv.Length());
+                var push = dv / dist * (dist - len) * 0.2f;
+                f[a] += push; f[b] -= push;
+            }
+            for (int i = 0; i < pos.Length; i++)
+                for (int j = i + 1; j < pos.Length; j++)
+                {
+                    var dv = pos[j] - pos[i];
+                    float dist = dv.Length();
+                    if (dist >= minDist * 1.6f) continue;
+                    if (dist < 0.01f) { dv = new Vector2(1, 0); dist = 0.01f; }
+                    var push = dv / dist * (minDist * 1.6f - dist) * (dist < minDist ? 0.5f : 0.08f);
+                    f[i] -= push; f[j] += push;
+                }
+            float cool = 1 - it / 600f;
+            for (int i = 0; i < pos.Length; i++)
+            {
+                if (i == root) continue;
+                var step = f[i];
+                if (step.Length() > 30 * cool + 1) step = step.Normalized() * (30 * cool + 1);
+                pos[i] += step;
+            }
+        }
+        // Ganzen Baum so drehen, dass er ins breite Fenster passt (breiter als hoch)
+        float best = float.MaxValue, bestAngle = 0;
+        for (int deg = 0; deg < 360; deg += 5)
+        {
+            float r = Mathf.DegToRad(deg), worst = 0;
+            foreach (var v in pos)
+            {
+                var q = v.Rotated(r);
+                worst = Mathf.Max(worst, Mathf.Max(Mathf.Abs(q.X) / 1.75f, Mathf.Abs(q.Y)));
+            }
+            if (worst < best) { best = worst; bestAngle = r; }
+        }
+        for (int i = 0; i < ids.Count; i++) _layout[ids[i]] = pos[i].Rotated(bestAngle).Round();
+    }
+
+    static int StateOrder(NodeState s) => s == NodeState.Learned ? 2 : s == NodeState.Available ? 1 : 0;
+
+    Vector2 Center(SkillDef d) => (Size / 2 + _offset + Layout[d.Id]).Round();
 
     SkillDef NodeAt(Vector2 p)
     {
@@ -210,7 +362,8 @@ public partial class SkillCanvas : Control
                 if (_dragging)
                 {
                     _offset += mm.Relative;
-                    _offset = _offset.Clamp(-Vector2.One * Spacing * 8, Vector2.One * Spacing * 8);
+                    _ = Layout;
+                    _offset = _offset.Clamp(-Vector2.One * _extent, Vector2.One * _extent);
                 }
             }
             var h = NodeAt(mm.Position);
@@ -231,17 +384,20 @@ public partial class SkillCanvas : Control
         DrawBackground();
 
         // Linien zuerst, damit die Knoten darüber liegen
+        // Gelernte Linien zuletzt, damit gemeinsame Schienen hell sind, so weit etwas gelernt ist
         var lines = new List<SkillDef>(SkillDefs.All);
-        lines.Sort((x, y) => LineLength(y).CompareTo(LineLength(x)));
+        lines.Sort((x, y) =>
+        {
+            int s = StateOrder(StateOf(x)).CompareTo(StateOrder(StateOf(y)));
+            return s != 0 ? s : LineLength(y).CompareTo(LineLength(x));
+        });
         foreach (var d in lines)
         {
             if (d.Id == SkillDefs.Root) continue;
             var state = StateOf(d);
             if (state == NodeState.Hidden) continue;
-            var a = Center(SkillDefs.Get(d.Parent ?? SkillDefs.Root));
-            var b = Center(d);
             var c = state == NodeState.Learned ? LineGot : state == NodeState.Available ? LineOpen : RingDark;
-            DrawLine(a, b, c, 4);
+            DrawLine(Center(SkillDefs.Get(d.Parent ?? SkillDefs.Root)), Center(d), c, 4, true);
         }
 
         foreach (var d in SkillDefs.All)
@@ -265,9 +421,9 @@ public partial class SkillCanvas : Control
             DrawRect(new Rect2(0, Mathf.Round(y) + 3, Size.X, 3), BackLight);
         }
         var rng = new Random(3);
-        for (int i = 0; i < 260; i++)
+        for (int i = 0; i < 700; i++)
         {
-            var p = new Vector2(rng.Next(-1200, 1200), rng.Next(-900, 900)) + Size / 2 + _offset;
+            var p = new Vector2(rng.Next(-2200, 2200), rng.Next(-1600, 1600)) + Size / 2 + _offset;
             p = new Vector2(p.X - Mathf.PosMod(p.X, 3), p.Y - Mathf.PosMod(p.Y, 3));
             DrawRect(new Rect2(p, 3 * rng.Next(2, 7), 3), rng.Next(2) == 0 ? BackLight : BackLine);
         }
@@ -298,7 +454,7 @@ public partial class SkillCanvas : Control
         DrawRect(r.Grow(-2 * p), Inside);
 
         // Symbol (8×8)
-        if (state == NodeState.Teaser)
+        if (state == NodeState.Teaser && d.RequiresMax == null)
         {
             DrawString(PfandTheme.Body, new Vector2(r.Position.X, c.Y + 12), "?", HorizontalAlignment.Center, NodeSize, 36, RingDark.Lightened(0.3f));
             DrawLock(r);
@@ -315,7 +471,9 @@ public partial class SkillCanvas : Control
                 else if (ch == 'o') DrawRect(new Rect2(o.X + x * p, o.Y + y * p, p, p), light);
             }
 
+        if (state == NodeState.Teaser) { DrawRect(r.Grow(-2 * p), new Color(Inside, 0.55f)); DrawLock(r); return; }
         if (!root) DrawBadge(r, BadgeOf(d));
+        if (!root && gs.CanBuySkill(d)) DrawAffordable(r);
 
         // Stufe als kleine Zahl unten links, sobald etwas gelernt ist
         if (d.MaxLevel > 1 && lvl > 0)
@@ -361,6 +519,18 @@ public partial class SkillCanvas : Control
                 }
                 break;
         }
+    }
+
+    /// <summary>Genug Kronkorken für den nächsten Schritt: kleiner grüner Pfeil oben rechts, der leicht hüpft.</summary>
+    void DrawAffordable(Rect2 r)
+    {
+        const float p = 3;
+        float bob = Mathf.Round(Mathf.Sin(_time * 5) * 1.5f);
+        var o = new Vector2(r.End.X - 3 * p, r.Position.Y - 2 * p + bob);
+        void R(float x, float y, float w, float h, Color c) => DrawRect(new Rect2(o.X + x * p, o.Y + y * p, w * p, h * p), c);
+        // Pfeil nach oben mit dunkler Kontur, in Gold, damit er sich vom grünen Plus unterscheidet
+        R(1, -1, 3, 1, Edge); R(0, 0, 5, 1, Edge); R(-1, 1, 7, 2, Edge); R(1, 3, 3, 3, Edge);
+        R(2, 0, 1, 1, RingGotHi); R(1, 1, 3, 1, RingGot); R(0, 2, 5, 1, RingGot); R(2, 3, 1, 2, RingGot);
     }
 
     void DrawLock(Rect2 r)
@@ -427,10 +597,13 @@ public partial class SkillCanvas : Control
 
         var lines = new List<(string text, Color color)>();
         string title = d.Name;
-        if (StateOf(d) == NodeState.Teaser) title = "NEUER AST";
+        if (StateOf(d) == NodeState.Teaser && d.RequiresMax != null)
+            lines.Add(($"Erst {SkillDefs.Get(d.RequiresMax).Name} voll ausbauen", BadInk));
+        else if (StateOf(d) == NodeState.Teaser) title = "NEUER AST";
         else
         {
-            if (d.MaxLevel > 1) lines.Add(($"Stufe {lvl}/{d.MaxLevel}", Wood.Muted));
+            if (d.Endless) lines.Add(($"Stufe {lvl} (ohne Ende)", Wood.Muted));
+            else if (d.MaxLevel > 1) lines.Add(($"Stufe {lvl}/{d.MaxLevel}", Wood.Muted));
             var change = maxed ? null : Change(d, lvl);
             string effect = d.Effect(maxed ? lvl : lvl + 1);
             if (change != null) effect = WithoutStatt(effect);
